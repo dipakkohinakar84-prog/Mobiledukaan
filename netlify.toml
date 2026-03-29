@@ -1,0 +1,73 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+  functions = "netlify/functions"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+[[redirects]]
+  from = "/api/health"
+  to = "/.netlify/functions/health"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/sync/config"
+  to = "/.netlify/functions/sync-config"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/auth/shop-login"
+  to = "/.netlify/functions/shop-login"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/auth/admin-login"
+  to = "/.netlify/functions/admin-login"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/admin/shops"
+  to = "/.netlify/functions/admin-shops"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/sync"
+  to = "/.netlify/functions/sync"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/drive-oauth/start"
+  to = "/.netlify/functions/drive-oauth-start"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/drive-oauth/status"
+  to = "/.netlify/functions/drive-oauth-status"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/drive-oauth/disconnect"
+  to = "/.netlify/functions/drive-oauth-disconnect"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/drive-oauth/callback"
+  to = "/.netlify/functions/drive-oauth-callback"
+  status = 200
+  force = true
+
+# SPA fallback — must be last
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

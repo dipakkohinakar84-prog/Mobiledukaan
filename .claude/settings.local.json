@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find /c/Users/rct/Desktop/Mobnage -maxdepth 2 -type f -name *.json -o -name *.html -o -name *.md)",
+      "Bash(dir \"C:\\\\Users\\\\rct\\\\Desktop\\\\Mobnage\" /B /A-D)",
+      "Bash(npm run:*)",
+      "Bash(cmd /c \"cd /d C:\\\\Users\\\\rct\\\\Desktop\\\\Mobnage && npm run build\")",
+      "WebFetch(domain:script.google.com)",
+      "WebFetch(domain:script.googleusercontent.com)",
+      "Bash(base64 -w0 \"C:/Users/rct/Desktop/Mobnage/public/pd-icon.png\")",
+      "Bash(python -c \"import base64; data = open\\(''C:/Users/rct/Desktop/Mobnage/public/pd-icon.png'',''rb''\\).read\\(\\); print\\(len\\(data\\)\\); b = base64.b64encode\\(data\\).decode\\(\\); print\\(b[:80]\\); print\\(''...''\\); print\\(len\\(b\\)\\)\")",
+      "Bash(node -e \"const fs=require\\(''fs''\\);const d=fs.readFileSync\\(''C:/Users/rct/Desktop/Mobnage/public/pd-icon.png''\\);const b=d.toString\\(''base64''\\);console.log\\(''size:'',d.length,''b64len:'',b.length\\);console.log\\(b.slice\\(0,80\\)\\)\")",
+      "Bash(node -e \"const fs=require\\(''fs''\\);const d=fs.readFileSync\\(''C:\\\\Users\\\\rct\\\\Desktop\\\\Mobnage\\\\public\\\\pd-icon.png''\\);const b=d.toString\\(''base64''\\);console.log\\(''size:'',d.length,''b64len:'',b.length\\)\")"
+    ]
+  }
+}

@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<title>PhoneDukaan — Key Generator</title>
+<style>
+  body{font-family:system-ui,sans-serif;background:#0a0f2e;color:#fff;margin:0;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px;box-sizing:border-box}
+  .box{background:rgba(255,255,255,.06);border:1px solid rgba(0,212,255,.2);border-radius:16px;padding:36px;max-width:560px;width:100%}
+  h1{margin:0 0 6px;font-size:22px;color:#00D4FF}
+  p{color:rgba(255,255,255,.55);font-size:14px;margin:0 0 24px}
+  button{background:linear-gradient(135deg,#00d4ff,#8b5cf6);border:none;border-radius:10px;color:#fff;font-weight:700;font-size:15px;padding:14px 28px;cursor:pointer;width:100%;margin-bottom:12px}
+  button:disabled{opacity:.5;cursor:not-allowed}
+  .status{font-size:13px;color:rgba(255,255,255,.5);text-align:center;margin-top:8px;min-height:20px}
+  .ok{color:#34d399}
+  .steps{color:rgba(255,255,255,.45);font-size:13px;line-height:1.8;margin-top:20px;border-top:1px solid rgba(255,255,255,.08);padding-top:20px}
+  .steps b{color:rgba(255,255,255,.8)}
+</style>
+</head>
+<body>
+<div class="box">
+  <h1>PhoneDukaan Key Generator</h1>
+  <p>Generates 500 lifetime license keys and all required files. Open this file in Chrome or Edge.</p>
+
+  <button id="btn" onclick="generate()">Generate 500 Keys</button>
+  <div class="status" id="status">Ready. Click the button to generate.</div>
+
+  <div class="steps">
+    <b>After clicking:</b><br/>
+    1. <b>keys.txt</b> will download — keep it private, share 1 key per customer<br/>
+    2. <b>license-hashes.json</b> will download — move it to <code>public/</code> folder<br/>
+    3. Run <b>npm run dev</b> or <b>npm run build</b><br/>
+    4. The activation screen will now accept keys from keys.txt ✓
+  </div>
+</div>
+
+<script>
+const CHARSET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const seg = () => Array.from({length:4}, () => CHARSET[Math.floor(Math.random()*CHARSET.length)]).join('');
+
+async function sha256hex(text) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+function download(filename, content, type='text/plain') {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([content], {type}));
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+
+async function generate() {
+  const btn = document.getElementById('btn');
+  const status = document.getElementById('status');
+  btn.disabled = true;
+  status.textContent = 'Generating 500 unique keys…';
+
+  await new Promise(r => setTimeout(r, 50)); // let UI update
+
+  // Generate 500 unique keys
+  const keys = new Set();
+  while (keys.size < 500) keys.add(`PD-${seg()}-${seg()}-${seg()}`);
+  const keyList = [...keys];
+
+  status.textContent = 'Hashing keys with SHA-256…';
+  await new Promise(r => setTimeout(r, 50));
+
+  // Hash all keys
+  const hashes = await Promise.all(keyList.map(sha256hex));
+
+  // Download keys.txt
+  const today = new Date().toISOString().slice(0,10);
+  const keysTxt = [
+    '# PhoneDukaan License Keys — 500 Lifetime Keys',
+    '# Generated: ' + today,
+    '# KEEP THIS FILE PRIVATE. Distribute one key per customer.',
+    '# Format: PD-XXXX-XXXX-XXXX',
+    '',
+    ...keyList
+  ].join('\n');
+  download('keys.txt', keysTxt);
+
+  // Small delay between downloads
+  await new Promise(r => setTimeout(r, 500));
+
+  // Download license-hashes.json → user puts this in public/
+  download('license-hashes.json', JSON.stringify(hashes, null, 0), 'application/json');
+
+  status.innerHTML = '<span class="ok">✓ Done! Two files downloaded. Move license-hashes.json to your public/ folder.</span>';
+  btn.disabled = false;
+}
+</script>
+</body>
+</html>
