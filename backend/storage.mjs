@@ -704,15 +704,38 @@ async function readShopPayload(shopId, storageConfig) {
   }
 }
 
+async function readShopStatus(shopId, storageConfig) {
+  const normalizedShopId = normalizeShopId(shopId)
+  await ensureSheet(metaSheetName(normalizedShopId), KEY_VALUE_COLUMNS, storageConfig)
+  const meta = await readKeyValueSheet(metaSheetName(normalizedShopId), storageConfig)
+  return {
+    shopId: normalizedShopId,
+    hasData: Boolean(meta.hasData) || Number(meta.inventoryCount || 0) > 0 || Number(meta.transactionCount || 0) > 0 || Boolean(meta.hasShop),
+    hasShop: Boolean(meta.hasShop),
+    savedAt: String(meta.savedAt || ''),
+  }
+}
+
 async function writeShopPayload(shopId, payload, storageConfig) {
   const normalizedShopId = normalizeShopId(shopId)
   await ensureShopSheetsInitialized(normalizedShopId, storageConfig)
   const savedAt = String(payload?.savedAt || new Date().toISOString())
+  const inventory = Array.isArray(payload?.inv) ? payload.inv : []
+  const transactions = Array.isArray(payload?.tx) ? payload.tx : []
+  const shopProfile = payload?.shop && typeof payload.shop === 'object' ? payload.shop : {}
   await Promise.all([
-    writeObjectsToSheet(inventorySheetName(normalizedShopId), INVENTORY_COLUMNS, (payload?.inv || []).map(normalizeInventoryRow), storageConfig),
-    writeObjectsToSheet(transactionSheetName(normalizedShopId), TRANSACTION_COLUMNS, (payload?.tx || []).map(normalizeTransactionRow), storageConfig),
-    writeKeyValueSheet(profileSheetName(normalizedShopId), payload?.shop && typeof payload.shop === 'object' ? payload.shop : {}, storageConfig),
-    writeKeyValueSheet(metaSheetName(normalizedShopId), { version: Number(payload?.version || 3), savedAt, shopId: normalizedShopId }, storageConfig),
+    writeObjectsToSheet(inventorySheetName(normalizedShopId), INVENTORY_COLUMNS, inventory.map(normalizeInventoryRow), storageConfig),
+    writeObjectsToSheet(transactionSheetName(normalizedShopId), TRANSACTION_COLUMNS, transactions.map(normalizeTransactionRow), storageConfig),
+    writeKeyValueSheet(profileSheetName(normalizedShopId), shopProfile, storageConfig),
+    writeKeyValueSheet(metaSheetName(normalizedShopId), {
+      version: Number(payload?.version || 3),
+      savedAt,
+      shopId: normalizedShopId,
+      inventoryCount: inventory.length,
+      transactionCount: transactions.length,
+      hasShop: Object.keys(shopProfile).length > 0,
+      hasData: inventory.length > 0 || transactions.length > 0 || Object.keys(shopProfile).length > 0,
+    }, storageConfig),
   ])
 }
 
@@ -827,12 +850,12 @@ async function forwardToGoogleStorage({ action, shopId, payload }, storageConfig
 
   if (normalizedAction === 'status') {
     return withReadCache(`${cachePrefix}:status`, 10000, async () => {
-      const data = await readShopPayload(normalizedShopId, storageConfig)
+      const data = await readShopStatus(normalizedShopId, storageConfig)
       return {
         ok: true,
         shopId: normalizedShopId,
-        hasData: data.inv.length > 0 || data.tx.length > 0 || Object.keys(data.shop || {}).length > 0,
-        hasShop: Object.keys(data.shop || {}).length > 0,
+        hasData: data.hasData,
+        hasShop: data.hasShop,
         savedAt: data.savedAt || '',
       }
     })

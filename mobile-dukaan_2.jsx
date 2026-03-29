@@ -1887,7 +1887,7 @@ export default function App() {
     const checkRemoteAndSync = useCallback(async ({ silent = true, source = "startup" } = {}) => {
         if (!syncReady || !ol || syncBusyRef.current) return;
         const now = Date.now();
-        if (now - lastRemoteCheckAtRef.current < 15000) return;
+        if (now - lastRemoteCheckAtRef.current < 60000) return;
         lastRemoteCheckAtRef.current = now;
         try {
             const data = await callSyncProxy("status");
