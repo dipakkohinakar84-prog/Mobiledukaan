@@ -4,7 +4,7 @@ import { createShopStorageToken, normalizeShopId, openSecret, readShopStorageTok
 
 const REGISTRY_SHEET = 'registry'
 const REGISTRY_COLUMNS = ['shopId', 'shopName', 'loginId', 'passwordHash', 'syncKey', 'serviceAccountEmail', 'privateKey', 'spreadsheetId', 'driveFolderId', 'driveOauthRefreshToken', 'driveOauthEmail', 'driveOauthConnectedAt', 'updatedAt']
-const DRIVE_OAUTH_SCOPE = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email'
+const DRIVE_OAUTH_SCOPE = 'https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/userinfo.email'
 const INVENTORY_COLUMNS = ['id', 'imei', 'imei2', 'brand', 'model', 'color', 'ram', 'storage', 'batteryHealth', 'condition', 'buyPrice', 'sellPrice', 'status', 'qty', 'addedDate', 'supplier', 'photosJson', 'customerName', 'customerPhone', 'soldDate', 'lastInvoiceNo', 'updatedAt']
 const TRANSACTION_COLUMNS = ['id', 'type', 'stockItemId', 'imei', 'imei2', 'brand', 'model', 'color', 'ram', 'storage', 'batteryHealth', 'condition', 'customerName', 'phone', 'amount', 'paidAmount', 'dueAmount', 'costPrice', 'paymentMode', 'invoiceNo', 'billType', 'gstRate', 'taxableAmount', 'gstAmount', 'cgstAmount', 'sgstAmount', 'totalAmount', 'date', 'dateTime', 'notes', 'whatsAppMessageAt', 'whatsAppPdfAt', 'shopSnapshotJson', 'updatedAt']
 const KEY_VALUE_COLUMNS = ['key', 'value']
@@ -797,7 +797,7 @@ async function uploadPhotoToGoogle({ shopId, photoId, fileName, mimeType, dataUr
     Buffer.from(`\r\n--${boundary}--`, 'utf8'),
   ])
 
-  const upload = await googleDriveJson('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,mimeType,size,webViewLink', {
+  const upload = await googleDriveJson('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true&fields=id,name,mimeType,size,webViewLink', {
     method: 'POST',
     headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
     body,
@@ -829,8 +829,8 @@ async function uploadPhotoToGoogle({ shopId, photoId, fileName, mimeType, dataUr
 
 async function downloadPhotoFromGoogle(fileId, storageConfig) {
   const { accessToken } = await getDriveAccessTokenForShop(storageConfig.shopId || storageConfig.shop_id || '')
-  const metadata = await googleDriveJson(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(String(fileId || ''))}?fields=id,name,mimeType,size,webViewLink`, { accessToken })
-  const { buffer, contentType } = await googleDriveBytes(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(String(fileId || ''))}?alt=media`, accessToken)
+  const metadata = await googleDriveJson(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(String(fileId || ''))}?supportsAllDrives=true&fields=id,name,mimeType,size,webViewLink`, { accessToken })
+  const { buffer, contentType } = await googleDriveBytes(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(String(fileId || ''))}?supportsAllDrives=true&alt=media`, accessToken)
   const mimeType = metadata.mimeType || contentType || 'application/octet-stream'
   return {
     fileId: metadata.id,
