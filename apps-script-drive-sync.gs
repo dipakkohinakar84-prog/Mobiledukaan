@@ -1,7 +1,7 @@
 const FOLDER_NAME = 'MobileDukaanSync'
 const DEFAULT_SHOP_ID = 'main-shop'
 const SYNC_SECRET = ''
-const ADMIN_SECRET = 'your-admin-secret'
+const ADMIN_SECRET = 'Finix'
 const REGISTRY_FILE = 'phonedukaan-shops.json'
 
 function doGet(e) {
