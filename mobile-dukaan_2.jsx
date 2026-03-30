@@ -336,7 +336,7 @@ const normalizeSyncCfg = (cfg = {}) => ({
     shopId: String(cfg.shopId || "main-shop").trim().replace(/[^a-zA-Z0-9_-]/g, "-") || "main-shop",
     syncKey: String(cfg.syncKey || ""),
     connected: !!cfg.connected,
-    autoSync: !!cfg.autoSync,
+    autoSync: cfg.autoSync === undefined ? true : !!cfg.autoSync,
     lastPushAt: String(cfg.lastPushAt || ""),
     lastPullAt: String(cfg.lastPullAt || ""),
     lastStatus: String(cfg.lastStatus || "Login required"),
@@ -1887,7 +1887,8 @@ export default function App() {
     const checkRemoteAndSync = useCallback(async ({ silent = true, source = "startup" } = {}) => {
         if (!syncReady || !ol || syncBusyRef.current) return;
         const now = Date.now();
-        if (now - lastRemoteCheckAtRef.current < 60000) return;
+        const minInterval = source === "login" ? 0 : 30000;
+        if (now - lastRemoteCheckAtRef.current < minInterval) return;
         lastRemoteCheckAtRef.current = now;
         try {
             const data = await callSyncProxy("status");
@@ -1918,6 +1919,11 @@ export default function App() {
         void checkRemoteAndSync({ silent: true, source: "startup" });
     }, [storageReady, checkRemoteAndSync]);
     useEffect(() => {
+        if (!storageReady || !shopSession?.shopId || !syncReady) return;
+        lastRemoteCheckAtRef.current = 0;
+        void checkRemoteAndSync({ silent: true, source: "login" });
+    }, [storageReady, shopSession?.shopId, syncReady, checkRemoteAndSync]);
+    useEffect(() => {
         if (!storageReady) return;
         const onVisible = () => {
             if (document.visibilityState === "visible") void checkRemoteAndSync({ silent: true, source: "resume" });
@@ -1936,6 +1942,11 @@ export default function App() {
             window.removeEventListener("online", onOnline);
         };
     }, [storageReady, checkRemoteAndSync, updateSyncMeta]);
+    useEffect(() => {
+        if (!storageReady || !syncReady || !ol) return;
+        const timer = setInterval(() => { void checkRemoteAndSync({ silent: true, source: "poll" }); }, 30000);
+        return () => clearInterval(timer);
+    }, [storageReady, syncReady, ol, checkRemoteAndSync]);
     useEffect(() => {
         if (autoSyncSkip.current) { autoSyncSkip.current = false; return; }
         if (skipNextAutoSync.current) { skipNextAutoSync.current = false; return; }
