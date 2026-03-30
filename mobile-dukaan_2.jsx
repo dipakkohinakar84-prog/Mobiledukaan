@@ -130,14 +130,6 @@ const normalizePhotoRef = (photo, index = 0) => {
         syncStatus: photo?.syncStatus || (photo?.fileId ? "synced" : "local-only"),
     };
 };
-const buildPhotoProxyUrl = (fileId = "", shopId = "", storageToken = "") => {
-    const normalizedFileId = String(fileId || "").trim();
-    const normalizedShopId = String(shopId || "").trim();
-    const normalizedStorageToken = String(storageToken || "").trim();
-    if (!normalizedFileId || !normalizedShopId || !normalizedStorageToken) return "";
-    const params = new URLSearchParams({ fileId: normalizedFileId, shopId: normalizedShopId, storageToken: normalizedStorageToken });
-    return `/api/photo?${params.toString()}`;
-};
 const getPhotoPreview = (photo) => normalizePhotoRef(photo).previewDataUrl || "";
 const stripPhotoForCloud = (photo) => {
     const ref = normalizePhotoRef(photo);
@@ -145,7 +137,7 @@ const stripPhotoForCloud = (photo) => {
         id: ref.id,
         previewDataUrl: ref.fileId ? "" : ref.previewDataUrl,
         fileId: ref.fileId,
-        fileUrl: ref.fileId ? "" : ref.fileUrl,
+        fileUrl: ref.fileUrl,
         openUrl: ref.openUrl,
         fileName: ref.fileName,
         mimeType: ref.mimeType,
@@ -349,7 +341,7 @@ const normalizeSyncCfg = (cfg = {}) => ({
     lastPullAt: String(cfg.lastPullAt || ""),
     lastStatus: String(cfg.lastStatus || "Login required"),
 });
-const DEFAULT_PROXY_CFG = { storageMode: "google-api", requiresScriptUrl: false, defaultUrl: "", hasDefaultUrl: false, syncTargetLabel: "Google Sheets + Drive" };
+const DEFAULT_PROXY_CFG = { storageMode: "apps-script", requiresScriptUrl: true, defaultUrl: "", hasDefaultUrl: false, syncTargetLabel: "Apps Script" };
 const loadSyncCfg = () => {
     if (typeof window === "undefined") return normalizeSyncCfg();
     try {
@@ -1242,9 +1234,8 @@ export default function App() {
     const [adminError, setAdminError] = useState("");
     const [adminBusy, setAdminBusy] = useState(false);
     const [adminShops, setAdminShops] = useState([]);
-    const [adminForm, setAdminForm] = useState({ shopId: "", shopName: "", loginId: "", password: "", syncKey: "", serviceAccountJson: "", serviceAccountEmail: "", privateKey: "", spreadsheetId: "", driveFolderId: "" });
+    const [adminForm, setAdminForm] = useState({ shopId: "", shopName: "", loginId: "", password: "", scriptUrl: "", syncKey: "" });
     const [proxyCfg, setProxyCfg] = useState(DEFAULT_PROXY_CFG);
-    const [driveAuth, setDriveAuth] = useState({ connected: false, email: "", connectedAt: "", busy: false });
     const [pg, sPg] = useState("dashboard");
     const [inv, sInv] = useState(seed.current.inv);
     const [tx, sTx] = useState(seed.current.tx);
@@ -1288,7 +1279,7 @@ export default function App() {
     const ef = useMemo(() => createEmptyForm(shopCfg), [shopCfg]);
     const [fm, sFm] = useState(ef);
     const liveDeviceByImei = (imei) => inv.find(i => matchImei(i, imei) && i.status === "In Stock" && i.qty > 0);
-    const syncReady = !!(syncCfg.shopId && shopSession?.storageToken);
+    const syncReady = !!(syncCfg.shopId && syncCfg.scriptUrl);
     const syncStateLabel = syncMeta.syncState === "syncing"
         ? "Syncing"
         : syncMeta.syncState === "uploading-photos"
@@ -1303,35 +1294,21 @@ export default function App() {
                         ? "Sync failed"
                         : "Saved locally";
     const showSyncAdvanced = !shopSession && (syncEditMode || !syncCfg.connected);
-    const syncTargetLabel = "Google Sheets + Drive";
-    const syncHostLabel = shopSession?.storageToken ? "Google Sheets + Drive" : "Not set";
-    const resolvePhotoRefForSession = useCallback((photo, shopIdOverride) => {
-        const ref = normalizePhotoRef(photo);
-        const activeShopId = String(shopIdOverride || syncCfg.shopId || shopSession?.shopId || "").trim();
-        const proxyUrl = ref.fileId ? buildPhotoProxyUrl(ref.fileId, activeShopId, shopSession?.storageToken || "") : "";
-        return normalizePhotoRef({
-            ...ref,
-            fileUrl: proxyUrl || ref.fileUrl,
-            previewDataUrl: ref.fileId ? (proxyUrl || ref.previewDataUrl || ref.fileUrl) : ref.previewDataUrl,
-        });
-    }, [shopSession?.shopId, shopSession?.storageToken, syncCfg.shopId]);
-    const resolveInventoryPhotosForSession = useCallback((items, shopIdOverride) => (
-        (items || []).map(item => {
-            const normalized = normalizeInv(item);
-            return { ...normalized, photos: (normalized.photos || []).map(photo => resolvePhotoRefForSession(photo, shopIdOverride || normalized.shopId || normalized.shop_id || syncCfg.shopId)) };
-        })
-    ), [resolvePhotoRefForSession, syncCfg.shopId]);
+    const syncTargetLabel = "Apps Script";
+    const syncHostLabel = (() => {
+        try { return syncCfg.scriptUrl ? new URL(syncCfg.scriptUrl).hostname : "Not set"; } catch { return syncCfg.scriptUrl || "Not set"; }
+    })();
     const isIosInstall = typeof navigator !== "undefined" && (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1));
     const notify = (m, t = "success") => { sNt({ m, t }); setTimeout(() => sNt(null), 3000); };
     const applyShopSession = useCallback((session) => {
         if (!session) return;
         setShopSession(session);
-        setDriveAuth(current => ({ ...current, connected: !!session.driveOauthConnected, email: session.driveOauthEmail || current.email || "" }));
         setSyncCfg(current => normalizeSyncCfg({
             ...current,
             shopId: session.shopId || current.shopId,
+            scriptUrl: session.scriptUrl || current.scriptUrl,
             syncKey: session.syncKey || current.syncKey,
-            connected: Boolean(session.shopId && session.storageToken),
+            connected: Boolean(session.shopId && session.scriptUrl),
             lastStatus: session.shopId ? `Logged in and configured for ${syncTargetLabel}` : current.lastStatus,
         }));
     }, [syncTargetLabel]);
@@ -1339,21 +1316,6 @@ export default function App() {
         const res = await fetch('/api/admin/shops', { headers: { Authorization: `Bearer ${token}` } });
         const data = await parseSyncResponse(res);
         setAdminShops(data.shops || []);
-    }, []);
-    const fetchDriveAuthStatus = useCallback(async (session) => {
-        if (!session?.storageToken || !session?.shopId) return;
-        const res = await fetch('/api/drive-oauth/status', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ shopId: session.shopId, storageToken: session.storageToken }),
-        });
-        const data = await parseSyncResponse(res);
-        setDriveAuth(current => ({ ...current, connected: !!data.connected, email: data.email || '', connectedAt: data.connectedAt || '', busy: false }));
-        const nextSession = { ...session, driveOauthConnected: !!data.connected, driveOauthEmail: data.email || '' };
-        if (session.driveOauthConnected !== nextSession.driveOauthConnected || session.driveOauthEmail !== nextSession.driveOauthEmail) {
-            setShopSession(nextSession);
-            if (typeof window !== 'undefined') window.localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(nextSession));
-        }
     }, []);
     const handleShopLogin = async () => {
         if (!loginId.trim() || !loginPassword.trim()) { setLoginError("Enter shop ID and password."); return; }
@@ -1365,10 +1327,9 @@ export default function App() {
                 body: JSON.stringify({ loginId, password: loginPassword }),
             });
             const data = await parseSyncResponse(res);
-            const session = { loginId, storageToken: data.storageToken || "", ...data.shop };
+            const session = { loginId, ...data.shop };
             window.localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(session));
             applyShopSession(session);
-            void fetchDriveAuthStatus(session).catch(() => { });
             setAuthReady(true);
             setLoginPassword("");
             notify(`Welcome ${data.shop?.shopName || data.shop?.shopId || ''}`.trim(), "success");
@@ -1396,29 +1357,10 @@ export default function App() {
             setAdminBusy(false);
         }
     };
-    const applyServiceAccountJson = (raw) => {
-        const value = String(raw || "").trim();
-        setAdminForm(f => ({ ...f, serviceAccountJson: raw }));
-        if (!value) return;
-        try {
-            const parsed = JSON.parse(value);
-            setAdminForm(f => ({
-                ...f,
-                serviceAccountJson: raw,
-                serviceAccountEmail: String(parsed.client_email || parsed.clientEmail || f.serviceAccountEmail || "").trim(),
-                privateKey: String(parsed.private_key || parsed.privateKey || f.privateKey || "").replace(/\\n/g, "\n"),
-            }));
-            setAdminError("");
-        } catch {
-            setAdminError("Service account JSON is invalid.");
-        }
-    };
-    const hasAdminJson = !!adminForm.serviceAccountJson.trim();
     const saveAdminShop = async () => {
         if (!adminToken) { setAdminError("Admin login required."); return; }
-        const hasGoogleApiConfig = adminForm.serviceAccountEmail.trim() && adminForm.privateKey.trim() && adminForm.spreadsheetId.trim() && adminForm.driveFolderId.trim();
-        if (!adminForm.shopId.trim() || !adminForm.loginId.trim() || !adminForm.password.trim() || !hasGoogleApiConfig) {
-            setAdminError("Shop ID, shop login ID, password, service account, spreadsheet ID, and drive folder ID are required.");
+        if (!adminForm.shopId.trim() || !adminForm.loginId.trim() || !adminForm.password.trim() || !adminForm.scriptUrl.trim()) {
+            setAdminError("Shop ID, shop login ID, password, and Apps Script URL are required.");
             return;
         }
         setAdminBusy(true); setAdminError("");
@@ -1430,7 +1372,7 @@ export default function App() {
             });
             await parseSyncResponse(res);
             await fetchAdminShops(adminToken);
-            setAdminForm({ shopId: "", shopName: "", loginId: "", password: "", syncKey: "", serviceAccountJson: "", serviceAccountEmail: "", privateKey: "", spreadsheetId: "", driveFolderId: "" });
+            setAdminForm({ shopId: "", shopName: "", loginId: "", password: "", scriptUrl: "", syncKey: "" });
             notify("Shop login saved in PhoneDukaan admin panel.", "success");
         } catch (e) {
             setAdminError(e?.message || "Unable to save shop.");
@@ -1441,9 +1383,8 @@ export default function App() {
     const logoutShop = () => {
         window.localStorage.removeItem(AUTH_SESSION_KEY);
         setShopSession(null);
-        setDriveAuth({ connected: false, email: "", connectedAt: "", busy: false });
         setAuthReady(true);
-        setSyncCfg(current => normalizeSyncCfg({ ...current, connected: false, syncKey: "", lastStatus: "Login required" }));
+        setSyncCfg(current => normalizeSyncCfg({ ...current, connected: false, scriptUrl: "", syncKey: "", lastStatus: "Login required" }));
         notify("Logged out.", "success");
     };
     const openSc = (t) => { sSt(t); setScs(true); };
@@ -1459,7 +1400,7 @@ export default function App() {
         });
     };
     const editFromStock = (item) => { sEi(item); sFm(toForm(item)); sSf(false); sDi(null); sPg(prev => { if (typeof window !== "undefined" && prev !== "add") window.history.pushState({ page: prev }, "", window.location.pathname); return "add"; }); };
-    const setSyncField = (k, v) => setSyncCfg(p => normalizeSyncCfg({ ...p, [k]: v, ...(k === "shopId" || k === "syncKey" ? { connected: false } : {}) }));
+    const setSyncField = (k, v) => setSyncCfg(p => normalizeSyncCfg({ ...p, [k]: v, ...(k === "scriptUrl" || k === "shopId" || k === "syncKey" ? { connected: false } : {}) }));
     const setShopField = (k, v) => sShopCfg(p => normalizeShopProfile({ ...p, [k]: v }));
     const markSyncConnected = (extra = {}) => setSyncCfg(p => normalizeSyncCfg({ ...p, connected: true, ...extra }));
     const updateSyncMeta = useCallback((patch) => {
@@ -1521,37 +1462,7 @@ export default function App() {
         } catch { }
         setAuthReady(true);
     }, [applyShopSession]);
-    useEffect(() => {
-        if (!shopSession?.storageToken || !shopSession?.shopId) return;
-        void fetchDriveAuthStatus(shopSession).catch(() => { });
-    }, [fetchDriveAuthStatus, shopSession?.shopId, shopSession?.storageToken]);
-    useEffect(() => {
-        if (!shopSession?.storageToken || !shopSession?.shopId || !storageReady) return;
-        skipNextAutoSync.current = true;
-        skipNextDirtyMark.current = true;
-        sInv(current => resolveInventoryPhotosForSession(current, shopSession.shopId));
-    }, [resolveInventoryPhotosForSession, shopSession?.shopId, shopSession?.storageToken, storageReady]);
-    useEffect(() => {
-        if (typeof window === "undefined") return;
-        const url = new URL(window.location.href);
-        const status = url.searchParams.get("drive_oauth");
-        const message = url.searchParams.get("message");
-        const email = url.searchParams.get("email");
-        const page = url.searchParams.get("shop_page");
-        if (page === "settings") sPg("settings");
-        if (!status) return;
-        if (status === "success") {
-            notify(email ? `Google Drive connected: ${email}` : "Google Drive connected.", "success");
-            if (shopSession?.storageToken) void fetchDriveAuthStatus(shopSession).catch(() => { });
-        } else {
-            notify(message || "Google Drive connection failed.", "error");
-        }
-        url.searchParams.delete("drive_oauth");
-        url.searchParams.delete("message");
-        url.searchParams.delete("email");
-        url.searchParams.delete("shop_page");
-        window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
-    }, [fetchDriveAuthStatus, notify, shopSession]);
+    useEffect(() => {}, []);
     useEffect(() => {
         if (typeof window === "undefined") return;
         // Push initial history state so there's always something to go back to
@@ -1621,17 +1532,17 @@ export default function App() {
                 const data = await parseSyncResponse(res);
                 if (cancelled) return;
                 setProxyCfg({
-                    storageMode: data?.storageMode || "google-api",
-                    requiresScriptUrl: false,
+                    storageMode: data?.storageMode || "apps-script",
+                    requiresScriptUrl: true,
                     defaultUrl: data?.defaultUrl || "",
                     hasDefaultUrl: !!data?.hasDefaultUrl,
-                    syncTargetLabel: data?.syncTargetLabel || "Google Sheets + Drive",
+                    syncTargetLabel: data?.syncTargetLabel || "Apps Script",
                 });
                 if (!data?.hasDefaultUrl) return;
                 setSyncCfg(p => {
-                    const shouldOverrideManagedUrl = Boolean(shopSession);
-                    if (shopSession?.storageToken) return p;
-                    return p;
+                    if (shopSession?.scriptUrl) return p;
+                    if (p.scriptUrl) return p;
+                    return normalizeSyncCfg({ ...p, scriptUrl: data.defaultUrl });
                 });
             } catch { }
         };
@@ -1721,50 +1632,14 @@ export default function App() {
         const res = await fetch("/api/sync", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action, shopId: syncCfg.shopId, syncKey: syncCfg.syncKey, storageToken: shopSession?.storageToken || "", payload }),
+            body: JSON.stringify({ action, scriptUrl: syncCfg.scriptUrl, shopId: syncCfg.shopId, syncKey: syncCfg.syncKey, payload }),
         });
         return parseSyncResponse(res);
-    };
-    const startDriveOAuth = async () => {
-        if (!shopSession?.storageToken || !shopSession?.shopId) { notify("Login required before connecting Google Drive.", "error"); return; }
-        setDriveAuth(current => ({ ...current, busy: true }));
-        try {
-            const res = await fetch('/api/drive-oauth/start', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ storageToken: shopSession.storageToken, shopId: shopSession.shopId, returnTo: `${window.location.origin}/?shop_page=settings` }),
-            });
-            const data = await parseSyncResponse(res);
-            window.location.href = data.url;
-        } catch (e) {
-            setDriveAuth(current => ({ ...current, busy: false }));
-            notify(e?.message || 'Unable to start Google Drive connection.', 'error');
-        }
-    };
-    const disconnectDrive = async () => {
-        if (!shopSession?.storageToken || !shopSession?.shopId) return;
-        setDriveAuth(current => ({ ...current, busy: true }));
-        try {
-            const res = await fetch('/api/drive-oauth/disconnect', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ storageToken: shopSession.storageToken, shopId: shopSession.shopId }),
-            });
-            await parseSyncResponse(res);
-            const nextSession = { ...shopSession, driveOauthConnected: false, driveOauthEmail: '' };
-            setShopSession(nextSession);
-            window.localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(nextSession));
-            setDriveAuth({ connected: false, email: '', connectedAt: '', busy: false });
-            notify('Google Drive disconnected.', 'success');
-        } catch (e) {
-            setDriveAuth(current => ({ ...current, busy: false }));
-            notify(e?.message || 'Unable to disconnect Google Drive.', 'error');
-        }
     };
     const buildSyncPayload = (inventory = inv) => ({ version: 3, savedAt: new Date().toISOString(), inv: inventory.map(item => ({ ...normalizeInv(item), photos: (item.photos || []).map(stripPhotoForCloud) })), tx: tx.map(normalizeTx), shop: normalizeShopProfile(shopCfg) });
     const applyRemotePayload = (payload = {}) => {
         skipNextAutoSync.current = true;
-        sInv(Array.isArray(payload.inv) ? resolveInventoryPhotosForSession(payload.inv, payload.shop?.shopId || payload.shopId || syncCfg.shopId) : []);
+        sInv(Array.isArray(payload.inv) ? payload.inv.map(normalizeInv) : []);
         sTx(Array.isArray(payload.tx) ? payload.tx.map(normalizeTx) : []);
         sShopCfg(normalizeShopProfile(payload.shop || payload.shopProfile || DEFAULT_SHOP_PROFILE));
     };
@@ -1777,7 +1652,7 @@ export default function App() {
             const nextPhotos = [];
             for (const photo of item.photos.map(normalizePhotoRef)) {
                 if (photo.fileId) {
-                    nextPhotos.push(resolvePhotoRefForSession(photo, item.shopId || syncCfg.shopId));
+                    nextPhotos.push(photo);
                     continue;
                 }
                 const blob = await loadPhotoBlob(photo.id);
@@ -1794,7 +1669,7 @@ export default function App() {
                         dataUrl,
                     });
                     const uploaded = response.photo || {};
-                    nextPhotos.push(resolvePhotoRefForSession({
+                    nextPhotos.push(normalizePhotoRef({
                         ...photo,
                         fileId: uploaded.fileId || photo.fileId,
                         fileUrl: uploaded.fileUrl || photo.fileUrl,
@@ -1804,14 +1679,14 @@ export default function App() {
                         size: uploaded.size || photo.size,
                         uploadedAt: uploaded.uploadedAt || photo.uploadedAt,
                         syncStatus: uploaded.fileId ? "synced" : photo.syncStatus,
-                    }, item.shopId || syncCfg.shopId));
+                    }));
                     if (uploaded.fileId) { changed = true; itemChanged = true; }
                 } catch (error) {
                     failures.push(error?.message || "Photo upload failed.");
-                    nextPhotos.push(resolvePhotoRefForSession({
+                    nextPhotos.push(normalizePhotoRef({
                         ...photo,
                         syncStatus: "local-only",
-                    }, item.shopId || syncCfg.shopId));
+                    }));
                 }
             }
             return itemChanged ? { ...item, photos: nextPhotos } : item;
@@ -1926,7 +1801,7 @@ export default function App() {
         if (!syncReady || !ol || syncBusyRef.current) return;
         if (source === "poll" && consecutiveSyncErrorsRef.current >= 5) return;
         const now = Date.now();
-        const minInterval = source === "login" ? 0 : 8000;
+        const minInterval = source === "login" ? 0 : 15000;
         if (now - lastRemoteCheckAtRef.current < minInterval) return;
         lastRemoteCheckAtRef.current = now;
         try {
@@ -1990,7 +1865,7 @@ export default function App() {
     useEffect(() => {
         if (!storageReady || !syncReady || !ol) return;
         let timer = null;
-        const start = () => { if (!timer) timer = setInterval(() => { void checkRemoteAndSyncRef.current?.({ silent: true, source: "poll" }); }, 8000); };
+        const start = () => { if (!timer) timer = setInterval(() => { void checkRemoteAndSyncRef.current?.({ silent: true, source: "poll" }); }, 15000); };
         const stop = () => { if (timer) { clearInterval(timer); timer = null; } };
         const onVisibility = () => { document.visibilityState === "visible" ? start() : stop(); };
         document.addEventListener("visibilitychange", onVisibility);
@@ -2388,17 +2263,7 @@ export default function App() {
                                 <input className="gi" value={adminForm.loginId} onChange={e => setAdminForm(f => ({ ...f, loginId: e.target.value }))} placeholder="Shop Login ID" />
                                 <input className="gi" type="password" value={adminForm.password} onChange={e => setAdminForm(f => ({ ...f, password: e.target.value }))} placeholder="Shop Password" />
                             </div>
-                            <textarea className="gi" style={{ minHeight: 108 }} value={adminForm.serviceAccountJson} onChange={e => applyServiceAccountJson(e.target.value)} placeholder="Paste service account JSON here to auto-fill email and private key" />
-                            {hasAdminJson
-                                ? <div className="gi" style={{ display: "flex", alignItems: "center", minHeight: 48 }}>Service account email and private key loaded from JSON.</div>
-                                : <>
-                                    <input className="gi" value={adminForm.serviceAccountEmail} onChange={e => setAdminForm(f => ({ ...f, serviceAccountEmail: e.target.value }))} placeholder="Service Account Email" />
-                                    <textarea className="gi" style={{ minHeight: 92 }} value={adminForm.privateKey} onChange={e => setAdminForm(f => ({ ...f, privateKey: e.target.value }))} placeholder="Private Key" />
-                                </>}
-                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                                <input className="gi" value={adminForm.spreadsheetId} onChange={e => setAdminForm(f => ({ ...f, spreadsheetId: extractGoogleResourceId(e.target.value, "sheet") }))} placeholder="Google Sheets Spreadsheet ID or URL" />
-                                <input className="gi" value={adminForm.driveFolderId} onChange={e => setAdminForm(f => ({ ...f, driveFolderId: extractGoogleResourceId(e.target.value, "folder") }))} placeholder="Google Drive Folder ID or URL" />
-                            </div>
+                            <input className="gi" value={adminForm.scriptUrl} onChange={e => setAdminForm(f => ({ ...f, scriptUrl: e.target.value }))} placeholder="Apps Script Sync URL" />
                             <input className="gi" value={adminForm.syncKey} onChange={e => setAdminForm(f => ({ ...f, syncKey: e.target.value }))} placeholder="Sync Key (Optional)" />
                             {adminError && <div style={{ color: "var(--err)", fontSize: 13, textAlign: "center", background: "rgba(248,113,113,.08)", border: "1px solid rgba(248,113,113,.2)", borderRadius: "var(--rs)", padding: "10px 14px", display: "flex", alignItems: "center", gap: 6, justifyContent: "center" }}><AlertCircle size={14} /> {adminError}</div>}
                             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -2406,7 +2271,7 @@ export default function App() {
                                 <button className="bg" onClick={() => { setAdminToken(""); setAdminShops([]); closeAdminPanel(); }} style={{ justifyContent: "center" }}>Close Admin Panel</button>
                             </div>
                             <div style={{ display: "grid", gap: 8, maxHeight: 220, overflowY: "auto" }}>
-                                {adminShops.map(shop => <div key={shop.shopId} className="gc" style={{ padding: 12 }}><div style={{ color: "var(--t1)", fontWeight: 700 }}>{shop.shopName || shop.shopId}</div><div style={{ color: "var(--t3)", fontSize: 12, marginTop: 4 }}>{shop.shopId} · {shop.loginId}</div><div style={{ color: "var(--t3)", fontSize: 12, marginTop: 2 }}>{`Google API · Sheet ${shop.spreadsheetId || "Configured"} · Drive ${shop.driveFolderId || "Configured"}`}</div></div>)}
+                                {adminShops.map(shop => <div key={shop.shopId} className="gc" style={{ padding: 12 }}><div style={{ color: "var(--t1)", fontWeight: 700 }}>{shop.shopName || shop.shopId}</div><div style={{ color: "var(--t3)", fontSize: 12, marginTop: 4 }}>{shop.shopId} · {shop.loginId}</div><div style={{ color: "var(--t3)", fontSize: 12, marginTop: 2 }}>{shop.scriptUrl || "No sync URL"}</div></div>)}
                             </div>
                         </div>
                     </>}
@@ -2845,23 +2710,15 @@ export default function App() {
                         </div>
                         <div className="gc" style={{ marginBottom: 16 }}>
                             <h3 style={{ color: "var(--t1)", fontSize: 15, fontWeight: 600, marginBottom: 14 }}>Cloud Sync</h3>
-                            {shopSession && <div className="gc" style={{ marginBottom: 12, background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.06)" }}><div style={{ color: "var(--t1)", fontSize: 14, fontWeight: 600, marginBottom: 4 }}>Managed by PhoneDukaan Admin</div><div style={{ color: "var(--t2)", fontSize: 13, lineHeight: 1.6 }}>This shop login already includes the customer's own Google Sheets and Google Drive setup. Customers only need their ID and password.</div></div>}
-                            <div className="gc" style={{ marginBottom: 12, background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.06)" }}>
-                                <div style={{ color: "var(--t1)", fontSize: 14, fontWeight: 600, marginBottom: 4 }}>Google Drive Photos</div>
-                                <div style={{ color: driveAuth.connected ? "var(--ok)" : "var(--warn)", fontSize: 13, fontWeight: 600, marginBottom: 4 }}>{driveAuth.connected ? `Connected${driveAuth.email ? ` · ${driveAuth.email}` : ""}` : "Not connected"}</div>
-                                <div style={{ color: "var(--t2)", fontSize: 13, lineHeight: 1.6, marginBottom: 10 }}>{driveAuth.connected ? "Photos will upload to the customer's Google Drive account." : "Connect Google Drive once so photos can upload to the customer's own Drive."}</div>
-                                <div className="action-row">
-                                    <button className="bp" onClick={startDriveOAuth} disabled={driveAuth.busy}>{driveAuth.busy ? "Opening…" : (driveAuth.connected ? "Reconnect Google Drive" : "Connect Google Drive")}</button>
-                                    {driveAuth.connected ? <button className="bg" onClick={disconnectDrive} disabled={driveAuth.busy}>Disconnect Drive</button> : null}
-                                </div>
-                            </div>
+                            {shopSession && <div className="gc" style={{ marginBottom: 12, background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.06)" }}><div style={{ color: "var(--t1)", fontSize: 14, fontWeight: 600, marginBottom: 4 }}>Managed by PhoneDukaan Admin</div><div style={{ color: "var(--t2)", fontSize: 13, lineHeight: 1.6 }}>This shop login already includes the customer's Google Drive sync URL and sync key. Customers only need their ID and password.</div></div>}
                             {showSyncAdvanced ? <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 12 }}>
+                                <F l="Apps Script Web App URL" ic={RefreshCw}><input className="gi" value={syncCfg.scriptUrl} onChange={e => setSyncField("scriptUrl", e.target.value)} placeholder="https://script.google.com/macros/s/.../exec" /></F>
                                 <F l="Shop ID" ic={Hash}><input className="gi" value={syncCfg.shopId} onChange={e => setSyncField("shopId", e.target.value)} placeholder="main-shop" style={{ fontFamily: "'Space Mono',monospace" }} /></F>
-                                <F l="Sync Key (Optional)" ic={Lock}><input className="gi" value={syncCfg.syncKey} onChange={e => setSyncField("syncKey", e.target.value)} placeholder="Optional shared secret" /></F>
+                                <F l="Sync Key (Optional)" ic={Lock}><input className="gi" value={syncCfg.syncKey} onChange={e => setSyncField("syncKey", e.target.value)} placeholder="Shared secret from Apps Script" /></F>
                                 <F l="Auto Push When Data Changes" ic={ol ? Wifi : WifiOff}><label className="gi" style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}><input type="checkbox" checked={syncCfg.autoSync} onChange={e => setSyncField("autoSync", e.target.checked)} /><span>{syncCfg.autoSync ? "Enabled" : "Disabled"}</span></label></F>
                             </div> : <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 12 }}>
                                 <div style={{ padding: 12, borderRadius: 12, background: "rgba(255,255,255,.03)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 4 }}>Connection</div><div style={{ color: "var(--ok)", fontWeight: 700, marginBottom: 4 }}>Connected</div><div style={{ color: "var(--t2)", fontSize: 13, lineHeight: 1.6 }}>{syncHostLabel}</div></div>
-                                <div style={{ padding: 12, borderRadius: 12, background: "rgba(255,255,255,.03)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 4 }}>Shop ID</div><div style={{ color: "var(--t1)", fontWeight: 700, marginBottom: 4 }}>{syncCfg.shopId}</div><div style={{ color: "var(--t2)", fontSize: 13, lineHeight: 1.6 }}>Customer-owned Sheets and Drive are connected.</div></div>
+                                <div style={{ padding: 12, borderRadius: 12, background: "rgba(255,255,255,.03)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 4 }}>Shop ID</div><div style={{ color: "var(--t1)", fontWeight: 700, marginBottom: 4 }}>{syncCfg.shopId}</div><div style={{ color: "var(--t2)", fontSize: 13, lineHeight: 1.6 }}>Apps Script link saved on this device.</div></div>
                                 <div style={{ padding: 12, borderRadius: 12, background: "rgba(255,255,255,.03)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 4 }}>Auto Push</div><div style={{ color: syncCfg.autoSync ? "var(--ok)" : "var(--t1)", fontWeight: 700, marginBottom: 4 }}>{syncCfg.autoSync ? "Enabled" : "Disabled"}</div><div style={{ color: "var(--t2)", fontSize: 13, lineHeight: 1.6 }}>{syncCfg.autoSync ? "Changes will sync automatically when online." : "Use Push Local to Cloud when you want to back up."}</div></div>
                             </div>}
                             <div className="action-row" style={{ marginTop: 8 }}>
@@ -2896,17 +2753,17 @@ export default function App() {
                             <div className="gc"><h3 style={{ color: "var(--t1)", fontSize: 15, fontWeight: 600, marginBottom: 12 }}>{shopSession ? "Managed Sync Setup" : "Cloud Setup"}</h3>
                                 <ol style={{ color: "var(--t2)", fontSize: 13, lineHeight: 1.7, paddingLeft: 18 }}>
                                     {shopSession ? <>
-                                        <li>This shop uses a managed Google Sheets and Google Drive setup saved by the PhoneDukaan admin.</li>
-                                        <li>Business data is stored in the customer's own Google account, not the admin registry.</li>
+                                        <li>This shop uses a managed Google Drive sync setup saved by the PhoneDukaan admin.</li>
+                                        <li>Business data is stored in the customer's own Google Drive, not the admin registry.</li>
                                         <li>Customers only need their login ID and password on new devices.</li>
                                         <li>Use Push and Pull if you want to manually confirm sync.</li>
                                     </> : <>
                                         <li>Create a shop login in the admin panel.</li>
-                                        <li>Paste the customer service account JSON, spreadsheet URL, and drive folder URL there once.</li>
+                                        <li>Paste the customer's Apps Script <span style={{ fontFamily: "'Space Mono',monospace" }}>/exec</span> URL once.</li>
                                         <li>Give the customer only their login ID and password.</li>
                                     </>}
                                 </ol>
-                                <div style={{ marginTop: 12, color: "var(--t3)", fontSize: 12 }}>{shopSession ? "PhoneDukaan admin stores the customer's Google API setup in the master registry. The app logs in, loads that setup automatically, and syncs business data to the customer's own Sheets and Drive." : "The browser talks to the sync proxy, and the proxy writes to the customer's own Google Sheets and Google Drive using the credentials saved in admin."}</div>
+                                <div style={{ marginTop: 12, color: "var(--t3)", fontSize: 12 }}>{shopSession ? "PhoneDukaan admin stores the customer's sync URL and sync key in the master registry. The app logs in, loads that setup automatically, and syncs business data to the customer's own Drive and Sheets." : "The browser talks to the sync proxy, and the proxy talks to the customer's own Apps Script URL saved in admin."}</div>
                             </div>
                         </div>
                     </div>}

@@ -42,36 +42,6 @@
   status = 200
   force = true
 
-[[redirects]]
-  from = "/api/photo"
-  to = "/.netlify/functions/photo"
-  status = 200
-  force = true
-
-[[redirects]]
-  from = "/api/drive-oauth/start"
-  to = "/.netlify/functions/drive-oauth-start"
-  status = 200
-  force = true
-
-[[redirects]]
-  from = "/api/drive-oauth/status"
-  to = "/.netlify/functions/drive-oauth-status"
-  status = 200
-  force = true
-
-[[redirects]]
-  from = "/api/drive-oauth/disconnect"
-  to = "/.netlify/functions/drive-oauth-disconnect"
-  status = 200
-  force = true
-
-[[redirects]]
-  from = "/api/drive-oauth/callback"
-  to = "/.netlify/functions/drive-oauth-callback"
-  status = 200
-  force = true
-
 # SPA fallback — must be last
 [[redirects]]
   from = "/*"

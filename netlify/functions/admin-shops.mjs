@@ -27,11 +27,8 @@ export const handler = async (event) => {
         shopName: String(body.shopName || '').trim(),
         loginId,
         passwordHash: sha256hex(password),
+        scriptUrl: String(body.scriptUrl || '').trim(),
         syncKey: String(body.syncKey || '').trim(),
-        serviceAccountEmail: String(body.serviceAccountEmail || '').trim(),
-        privateKey: String(body.privateKey || ''),
-        spreadsheetId: String(body.spreadsheetId || '').trim(),
-        driveFolderId: String(body.driveFolderId || '').trim(),
       })
 
       return json(200, data)

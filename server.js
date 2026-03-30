@@ -3,8 +3,8 @@ import express from 'express'
 import { fileURLToPath } from 'node:url'
 
 import crypto from 'node:crypto'
-import { createAdminToken, createDriveOAuthStateToken, getAdminCredentials, normalizeShopId, readDriveOAuthStateToken, readShopStorageToken, sha256hex, verifyAdminToken } from './backend/common.mjs'
-import { authShop, disconnectDriveOAuth, exchangeDriveOAuthCode, getDriveOAuthStartUrl, getDriveOAuthStatus, getGoogleProfileEmail, getPhotoPreviewStream, getSyncRuntimeConfig, listShops, syncAction, storeDriveOAuthTokens, upsertShop } from './backend/storage.mjs'
+import { createAdminToken, getAdminCredentials, normalizeShopId, sha256hex, verifyAdminToken } from './backend/common.mjs'
+import { authShop, getSyncRuntimeConfig, listShops, syncAction, upsertShop } from './backend/storage.mjs'
 
 dotenv.config({ override: true })
 
@@ -56,10 +56,10 @@ export function createProxyApp() {
   app.get('/api/registry/config', (_req, res) => {
     res.json({
       ok: true,
-      storageMode: 'google-api',
-      hasRegistryUrl: false,
-      registryUrl: '',
-      usesGoogleApi: true,
+      storageMode: 'apps-script',
+      hasRegistryUrl: Boolean(process.env.PHONEDUKAAN_REGISTRY_APPS_SCRIPT_URL),
+      registryUrl: String(process.env.PHONEDUKAAN_REGISTRY_APPS_SCRIPT_URL || ''),
+      usesGoogleApi: false,
     })
   })
 
@@ -125,11 +125,8 @@ export function createProxyApp() {
         shopName: String(payload.shopName || '').trim(),
         loginId,
         passwordHash: sha256hex(password),
+        scriptUrl: String(payload.scriptUrl || '').trim(),
         syncKey: String(payload.syncKey || '').trim(),
-        serviceAccountEmail: String(payload.serviceAccountEmail || '').trim(),
-        privateKey: String(payload.privateKey || ''),
-        spreadsheetId: String(payload.spreadsheetId || '').trim(),
-        driveFolderId: String(payload.driveFolderId || '').trim(),
       })
 
       res.json(data)
@@ -143,112 +140,6 @@ export function createProxyApp() {
       res.json(await syncAction(req.body || {}))
     } catch (error) {
       res.status(502).json({ ok: false, error: error instanceof Error ? error.message : 'Proxy request failed.' })
-    }
-  })
-
-  app.get('/api/photo', async (req, res) => {
-    try {
-      const fileId = String(req.query.fileId || '').trim()
-      const shopId = normalizeShopId(req.query.shopId)
-      const storageToken = String(req.query.storageToken || '').trim()
-      const photo = await getPhotoPreviewStream({ storageToken, fileId, shopId })
-      res.setHeader('Content-Type', photo.contentType)
-      res.setHeader('Cache-Control', 'private, max-age=300')
-      res.send(photo.buffer)
-    } catch (error) {
-      res.status(502).json({ ok: false, error: error instanceof Error ? error.message : 'Unable to load photo.' })
-    }
-  })
-
-  app.post('/api/drive-oauth/start', async (req, res) => {
-    try {
-      const storageToken = String(req.body?.storageToken || '').trim()
-      const shopId = normalizeShopId(req.body?.shopId)
-      if (!storageToken || !shopId) {
-        res.status(400).json({ ok: false, error: 'Shop login required.' })
-        return
-      }
-      const tokenData = readShopStorageToken(storageToken)
-      if (tokenData?.shopId && normalizeShopId(tokenData.shopId) !== shopId) {
-        res.status(403).json({ ok: false, error: 'Shop token mismatch.' })
-        return
-      }
-      const state = createDriveOAuthStateToken({
-        shopId,
-        returnTo: String(req.body?.returnTo || '/').trim() || '/',
-      })
-      res.json({ ok: true, url: getDriveOAuthStartUrl({ state }) })
-    } catch (error) {
-      res.status(400).json({ ok: false, error: error instanceof Error ? error.message : 'Unable to start Drive connection.' })
-    }
-  })
-
-  app.get('/api/drive-oauth/callback', async (req, res) => {
-    const fail = (message, returnTo = '/') => {
-      const target = new URL(returnTo || '/', `${req.protocol}://${req.get('host')}`)
-      target.searchParams.set('drive_oauth', 'error')
-      target.searchParams.set('message', message)
-      res.redirect(target.toString())
-    }
-    try {
-      const code = String(req.query.code || '').trim()
-      const state = String(req.query.state || '').trim()
-      if (!code || !state) {
-        fail('Missing Google OAuth response.')
-        return
-      }
-      const parsedState = readDriveOAuthStateToken(state)
-      const tokenData = await exchangeDriveOAuthCode({ code })
-      const email = await getGoogleProfileEmail(tokenData.access_token)
-      await storeDriveOAuthTokens({
-        shopId: parsedState.shopId,
-        refreshToken: tokenData.refresh_token || '',
-        email,
-      })
-      const target = new URL(parsedState.returnTo || '/', `${req.protocol}://${req.get('host')}`)
-      target.searchParams.set('drive_oauth', 'success')
-      target.searchParams.set('email', email)
-      res.redirect(target.toString())
-    } catch (error) {
-      fail(error instanceof Error ? error.message : 'Google Drive connection failed.')
-    }
-  })
-
-  app.post('/api/drive-oauth/status', async (req, res) => {
-    try {
-      const storageToken = String(req.body?.storageToken || '').trim()
-      const shopId = normalizeShopId(req.body?.shopId)
-      if (!storageToken || !shopId) {
-        res.status(400).json({ ok: false, error: 'Shop login required.' })
-        return
-      }
-      const tokenData = readShopStorageToken(storageToken)
-      if (tokenData?.shopId && normalizeShopId(tokenData.shopId) !== shopId) {
-        res.status(403).json({ ok: false, error: 'Shop token mismatch.' })
-        return
-      }
-      res.json(await getDriveOAuthStatus({ shopId }))
-    } catch (error) {
-      res.status(400).json({ ok: false, error: error instanceof Error ? error.message : 'Unable to load Drive status.' })
-    }
-  })
-
-  app.post('/api/drive-oauth/disconnect', async (req, res) => {
-    try {
-      const storageToken = String(req.body?.storageToken || '').trim()
-      const shopId = normalizeShopId(req.body?.shopId)
-      if (!storageToken || !shopId) {
-        res.status(400).json({ ok: false, error: 'Shop login required.' })
-        return
-      }
-      const tokenData = readShopStorageToken(storageToken)
-      if (tokenData?.shopId && normalizeShopId(tokenData.shopId) !== shopId) {
-        res.status(403).json({ ok: false, error: 'Shop token mismatch.' })
-        return
-      }
-      res.json(await disconnectDriveOAuth({ shopId }))
-    } catch (error) {
-      res.status(400).json({ ok: false, error: error instanceof Error ? error.message : 'Unable to disconnect Drive.' })
     }
   })
 

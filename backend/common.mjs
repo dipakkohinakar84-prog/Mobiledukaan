@@ -29,9 +29,9 @@ export function getAdminCredentials() {
 
 function getAdminTokenSecret() {
   const { id, password } = getAdminCredentials()
-  const spreadsheetId = String(process.env.GOOGLE_SHEETS_SPREADSHEET_ID || '').trim()
-  const driveFolderId = String(process.env.GOOGLE_DRIVE_FOLDER_ID || '').trim()
-  return [id, password, spreadsheetId, driveFolderId].join('|')
+  const registryUrl = String(process.env.PHONEDUKAAN_REGISTRY_APPS_SCRIPT_URL || '').trim()
+  const adminSecret = String(process.env.APPS_SCRIPT_ADMIN_SECRET || '').trim()
+  return [id, password, registryUrl, adminSecret].join('|')
 }
 
 function getShopStorageTokenSecret() {

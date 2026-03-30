@@ -1,5 +1,5 @@
-export { createAdminToken, createDriveOAuthStateToken, getAdminCredentials, normalizeShopId, readDriveOAuthStateToken, readShopStorageToken, sha256hex, verifyAdminToken } from '../../backend/common.mjs'
-export { authShop, disconnectDriveOAuth, exchangeDriveOAuthCode, getDriveOAuthStartUrl, getDriveOAuthStatus, getGoogleProfileEmail, getPhotoPreviewStream, getSyncRuntimeConfig, listShops, storeDriveOAuthTokens, syncAction, upsertShop } from '../../backend/storage.mjs'
+export { createAdminToken, getAdminCredentials, normalizeShopId, sha256hex, verifyAdminToken } from '../../backend/common.mjs'
+export { authShop, getSyncRuntimeConfig, listShops, syncAction, upsertShop } from '../../backend/storage.mjs'
 
 export function json(statusCode, body) {
   return {
