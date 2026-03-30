@@ -1226,6 +1226,8 @@ export default function App() {
     const skipNextDirtyMark = useRef(false);
     const syncBusyRef = useRef(false);
     const lastAutoSyncAttemptAtRef = useRef(0);
+    const checkRemoteAndSyncRef = useRef(null);
+    const consecutiveSyncErrorsRef = useRef(0);
     const logoInputRef = useRef(null);
     const [authReady, setAuthReady] = useState(false);
     const [shopSession, setShopSession] = useState(null);
@@ -1835,6 +1837,7 @@ export default function App() {
             const stamp = data.savedAt || new Date().toISOString();
             markSyncConnected({ lastPushAt: stamp, lastStatus: `Push ok · ${fmtDateTime(stamp)}` });
             lastAutoSyncAttemptAtRef.current = 0;
+            consecutiveSyncErrorsRef.current = 0;
             setSyncEditMode(false);
             updateSyncMeta(current => ({
                 ...current,
@@ -1852,6 +1855,7 @@ export default function App() {
                 updateSyncMeta(current => ({ ...current, pendingSync: true, syncState: ol ? "saved-local" : "offline" }));
             }
         } catch (e) {
+            consecutiveSyncErrorsRef.current += 1;
             const msg = e?.message || "Push sync failed.";
             setSyncCfg(p => normalizeSyncCfg({ ...p, lastStatus: `Push error · ${msg}` }));
             updateSyncMeta(current => ({ ...current, syncState: ol ? "error" : "offline", syncError: msg }));
@@ -1920,12 +1924,14 @@ export default function App() {
     };
     const checkRemoteAndSync = useCallback(async ({ silent = true, source = "startup" } = {}) => {
         if (!syncReady || !ol || syncBusyRef.current) return;
+        if (source === "poll" && consecutiveSyncErrorsRef.current >= 5) return;
         const now = Date.now();
         const minInterval = source === "login" ? 0 : 30000;
         if (now - lastRemoteCheckAtRef.current < minInterval) return;
         lastRemoteCheckAtRef.current = now;
         try {
             const data = await callSyncProxy("status");
+            consecutiveSyncErrorsRef.current = 0;
             const remoteSavedAt = data.savedAt || "";
             updateSyncMeta(current => {
                 const nextState = current.pendingSync ? (ol ? "saved-local" : "offline") : remoteSavedAt && current.lastRemoteSavedAt && remoteSavedAt > current.lastRemoteSavedAt ? "remote-newer" : (current.syncState === "error" ? "error" : "synced");
@@ -1945,29 +1951,32 @@ export default function App() {
                 void pullSync(true);
             }
         } catch (e) {
+            consecutiveSyncErrorsRef.current += 1;
             const msg = e?.message || "Remote check failed.";
             updateSyncMeta(current => ({ ...current, syncState: ol ? "error" : "offline", syncError: msg, lastCheckedAt: new Date().toISOString() }));
             if (!silent) notify(msg, "error");
         }
     }, [AUTO_SYNC_RETRY_MS, ol, pullSync, pushSync, setSyncCfg, syncCfg.lastPullAt, syncCfg.lastPushAt, syncMeta.lastRemoteSavedAt, syncMeta.pendingSync, syncMeta.syncState, syncReady, updateSyncMeta]);
+    checkRemoteAndSyncRef.current = checkRemoteAndSync;
     useEffect(() => {
         if (!storageReady) return;
-        void checkRemoteAndSync({ silent: true, source: "startup" });
-    }, [storageReady, checkRemoteAndSync]);
+        void checkRemoteAndSyncRef.current?.({ silent: true, source: "startup" });
+    }, [storageReady]);
     useEffect(() => {
         if (!storageReady || !shopSession?.shopId || !syncReady) return;
         lastRemoteCheckAtRef.current = 0;
-        void checkRemoteAndSync({ silent: true, source: "login" });
-    }, [storageReady, shopSession?.shopId, syncReady, checkRemoteAndSync]);
+        void checkRemoteAndSyncRef.current?.({ silent: true, source: "login" });
+    }, [storageReady, shopSession?.shopId, syncReady]);
     useEffect(() => {
         if (!storageReady) return;
         const onVisible = () => {
-            if (document.visibilityState === "visible") void checkRemoteAndSync({ silent: true, source: "resume" });
+            if (document.visibilityState === "visible") void checkRemoteAndSyncRef.current?.({ silent: true, source: "resume" });
         };
-        const onFocus = () => { void checkRemoteAndSync({ silent: true, source: "focus" }); };
+        const onFocus = () => { void checkRemoteAndSyncRef.current?.({ silent: true, source: "focus" }); };
         const onOnline = () => {
             updateSyncMeta(current => ({ ...current, syncState: current.pendingSync ? "saved-local" : "synced", syncError: "" }));
-            void checkRemoteAndSync({ silent: true, source: "online" });
+            consecutiveSyncErrorsRef.current = 0;
+            void checkRemoteAndSyncRef.current?.({ silent: true, source: "online" });
         };
         document.addEventListener("visibilitychange", onVisible);
         window.addEventListener("focus", onFocus);
@@ -1977,19 +1986,23 @@ export default function App() {
             window.removeEventListener("focus", onFocus);
             window.removeEventListener("online", onOnline);
         };
-    }, [storageReady, checkRemoteAndSync, updateSyncMeta]);
+    }, [storageReady, updateSyncMeta]);
     useEffect(() => {
         if (!storageReady || !syncReady || !ol) return;
-        const timer = setInterval(() => { void checkRemoteAndSync({ silent: true, source: "poll" }); }, 30000);
+        const timer = setInterval(() => { void checkRemoteAndSyncRef.current?.({ silent: true, source: "poll" }); }, 30000);
         return () => clearInterval(timer);
-    }, [storageReady, syncReady, ol, checkRemoteAndSync]);
+    }, [storageReady, syncReady, ol]);
     useEffect(() => {
         if (autoSyncSkip.current) { autoSyncSkip.current = false; return; }
         if (skipNextAutoSync.current) { skipNextAutoSync.current = false; return; }
         if (!storageReady || !syncCfg.autoSync || !syncReady || !ol || !syncMeta.pendingSync) return;
         if (syncMeta.syncState === "error" && !lastAutoSyncAttemptAtRef.current) return;
+        if (syncMeta.syncState === "error" && consecutiveSyncErrorsRef.current >= 5) return;
+        const backoffMs = syncMeta.syncState === "error"
+            ? Math.min(AUTO_SYNC_RETRY_MS * Math.pow(2, consecutiveSyncErrorsRef.current - 1), 300000)
+            : AUTO_SYNC_RETRY_MS;
         const retryDelay = syncMeta.syncState === "error"
-            ? Math.max(AUTO_SYNC_RETRY_MS - (Date.now() - lastAutoSyncAttemptAtRef.current), 0)
+            ? Math.max(backoffMs - (Date.now() - lastAutoSyncAttemptAtRef.current), 0)
             : 1400;
         const timer = setTimeout(() => { void pushSync(true); }, retryDelay);
         return () => clearTimeout(timer);
