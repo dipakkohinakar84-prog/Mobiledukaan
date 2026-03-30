@@ -25,6 +25,9 @@ export async function authShop({ loginId, passwordHash }) {
 }
 
 export async function listShops() {
+  if (!String(process.env.APPS_SCRIPT_ADMIN_SECRET || '').trim()) {
+    throw new Error('APPS_SCRIPT_ADMIN_SECRET is not configured on the server.')
+  }
   return forwardRegistryAction({
     action: 'listShops',
     payload: { adminSecret: String(process.env.APPS_SCRIPT_ADMIN_SECRET || '').trim() },
@@ -32,6 +35,9 @@ export async function listShops() {
 }
 
 export async function upsertShop({ shopId, shopName, loginId, passwordHash, scriptUrl, syncKey }) {
+  if (!String(process.env.APPS_SCRIPT_ADMIN_SECRET || '').trim()) {
+    throw new Error('APPS_SCRIPT_ADMIN_SECRET is not configured on the server.')
+  }
   return forwardRegistryAction({
     action: 'upsertShop',
     payload: {

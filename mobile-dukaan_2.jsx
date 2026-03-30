@@ -2236,7 +2236,7 @@ export default function App() {
                         <h2 style={{ color: "var(--t1)", fontSize: 20, fontWeight: 700, marginBottom: 8 }}>{showAdminPanel ? "PhoneDukaan Admin" : "Login to PhoneDukaan"}</h2>
                         <p style={{ color: "var(--t3)", fontSize: 13, lineHeight: 1.7 }}>
                             {showAdminPanel
-                                ? "Create shop logins and save each customer Google Sheets and Drive setup once. Shop users only need their ID and password."
+                                ? "Create shop logins and save each customer's Apps Script sync setup once. Shop users only need their ID and password."
                                 : "Login with the shop ID and password created in your PhoneDukaan admin panel."}
                         </p>
                     </div>
@@ -2665,7 +2665,7 @@ export default function App() {
 
                     {/* ═══ SETTINGS ═══ */}
                     {pg === "settings" && <div className="fi" style={{ maxWidth: 980 }}>
-                        <div style={{ marginBottom: 28 }}><h1 style={{ color: "var(--t1)", fontSize: 28, fontWeight: 700, display: "flex", alignItems: "center", gap: 10 }}><Settings size={28} style={{ color: "var(--a)" }} /> Shop Profile, Invoice & Cloud Sync</h1><p style={{ color: "var(--t3)", fontSize: 14, marginTop: 4 }}>Configure your shop details for professional A4 portrait invoices, choose GST or regular invoice defaults, and keep everything backed up to customer-owned Google Sheets and Drive.</p></div>
+                        <div style={{ marginBottom: 28 }}><h1 style={{ color: "var(--t1)", fontSize: 28, fontWeight: 700, display: "flex", alignItems: "center", gap: 10 }}><Settings size={28} style={{ color: "var(--a)" }} /> Shop Profile, Invoice & Cloud Sync</h1><p style={{ color: "var(--t3)", fontSize: 14, marginTop: 4 }}>Configure your shop details for professional A4 portrait invoices, choose GST or regular invoice defaults, and keep everything backed up through each customer's own Apps Script, Drive, and Sheets.</p></div>
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(300px,1fr))", gap: 16, marginBottom: 16 }}>
                             <div className="gc">
                                 <h3 style={{ color: "var(--t1)", fontSize: 15, fontWeight: 600, marginBottom: 14 }}>Shop Profile & Invoice Logo</h3>
