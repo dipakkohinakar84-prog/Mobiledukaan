@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url'
 
 import crypto from 'node:crypto'
 import { createAdminToken, createDriveOAuthStateToken, getAdminCredentials, normalizeShopId, readDriveOAuthStateToken, readShopStorageToken, sha256hex, verifyAdminToken } from './backend/common.mjs'
-import { authShop, disconnectDriveOAuth, exchangeDriveOAuthCode, getDriveOAuthStartUrl, getDriveOAuthStatus, getGoogleProfileEmail, getSyncRuntimeConfig, listShops, syncAction, storeDriveOAuthTokens, upsertShop } from './backend/storage.mjs'
+import { authShop, disconnectDriveOAuth, exchangeDriveOAuthCode, getDriveOAuthStartUrl, getDriveOAuthStatus, getGoogleProfileEmail, getPhotoPreviewStream, getSyncRuntimeConfig, listShops, syncAction, storeDriveOAuthTokens, upsertShop } from './backend/storage.mjs'
 
 dotenv.config({ override: true })
 
@@ -143,6 +143,20 @@ export function createProxyApp() {
       res.json(await syncAction(req.body || {}))
     } catch (error) {
       res.status(502).json({ ok: false, error: error instanceof Error ? error.message : 'Proxy request failed.' })
+    }
+  })
+
+  app.get('/api/photo', async (req, res) => {
+    try {
+      const fileId = String(req.query.fileId || '').trim()
+      const shopId = normalizeShopId(req.query.shopId)
+      const storageToken = String(req.query.storageToken || '').trim()
+      const photo = await getPhotoPreviewStream({ storageToken, fileId, shopId })
+      res.setHeader('Content-Type', photo.contentType)
+      res.setHeader('Cache-Control', 'private, max-age=300')
+      res.send(photo.buffer)
+    } catch (error) {
+      res.status(502).json({ ok: false, error: error instanceof Error ? error.message : 'Unable to load photo.' })
     }
   })
 

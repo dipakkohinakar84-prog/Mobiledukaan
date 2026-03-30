@@ -43,6 +43,12 @@
   force = true
 
 [[redirects]]
+  from = "/api/photo"
+  to = "/.netlify/functions/photo"
+  status = 200
+  force = true
+
+[[redirects]]
   from = "/api/drive-oauth/start"
   to = "/.netlify/functions/drive-oauth-start"
   status = 200

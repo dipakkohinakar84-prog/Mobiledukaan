@@ -119,6 +119,22 @@ export async function syncAction(input) {
   return forwardToGoogleStorage(input || {}, storageConfig)
 }
 
+export async function getPhotoPreviewStream({ storageToken, fileId, shopId }) {
+  const normalizedToken = String(storageToken || '').trim()
+  const normalizedFileId = String(fileId || '').trim()
+  if (!normalizedToken || !normalizedFileId) throw new Error('Photo preview requires storage token and file ID.')
+  const tokenData = readShopStorageToken(normalizedToken)
+  const normalizedShopId = normalizeShopId(tokenData?.shopId || shopId)
+  const { accessToken } = await getDriveAccessTokenForShop(normalizedShopId)
+  const metadata = await googleDriveJson(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(normalizedFileId)}?supportsAllDrives=true&fields=id,name,mimeType`, { accessToken })
+  const { buffer, contentType } = await googleDriveBytes(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(normalizedFileId)}?supportsAllDrives=true&alt=media`, accessToken)
+  return {
+    buffer,
+    contentType: metadata.mimeType || contentType || 'application/octet-stream',
+    fileName: metadata.name || 'photo',
+  }
+}
+
 export async function getDriveOAuthStatus({ shopId }) {
   const shop = await getShopById(shopId)
   return {

@@ -130,6 +130,14 @@ const normalizePhotoRef = (photo, index = 0) => {
         syncStatus: photo?.syncStatus || (photo?.fileId ? "synced" : "local-only"),
     };
 };
+const buildPhotoProxyUrl = (fileId = "", shopId = "", storageToken = "") => {
+    const normalizedFileId = String(fileId || "").trim();
+    const normalizedShopId = String(shopId || "").trim();
+    const normalizedStorageToken = String(storageToken || "").trim();
+    if (!normalizedFileId || !normalizedShopId || !normalizedStorageToken) return "";
+    const params = new URLSearchParams({ fileId: normalizedFileId, shopId: normalizedShopId, storageToken: normalizedStorageToken });
+    return `/api/photo?${params.toString()}`;
+};
 const getPhotoPreview = (photo) => normalizePhotoRef(photo).previewDataUrl || "";
 const stripPhotoForCloud = (photo) => {
     const ref = normalizePhotoRef(photo);
@@ -137,7 +145,7 @@ const stripPhotoForCloud = (photo) => {
         id: ref.id,
         previewDataUrl: ref.fileId ? "" : ref.previewDataUrl,
         fileId: ref.fileId,
-        fileUrl: ref.fileUrl,
+        fileUrl: ref.fileId ? "" : ref.fileUrl,
         openUrl: ref.openUrl,
         fileName: ref.fileName,
         mimeType: ref.mimeType,
@@ -1295,6 +1303,22 @@ export default function App() {
     const showSyncAdvanced = !shopSession && (syncEditMode || !syncCfg.connected);
     const syncTargetLabel = "Google Sheets + Drive";
     const syncHostLabel = shopSession?.storageToken ? "Google Sheets + Drive" : "Not set";
+    const resolvePhotoRefForSession = useCallback((photo, shopIdOverride) => {
+        const ref = normalizePhotoRef(photo);
+        const activeShopId = String(shopIdOverride || syncCfg.shopId || shopSession?.shopId || "").trim();
+        const proxyUrl = ref.fileId ? buildPhotoProxyUrl(ref.fileId, activeShopId, shopSession?.storageToken || "") : "";
+        return normalizePhotoRef({
+            ...ref,
+            fileUrl: proxyUrl || ref.fileUrl,
+            previewDataUrl: ref.fileId ? (proxyUrl || ref.previewDataUrl || ref.fileUrl) : ref.previewDataUrl,
+        });
+    }, [shopSession?.shopId, shopSession?.storageToken, syncCfg.shopId]);
+    const resolveInventoryPhotosForSession = useCallback((items, shopIdOverride) => (
+        (items || []).map(item => {
+            const normalized = normalizeInv(item);
+            return { ...normalized, photos: (normalized.photos || []).map(photo => resolvePhotoRefForSession(photo, shopIdOverride || normalized.shopId || normalized.shop_id || syncCfg.shopId)) };
+        })
+    ), [resolvePhotoRefForSession, syncCfg.shopId]);
     const isIosInstall = typeof navigator !== "undefined" && (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1));
     const notify = (m, t = "success") => { sNt({ m, t }); setTimeout(() => sNt(null), 3000); };
     const applyShopSession = useCallback((session) => {
@@ -1499,6 +1523,12 @@ export default function App() {
         if (!shopSession?.storageToken || !shopSession?.shopId) return;
         void fetchDriveAuthStatus(shopSession).catch(() => { });
     }, [fetchDriveAuthStatus, shopSession?.shopId, shopSession?.storageToken]);
+    useEffect(() => {
+        if (!shopSession?.storageToken || !shopSession?.shopId || !storageReady) return;
+        skipNextAutoSync.current = true;
+        skipNextDirtyMark.current = true;
+        sInv(current => resolveInventoryPhotosForSession(current, shopSession.shopId));
+    }, [resolveInventoryPhotosForSession, shopSession?.shopId, shopSession?.storageToken, storageReady]);
     useEffect(() => {
         if (typeof window === "undefined") return;
         const url = new URL(window.location.href);
@@ -1732,7 +1762,7 @@ export default function App() {
     const buildSyncPayload = (inventory = inv) => ({ version: 3, savedAt: new Date().toISOString(), inv: inventory.map(item => ({ ...normalizeInv(item), photos: (item.photos || []).map(stripPhotoForCloud) })), tx: tx.map(normalizeTx), shop: normalizeShopProfile(shopCfg) });
     const applyRemotePayload = (payload = {}) => {
         skipNextAutoSync.current = true;
-        sInv(Array.isArray(payload.inv) ? payload.inv.map(normalizeInv) : []);
+        sInv(Array.isArray(payload.inv) ? resolveInventoryPhotosForSession(payload.inv, payload.shop?.shopId || payload.shopId || syncCfg.shopId) : []);
         sTx(Array.isArray(payload.tx) ? payload.tx.map(normalizeTx) : []);
         sShopCfg(normalizeShopProfile(payload.shop || payload.shopProfile || DEFAULT_SHOP_PROFILE));
     };
@@ -1745,7 +1775,7 @@ export default function App() {
             const nextPhotos = [];
             for (const photo of item.photos.map(normalizePhotoRef)) {
                 if (photo.fileId) {
-                    nextPhotos.push(photo);
+                    nextPhotos.push(resolvePhotoRefForSession(photo, item.shopId || syncCfg.shopId));
                     continue;
                 }
                 const blob = await loadPhotoBlob(photo.id);
@@ -1762,7 +1792,7 @@ export default function App() {
                         dataUrl,
                     });
                     const uploaded = response.photo || {};
-                    nextPhotos.push(normalizePhotoRef({
+                    nextPhotos.push(resolvePhotoRefForSession({
                         ...photo,
                         fileId: uploaded.fileId || photo.fileId,
                         fileUrl: uploaded.fileUrl || photo.fileUrl,
@@ -1772,14 +1802,14 @@ export default function App() {
                         size: uploaded.size || photo.size,
                         uploadedAt: uploaded.uploadedAt || photo.uploadedAt,
                         syncStatus: uploaded.fileId ? "synced" : photo.syncStatus,
-                    }));
+                    }, item.shopId || syncCfg.shopId));
                     if (uploaded.fileId) { changed = true; itemChanged = true; }
                 } catch (error) {
                     failures.push(error?.message || "Photo upload failed.");
-                    nextPhotos.push(normalizePhotoRef({
+                    nextPhotos.push(resolvePhotoRefForSession({
                         ...photo,
                         syncStatus: "local-only",
-                    }));
+                    }, item.shopId || syncCfg.shopId));
                 }
             }
             return itemChanged ? { ...item, photos: nextPhotos } : item;
