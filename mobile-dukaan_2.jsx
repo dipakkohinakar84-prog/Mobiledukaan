@@ -1279,7 +1279,9 @@ export default function App() {
     const ef = useMemo(() => createEmptyForm(shopCfg), [shopCfg]);
     const [fm, sFm] = useState(ef);
     const liveDeviceByImei = (imei) => inv.find(i => matchImei(i, imei) && i.status === "In Stock" && i.qty > 0);
-    const syncReady = !!(syncCfg.shopId && syncCfg.scriptUrl);
+    const activeSyncUrl = String(syncCfg.scriptUrl || shopSession?.scriptUrl || "").trim();
+    const syncReady = !!(syncCfg.shopId && activeSyncUrl);
+    const syncSetupMessage = shopSession ? "Shop sync is not configured in admin panel yet." : "Login required before sync.";
     const syncStateLabel = syncMeta.syncState === "syncing"
         ? "Syncing"
         : syncMeta.syncState === "uploading-photos"
@@ -1296,7 +1298,7 @@ export default function App() {
     const showSyncAdvanced = !shopSession && (syncEditMode || !syncCfg.connected);
     const syncTargetLabel = "Apps Script";
     const syncHostLabel = (() => {
-        try { return syncCfg.scriptUrl ? new URL(syncCfg.scriptUrl).hostname : "Not set"; } catch { return syncCfg.scriptUrl || "Not set"; }
+        try { return activeSyncUrl ? new URL(activeSyncUrl).hostname : "Not set"; } catch { return activeSyncUrl || "Not set"; }
     })();
     const isIosInstall = typeof navigator !== "undefined" && (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1));
     const notify = (m, t = "success") => { sNt({ m, t }); setTimeout(() => sNt(null), 3000); };
@@ -1476,6 +1478,10 @@ export default function App() {
         } catch { }
         setAuthReady(true);
     }, [applyShopSession]);
+    useEffect(() => {
+        if (!shopSession?.scriptUrl || syncCfg.scriptUrl) return;
+        setSyncCfg(current => normalizeSyncCfg({ ...current, scriptUrl: shopSession.scriptUrl, connected: Boolean(current.shopId && shopSession.scriptUrl) }));
+    }, [shopSession?.scriptUrl, syncCfg.scriptUrl]);
     useEffect(() => {}, []);
     useEffect(() => {
         if (typeof window === "undefined") return;
@@ -1646,7 +1652,7 @@ export default function App() {
         const res = await fetch("/api/sync", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action, scriptUrl: syncCfg.scriptUrl, shopId: syncCfg.shopId, syncKey: syncCfg.syncKey, payload }),
+            body: JSON.stringify({ action, scriptUrl: activeSyncUrl, shopId: syncCfg.shopId, syncKey: syncCfg.syncKey, payload }),
         });
         return parseSyncResponse(res);
     };
@@ -1708,7 +1714,7 @@ export default function App() {
         return { inventory: nextInventory, changed, failures };
     }, [callSyncProxy]);
     const pushSync = async (silent = false) => {
-        if (!syncReady) { if (!silent) notify("Login required before sync.", "error"); return; }
+        if (!syncReady) { if (!silent) notify(syncSetupMessage, "error"); return; }
         if (!ol) { if (!silent) notify("You are offline. Sync needs internet.", "error"); return; }
         if (syncBusyRef.current) return;
         if (silent) lastAutoSyncAttemptAtRef.current = Date.now();
@@ -1754,7 +1760,7 @@ export default function App() {
         }
     };
     const pullSync = async (silent = false) => {
-        if (!syncReady) { if (!silent) notify("Login required before sync.", "error"); return; }
+        if (!syncReady) { if (!silent) notify(syncSetupMessage, "error"); return; }
         if (!ol) { if (!silent) notify("You are offline. Sync needs internet.", "error"); return; }
         if (syncBusyRef.current) return;
         syncBusyRef.current = true; setSyncBusy(true);
@@ -1785,7 +1791,7 @@ export default function App() {
         }
     };
     const testSync = async () => {
-        if (!syncReady) { notify("Login required before sync.", "error"); return; }
+        if (!syncReady) { notify(syncSetupMessage, "error"); return; }
         if (!ol) { notify("You are offline. Sync needs internet.", "error"); return; }
         if (syncBusyRef.current) return;
         syncBusyRef.current = true; setSyncBusy(true);
@@ -2731,7 +2737,7 @@ export default function App() {
                                 <F l="Sync Key (Optional)" ic={Lock}><input className="gi" value={syncCfg.syncKey} onChange={e => setSyncField("syncKey", e.target.value)} placeholder="Shared secret from Apps Script" /></F>
                                 <F l="Auto Push When Data Changes" ic={ol ? Wifi : WifiOff}><label className="gi" style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}><input type="checkbox" checked={syncCfg.autoSync} onChange={e => setSyncField("autoSync", e.target.checked)} /><span>{syncCfg.autoSync ? "Enabled" : "Disabled"}</span></label></F>
                             </div> : <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 12 }}>
-                                <div style={{ padding: 12, borderRadius: 12, background: "rgba(255,255,255,.03)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 4 }}>Connection</div><div style={{ color: syncCfg.connected ? "var(--ok)" : "var(--warn)", fontWeight: 700, marginBottom: 4 }}>{syncCfg.connected ? "Connected" : "Not configured"}</div><div style={{ color: "var(--t2)", fontSize: 13, lineHeight: 1.6 }}>{syncHostLabel}</div></div>
+                                <div style={{ padding: 12, borderRadius: 12, background: "rgba(255,255,255,.03)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 4 }}>Connection</div><div style={{ color: syncReady ? "var(--ok)" : "var(--warn)", fontWeight: 700, marginBottom: 4 }}>{syncReady ? "Connected" : "Not configured"}</div><div style={{ color: "var(--t2)", fontSize: 13, lineHeight: 1.6 }}>{syncHostLabel}</div></div>
                                 <div style={{ padding: 12, borderRadius: 12, background: "rgba(255,255,255,.03)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 4 }}>Shop ID</div><div style={{ color: "var(--t1)", fontWeight: 700, marginBottom: 4 }}>{syncCfg.shopId}</div><div style={{ color: "var(--t2)", fontSize: 13, lineHeight: 1.6 }}>{syncCfg.scriptUrl ? "Apps Script link saved on this device." : "Ask admin to save the shop Apps Script URL."}</div></div>
                                 <div style={{ padding: 12, borderRadius: 12, background: "rgba(255,255,255,.03)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 4 }}>Auto Push</div><div style={{ color: syncCfg.autoSync ? "var(--ok)" : "var(--t1)", fontWeight: 700, marginBottom: 4 }}>{syncCfg.autoSync ? "Enabled" : "Disabled"}</div><div style={{ color: "var(--t2)", fontSize: 13, lineHeight: 1.6 }}>{syncCfg.autoSync ? "Changes will sync automatically when online." : "Use Push Local to Cloud when you want to back up."}</div></div>
                             </div>}
@@ -2757,7 +2763,7 @@ export default function App() {
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(250px,1fr))", gap: 16 }}>
                             <div className="gc"><h3 style={{ color: "var(--t1)", fontSize: 15, fontWeight: 600, marginBottom: 12 }}>Sync Status</h3>
                                 <div style={{ display: "grid", gap: 10 }}>
-                                    <div style={{ padding: 12, borderRadius: 12, background: "rgba(255,255,255,.03)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 4 }}>Connection</div><div style={{ color: ol ? "var(--ok)" : "var(--warn)", fontWeight: 600 }}>{ol ? "Online" : "Offline"} · {syncCfg.connected ? "Connected" : syncReady ? "Ready to test" : "Waiting for setup"}</div></div>
+                                    <div style={{ padding: 12, borderRadius: 12, background: "rgba(255,255,255,.03)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 4 }}>Connection</div><div style={{ color: ol ? "var(--ok)" : "var(--warn)", fontWeight: 600 }}>{ol ? "Online" : "Offline"} · {syncReady ? "Connected" : "Waiting for setup"}</div></div>
                                     <div style={{ padding: 12, borderRadius: 12, background: "rgba(255,255,255,.03)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 4 }}>Sync State</div><div style={{ color: syncMeta.syncState === "error" ? "var(--err)" : syncMeta.syncState === "offline" ? "var(--warn)" : "var(--t2)", fontWeight: 600 }}>{syncStateLabel}{syncMeta.pendingSync ? " · pending changes" : ""}</div></div>
                                     <div style={{ padding: 12, borderRadius: 12, background: "rgba(255,255,255,.03)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 4 }}>Last Status</div><div style={{ color: "var(--t2)", fontWeight: 600 }}>{syncCfg.lastStatus}</div></div>
                                     <div style={{ padding: 12, borderRadius: 12, background: "rgba(255,255,255,.03)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 4 }}>Last Push</div><div style={{ color: "var(--t2)", fontWeight: 600 }}>{syncCfg.lastPushAt ? fmtDateTime(syncCfg.lastPushAt) : "Never"}</div></div>
