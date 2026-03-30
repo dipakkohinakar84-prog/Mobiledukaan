@@ -1302,6 +1302,12 @@ export default function App() {
     const notify = (m, t = "success") => { sNt({ m, t }); setTimeout(() => sNt(null), 3000); };
     const applyShopSession = useCallback((session) => {
         if (!session) return;
+        const hasManagedSync = Boolean(String(session.shopId || "").trim() && String(session.scriptUrl || "").trim());
+        if (!hasManagedSync) {
+            setShopSession(null);
+            setSyncCfg(current => normalizeSyncCfg({ ...current, connected: false, scriptUrl: "", lastStatus: "Shop sync is not configured in admin panel" }));
+            return;
+        }
         setShopSession(session);
         setSyncCfg(current => normalizeSyncCfg({
             ...current,
@@ -1327,6 +1333,9 @@ export default function App() {
                 body: JSON.stringify({ loginId, password: loginPassword }),
             });
             const data = await parseSyncResponse(res);
+            if (!data?.shop?.shopId || !data?.shop?.scriptUrl) {
+                throw new Error("Shop sync is not configured in admin panel yet.");
+            }
             const session = { loginId, ...data.shop };
             window.localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(session));
             applyShopSession(session);
@@ -1457,7 +1466,12 @@ export default function App() {
             const stored = window.localStorage.getItem(AUTH_SESSION_KEY);
             if (stored) {
                 const parsed = JSON.parse(stored);
-                applyShopSession(parsed);
+                if (!parsed?.shopId || !parsed?.scriptUrl) {
+                    window.localStorage.removeItem(AUTH_SESSION_KEY);
+                    setSyncCfg(current => normalizeSyncCfg({ ...current, connected: false, scriptUrl: "", lastStatus: "Login required" }));
+                } else {
+                    applyShopSession(parsed);
+                }
             }
         } catch { }
         setAuthReady(true);
@@ -2717,8 +2731,8 @@ export default function App() {
                                 <F l="Sync Key (Optional)" ic={Lock}><input className="gi" value={syncCfg.syncKey} onChange={e => setSyncField("syncKey", e.target.value)} placeholder="Shared secret from Apps Script" /></F>
                                 <F l="Auto Push When Data Changes" ic={ol ? Wifi : WifiOff}><label className="gi" style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}><input type="checkbox" checked={syncCfg.autoSync} onChange={e => setSyncField("autoSync", e.target.checked)} /><span>{syncCfg.autoSync ? "Enabled" : "Disabled"}</span></label></F>
                             </div> : <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 12 }}>
-                                <div style={{ padding: 12, borderRadius: 12, background: "rgba(255,255,255,.03)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 4 }}>Connection</div><div style={{ color: "var(--ok)", fontWeight: 700, marginBottom: 4 }}>Connected</div><div style={{ color: "var(--t2)", fontSize: 13, lineHeight: 1.6 }}>{syncHostLabel}</div></div>
-                                <div style={{ padding: 12, borderRadius: 12, background: "rgba(255,255,255,.03)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 4 }}>Shop ID</div><div style={{ color: "var(--t1)", fontWeight: 700, marginBottom: 4 }}>{syncCfg.shopId}</div><div style={{ color: "var(--t2)", fontSize: 13, lineHeight: 1.6 }}>Apps Script link saved on this device.</div></div>
+                                <div style={{ padding: 12, borderRadius: 12, background: "rgba(255,255,255,.03)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 4 }}>Connection</div><div style={{ color: syncCfg.connected ? "var(--ok)" : "var(--warn)", fontWeight: 700, marginBottom: 4 }}>{syncCfg.connected ? "Connected" : "Not configured"}</div><div style={{ color: "var(--t2)", fontSize: 13, lineHeight: 1.6 }}>{syncHostLabel}</div></div>
+                                <div style={{ padding: 12, borderRadius: 12, background: "rgba(255,255,255,.03)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 4 }}>Shop ID</div><div style={{ color: "var(--t1)", fontWeight: 700, marginBottom: 4 }}>{syncCfg.shopId}</div><div style={{ color: "var(--t2)", fontSize: 13, lineHeight: 1.6 }}>{syncCfg.scriptUrl ? "Apps Script link saved on this device." : "Ask admin to save the shop Apps Script URL."}</div></div>
                                 <div style={{ padding: 12, borderRadius: 12, background: "rgba(255,255,255,.03)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 4 }}>Auto Push</div><div style={{ color: syncCfg.autoSync ? "var(--ok)" : "var(--t1)", fontWeight: 700, marginBottom: 4 }}>{syncCfg.autoSync ? "Enabled" : "Disabled"}</div><div style={{ color: "var(--t2)", fontSize: 13, lineHeight: 1.6 }}>{syncCfg.autoSync ? "Changes will sync automatically when online." : "Use Push Local to Cloud when you want to back up."}</div></div>
                             </div>}
                             <div className="action-row" style={{ marginTop: 8 }}>
