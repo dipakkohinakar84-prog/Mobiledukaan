@@ -1,4 +1,4 @@
-export { createAdminToken, getAdminCredentials, normalizeShopId, sha256hex, verifyAdminToken } from '../../backend/common.mjs'
+export { createAdminToken, getAdminCredentials, hasConfiguredAdminCredentials, normalizeShopId, sha256hex, verifyAdminToken } from '../../backend/common.mjs'
 export { authShop, getSyncRuntimeConfig, listShops, syncAction, upsertShop } from '../../backend/storage.mjs'
 
 export function json(statusCode, body) {

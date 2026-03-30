@@ -57,6 +57,10 @@ export function normalizeScriptUrl(scriptUrl) {
   if (!trimmed) throw new Error('Apps Script URL is required.')
   const url = new URL(trimmed)
   if (url.protocol !== 'https:') throw new Error('Apps Script URL must use HTTPS.')
+  if (url.hostname !== 'script.google.com') throw new Error('Only official Google Apps Script web app URLs are allowed.')
+  if (!/^\/macros\/s\/[A-Za-z0-9_-]+\/(exec|dev)$/.test(url.pathname)) {
+    throw new Error('Apps Script URL must be a valid Google web app /exec or /dev URL.')
+  }
   return url.toString()
 }
 

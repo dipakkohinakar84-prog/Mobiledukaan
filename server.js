@@ -3,7 +3,7 @@ import express from 'express'
 import { fileURLToPath } from 'node:url'
 
 import crypto from 'node:crypto'
-import { createAdminToken, getAdminCredentials, normalizeShopId, sha256hex, verifyAdminToken } from './backend/common.mjs'
+import { createAdminToken, getAdminCredentials, hasConfiguredAdminCredentials, normalizeShopId, sha256hex, verifyAdminToken } from './backend/common.mjs'
 import { authShop, getSyncRuntimeConfig, listShops, syncAction, upsertShop } from './backend/storage.mjs'
 
 dotenv.config({ override: true })
@@ -43,6 +43,13 @@ export function createProxyApp() {
 
   app.set('trust proxy', 1)
   app.disable('x-powered-by')
+  app.use((_req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff')
+    res.setHeader('Referrer-Policy', 'same-origin')
+    res.setHeader('X-Frame-Options', 'DENY')
+    res.setHeader('Permissions-Policy', 'camera=(self), microphone=(), geolocation=()')
+    next()
+  })
   app.use(express.json({ limit: REQUEST_LIMIT }))
 
   app.get('/api/health', (_req, res) => {
@@ -58,7 +65,7 @@ export function createProxyApp() {
       ok: true,
       storageMode: 'apps-script',
       hasRegistryUrl: Boolean(process.env.PHONEDUKAAN_REGISTRY_APPS_SCRIPT_URL),
-      registryUrl: String(process.env.PHONEDUKAAN_REGISTRY_APPS_SCRIPT_URL || ''),
+      registryUrl: '',
       usesGoogleApi: false,
     })
   })
@@ -80,6 +87,10 @@ export function createProxyApp() {
   })
 
   app.post('/api/auth/admin-login', loginLimiter, (req, res) => {
+    if (!hasConfiguredAdminCredentials()) {
+      res.status(503).json({ ok: false, error: 'Admin login is not configured on the server.' })
+      return
+    }
     const { id, password } = getAdminCredentials()
     const inputId = String(req.body?.loginId || '').trim()
     const inputPassword = String(req.body?.password || '').trim()
