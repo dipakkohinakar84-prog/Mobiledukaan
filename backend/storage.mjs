@@ -865,7 +865,7 @@ async function forwardToGoogleStorage({ action, shopId, payload }, storageConfig
   const cachePrefix = `shop:${storageConfig.spreadsheetId}:${normalizedShopId}`
 
   if (normalizedAction === 'status') {
-    return withReadCache(`${cachePrefix}:status`, 10000, async () => {
+    return withReadCache(`${cachePrefix}:status`, 5000, async () => {
       const data = await readShopStatus(normalizedShopId, storageConfig)
       return {
         ok: true,

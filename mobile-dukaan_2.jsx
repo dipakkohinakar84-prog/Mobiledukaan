@@ -1926,7 +1926,7 @@ export default function App() {
         if (!syncReady || !ol || syncBusyRef.current) return;
         if (source === "poll" && consecutiveSyncErrorsRef.current >= 5) return;
         const now = Date.now();
-        const minInterval = source === "login" ? 0 : 30000;
+        const minInterval = source === "login" ? 0 : 8000;
         if (now - lastRemoteCheckAtRef.current < minInterval) return;
         lastRemoteCheckAtRef.current = now;
         try {
@@ -1989,8 +1989,13 @@ export default function App() {
     }, [storageReady, updateSyncMeta]);
     useEffect(() => {
         if (!storageReady || !syncReady || !ol) return;
-        const timer = setInterval(() => { void checkRemoteAndSyncRef.current?.({ silent: true, source: "poll" }); }, 30000);
-        return () => clearInterval(timer);
+        let timer = null;
+        const start = () => { if (!timer) timer = setInterval(() => { void checkRemoteAndSyncRef.current?.({ silent: true, source: "poll" }); }, 8000); };
+        const stop = () => { if (timer) { clearInterval(timer); timer = null; } };
+        const onVisibility = () => { document.visibilityState === "visible" ? start() : stop(); };
+        document.addEventListener("visibilitychange", onVisibility);
+        if (document.visibilityState === "visible") start();
+        return () => { stop(); document.removeEventListener("visibilitychange", onVisibility); };
     }, [storageReady, syncReady, ol]);
     useEffect(() => {
         if (autoSyncSkip.current) { autoSyncSkip.current = false; return; }
