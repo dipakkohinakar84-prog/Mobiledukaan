@@ -1210,12 +1210,14 @@ function StorageInput({ value, onChange }) {
 
 // ═══ MAIN ═══
 export default function App() {
+    const AUTO_SYNC_RETRY_MS = 60000;
     const seed = useRef(loadStore());
     const syncSeed = useRef(loadSyncCfg());
     const autoSyncSkip = useRef(true);
     const skipNextAutoSync = useRef(false);
     const skipNextDirtyMark = useRef(false);
     const syncBusyRef = useRef(false);
+    const lastAutoSyncAttemptAtRef = useRef(0);
     const logoInputRef = useRef(null);
     const [authReady, setAuthReady] = useState(false);
     const [shopSession, setShopSession] = useState(null);
@@ -1788,6 +1790,7 @@ export default function App() {
         if (!syncReady) { if (!silent) notify("Login required before sync.", "error"); return; }
         if (!ol) { if (!silent) notify("You are offline. Sync needs internet.", "error"); return; }
         if (syncBusyRef.current) return;
+        if (silent) lastAutoSyncAttemptAtRef.current = Date.now();
         syncBusyRef.current = true; setSyncBusy(true);
         updateSyncMeta(current => ({ ...current, syncState: "uploading-photos", syncError: "" }));
         try {
@@ -1801,6 +1804,7 @@ export default function App() {
             const data = await callSyncProxy("push", buildSyncPayload(syncedInventory));
             const stamp = data.savedAt || new Date().toISOString();
             markSyncConnected({ lastPushAt: stamp, lastStatus: `Push ok · ${fmtDateTime(stamp)}` });
+            lastAutoSyncAttemptAtRef.current = 0;
             setSyncEditMode(false);
             updateSyncMeta(current => ({
                 ...current,
@@ -1898,6 +1902,8 @@ export default function App() {
                 return { ...current, lastRemoteSavedAt: remoteSavedAt || current.lastRemoteSavedAt, lastCheckedAt: new Date().toISOString(), syncState: nextState };
             });
             if (remoteSavedAt && syncMeta.pendingSync) {
+                const retryBlocked = syncMeta.syncState === "error" && lastAutoSyncAttemptAtRef.current && (Date.now() - lastAutoSyncAttemptAtRef.current) < AUTO_SYNC_RETRY_MS;
+                if (retryBlocked) return;
                 setSyncCfg(p => normalizeSyncCfg({ ...p, lastStatus: `Local changes pending · checking remote` }));
                 void pushSync(true);
                 return;
@@ -1913,7 +1919,7 @@ export default function App() {
             updateSyncMeta(current => ({ ...current, syncState: ol ? "error" : "offline", syncError: msg, lastCheckedAt: new Date().toISOString() }));
             if (!silent) notify(msg, "error");
         }
-    }, [ol, pullSync, pushSync, setSyncCfg, syncCfg.lastPullAt, syncCfg.lastPushAt, syncMeta.lastRemoteSavedAt, syncMeta.pendingSync, syncReady, updateSyncMeta]);
+    }, [AUTO_SYNC_RETRY_MS, ol, pullSync, pushSync, setSyncCfg, syncCfg.lastPullAt, syncCfg.lastPushAt, syncMeta.lastRemoteSavedAt, syncMeta.pendingSync, syncMeta.syncState, syncReady, updateSyncMeta]);
     useEffect(() => {
         if (!storageReady) return;
         void checkRemoteAndSync({ silent: true, source: "startup" });
@@ -1951,9 +1957,13 @@ export default function App() {
         if (autoSyncSkip.current) { autoSyncSkip.current = false; return; }
         if (skipNextAutoSync.current) { skipNextAutoSync.current = false; return; }
         if (!storageReady || !syncCfg.autoSync || !syncReady || !ol || !syncMeta.pendingSync) return;
-        const timer = setTimeout(() => { void pushSync(true); }, 1400);
+        if (syncMeta.syncState === "error" && !lastAutoSyncAttemptAtRef.current) return;
+        const retryDelay = syncMeta.syncState === "error"
+            ? Math.max(AUTO_SYNC_RETRY_MS - (Date.now() - lastAutoSyncAttemptAtRef.current), 0)
+            : 1400;
+        const timer = setTimeout(() => { void pushSync(true); }, retryDelay);
         return () => clearTimeout(timer);
-    }, [storageReady, inv, tx, shopCfg, syncCfg.autoSync, syncCfg.shopId, syncCfg.syncKey, syncMeta.pendingSync, ol, syncReady]);
+    }, [AUTO_SYNC_RETRY_MS, storageReady, inv, tx, shopCfg, syncCfg.autoSync, syncCfg.shopId, syncCfg.syncKey, syncMeta.pendingSync, syncMeta.syncState, ol, syncReady]);
 
     const handleScan = (imei) => {
         setScs(false); const ex = findDeviceByImei(inv, imei);
