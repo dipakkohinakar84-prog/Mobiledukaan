@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, CartesianGrid, Legend, AreaChart, Area } from "recharts";
 import { loadAppState, loadSyncState, saveAppState, saveSyncState, savePhotoBlob, loadPhotoBlob, deletePhotoBlob } from "./app-storage.js";
+import { getPocketBaseUrl, pocketbaseAdminLogin, pocketbaseListShops, pocketbaseSaveShop, pocketbaseShopLogin, pocketbaseSyncAction } from "./pocketbase-client.js";
 
 const genId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const fmtDate = (d) => new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
@@ -341,7 +342,6 @@ const normalizeSyncCfg = (cfg = {}) => ({
     lastPullAt: String(cfg.lastPullAt || ""),
     lastStatus: String(cfg.lastStatus || "Login required"),
 });
-const DEFAULT_PROXY_CFG = { storageMode: "apps-script", requiresScriptUrl: true, defaultUrl: "", hasDefaultUrl: false, syncTargetLabel: "Apps Script" };
 const loadSyncCfg = () => {
     if (typeof window === "undefined") return normalizeSyncCfg();
     try {
@@ -1234,8 +1234,7 @@ export default function App() {
     const [adminError, setAdminError] = useState("");
     const [adminBusy, setAdminBusy] = useState(false);
     const [adminShops, setAdminShops] = useState([]);
-    const [adminForm, setAdminForm] = useState({ shopId: "", shopName: "", loginId: "", password: "", scriptUrl: "", syncKey: "" });
-    const [proxyCfg, setProxyCfg] = useState(DEFAULT_PROXY_CFG);
+    const [adminForm, setAdminForm] = useState({ shopId: "", shopName: "", loginId: "", password: "", syncKey: "" });
     const [pg, sPg] = useState("dashboard");
     const [inv, sInv] = useState(seed.current.inv);
     const [tx, sTx] = useState(seed.current.tx);
@@ -1279,9 +1278,9 @@ export default function App() {
     const ef = useMemo(() => createEmptyForm(shopCfg), [shopCfg]);
     const [fm, sFm] = useState(ef);
     const liveDeviceByImei = (imei) => inv.find(i => matchImei(i, imei) && i.status === "In Stock" && i.qty > 0);
-    const activeSyncUrl = String(syncCfg.scriptUrl || shopSession?.scriptUrl || "").trim();
-    const syncReady = !!(syncCfg.shopId && activeSyncUrl);
-    const syncSetupMessage = shopSession ? "Shop sync is not configured in admin panel yet." : "Login required before sync.";
+    const activeSyncUrl = getPocketBaseUrl();
+    const syncReady = !!(shopSession?.pbAuth?.token && (syncCfg.shopId || shopSession?.shopId));
+    const syncSetupMessage = shopSession ? "PocketBase sync is not configured yet." : "Login required before sync.";
     const syncStateLabel = syncMeta.syncState === "syncing"
         ? "Syncing"
         : syncMeta.syncState === "uploading-photos"
@@ -1296,7 +1295,7 @@ export default function App() {
                         ? "Sync failed"
                         : "Saved locally";
     const showSyncAdvanced = !shopSession && (syncEditMode || !syncCfg.connected);
-    const syncTargetLabel = "Apps Script";
+    const syncTargetLabel = "PocketBase";
     const syncHostLabel = (() => {
         try { return activeSyncUrl ? new URL(activeSyncUrl).hostname : "Not set"; } catch { return activeSyncUrl || "Not set"; }
     })();
@@ -1304,41 +1303,32 @@ export default function App() {
     const notify = (m, t = "success") => { sNt({ m, t }); setTimeout(() => sNt(null), 3000); };
     const applyShopSession = useCallback((session) => {
         if (!session) return;
-        const hasManagedSync = Boolean(String(session.shopId || "").trim() && String(session.scriptUrl || "").trim());
+        const hasManagedSync = Boolean(String(session.shopId || "").trim() && session.pbAuth?.token && session.pbAuth?.record);
         if (!hasManagedSync) {
             setShopSession(null);
-            setSyncCfg(current => normalizeSyncCfg({ ...current, connected: false, scriptUrl: "", lastStatus: "Shop sync is not configured in admin panel" }));
+            setSyncCfg(current => normalizeSyncCfg({ ...current, connected: false, scriptUrl: activeSyncUrl, lastStatus: "PocketBase shop session is not configured" }));
             return;
         }
         setShopSession(session);
         setSyncCfg(current => normalizeSyncCfg({
             ...current,
             shopId: session.shopId || current.shopId,
-            scriptUrl: session.scriptUrl || current.scriptUrl,
+            scriptUrl: activeSyncUrl,
             syncKey: session.syncKey || current.syncKey,
-            connected: Boolean(session.shopId && session.scriptUrl),
+            connected: Boolean(session.shopId && session.pbAuth?.token),
             lastStatus: session.shopId ? `Logged in and configured for ${syncTargetLabel}` : current.lastStatus,
         }));
-    }, [syncTargetLabel]);
+    }, [activeSyncUrl, syncTargetLabel]);
     const fetchAdminShops = useCallback(async (token) => {
-        const res = await fetch('/api/admin/shops', { headers: { Authorization: `Bearer ${token}` } });
-        const data = await parseSyncResponse(res);
-        setAdminShops(data.shops || []);
+        const data = await pocketbaseListShops(token);
+        setAdminShops(data || []);
     }, []);
     const handleShopLogin = async () => {
         if (!loginId.trim() || !loginPassword.trim()) { setLoginError("Enter shop ID and password."); return; }
         setLoginBusy(true); setLoginError("");
         try {
-            const res = await fetch('/api/auth/shop-login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ loginId, password: loginPassword }),
-            });
-            const data = await parseSyncResponse(res);
-            if (!data?.shop?.shopId || !data?.shop?.scriptUrl) {
-                throw new Error("Shop sync is not configured in admin panel yet.");
-            }
-            const session = { loginId, ...data.shop };
+            const data = await pocketbaseShopLogin(loginId, loginPassword);
+            const session = { loginId, shopId: data.shop.shopId, shopName: data.shop.shopName, scriptUrl: activeSyncUrl, syncKey: '', pbAuth: { token: data.token, record: data.record } };
             window.localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(session));
             applyShopSession(session);
             setAuthReady(true);
@@ -1354,14 +1344,9 @@ export default function App() {
         if (!adminLoginId.trim() || !adminPassword.trim()) { setAdminError("Enter admin ID and password."); return; }
         setAdminBusy(true); setAdminError("");
         try {
-            const res = await fetch('/api/auth/admin-login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ loginId: adminLoginId, password: adminPassword }),
-            });
-            const data = await parseSyncResponse(res);
-            setAdminToken(data.token || "");
-            await fetchAdminShops(data.token || "");
+            const data = await pocketbaseAdminLogin(adminLoginId, adminPassword);
+            setAdminToken(JSON.stringify(data));
+            await fetchAdminShops(data);
         } catch (e) {
             setAdminError(e?.message || "Admin login failed.");
         } finally {
@@ -1370,20 +1355,16 @@ export default function App() {
     };
     const saveAdminShop = async () => {
         if (!adminToken) { setAdminError("Admin login required."); return; }
-        if (!adminForm.shopId.trim() || !adminForm.loginId.trim() || !adminForm.password.trim() || !adminForm.scriptUrl.trim()) {
-            setAdminError("Shop ID, shop login ID, password, and Apps Script URL are required.");
+        if (!adminForm.shopId.trim() || !adminForm.loginId.trim() || !adminForm.password.trim()) {
+            setAdminError("Shop ID, shop login ID, and password are required.");
             return;
         }
         setAdminBusy(true); setAdminError("");
         try {
-            const res = await fetch('/api/admin/shops', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
-                body: JSON.stringify(adminForm),
-            });
-            await parseSyncResponse(res);
-            await fetchAdminShops(adminToken);
-            setAdminForm({ shopId: "", shopName: "", loginId: "", password: "", scriptUrl: "", syncKey: "" });
+            const adminAuth = JSON.parse(adminToken);
+            await pocketbaseSaveShop(adminAuth, adminForm);
+            await fetchAdminShops(adminAuth);
+            setAdminForm({ shopId: "", shopName: "", loginId: "", password: "", syncKey: "" });
             notify("Shop login saved in PhoneDukaan admin panel.", "success");
         } catch (e) {
             setAdminError(e?.message || "Unable to save shop.");
@@ -1395,7 +1376,7 @@ export default function App() {
         window.localStorage.removeItem(AUTH_SESSION_KEY);
         setShopSession(null);
         setAuthReady(true);
-        setSyncCfg(current => normalizeSyncCfg({ ...current, connected: false, scriptUrl: "", syncKey: "", lastStatus: "Login required" }));
+        setSyncCfg(current => normalizeSyncCfg({ ...current, connected: false, scriptUrl: activeSyncUrl, syncKey: "", lastStatus: "Login required" }));
         notify("Logged out.", "success");
     };
     const openSc = (t) => { sSt(t); setScs(true); };
@@ -1468,24 +1449,22 @@ export default function App() {
             const stored = window.localStorage.getItem(AUTH_SESSION_KEY);
             if (stored) {
                 const parsed = JSON.parse(stored);
-                if (!parsed?.shopId || !parsed?.scriptUrl) {
+                if (!parsed?.shopId || !parsed?.pbAuth?.token) {
                     window.localStorage.removeItem(AUTH_SESSION_KEY);
-                    setSyncCfg(current => normalizeSyncCfg({ ...current, connected: false, scriptUrl: "", lastStatus: "Login required" }));
+                    setSyncCfg(current => normalizeSyncCfg({ ...current, connected: false, scriptUrl: activeSyncUrl, lastStatus: "Login required" }));
                 } else {
                     applyShopSession(parsed);
                 }
             }
         } catch { }
         setAuthReady(true);
-    }, [applyShopSession]);
+    }, [activeSyncUrl, applyShopSession]);
     useEffect(() => {
-        if (!shopSession?.scriptUrl || syncCfg.scriptUrl) return;
-        setSyncCfg(current => normalizeSyncCfg({ ...current, scriptUrl: shopSession.scriptUrl, connected: Boolean(current.shopId && shopSession.scriptUrl) }));
-    }, [shopSession?.scriptUrl, syncCfg.scriptUrl]);
-    useEffect(() => {}, []);
+        if (syncCfg.scriptUrl === activeSyncUrl) return;
+        setSyncCfg(current => normalizeSyncCfg({ ...current, scriptUrl: activeSyncUrl }));
+    }, [activeSyncUrl, syncCfg.scriptUrl]);
     useEffect(() => {
         if (typeof window === "undefined") return;
-        // Push initial history state so there's always something to go back to
         window.history.replaceState({ page: "dashboard" }, "", window.location.pathname);
         const handlePopState = (event) => {
             // Handle admin panel route
@@ -1544,31 +1523,6 @@ export default function App() {
         window.localStorage.setItem(SYNC_KEY, JSON.stringify(syncCfg));
     }, [canPersist, syncCfg]);
     useEffect(() => { syncBusyRef.current = syncBusy; }, [syncBusy]);
-    useEffect(() => {
-        let cancelled = false;
-        const loadProxyDefaults = async () => {
-            try {
-                const res = await fetch("/api/sync/config");
-                const data = await parseSyncResponse(res);
-                if (cancelled) return;
-                setProxyCfg({
-                    storageMode: data?.storageMode || "apps-script",
-                    requiresScriptUrl: true,
-                    defaultUrl: data?.defaultUrl || "",
-                    hasDefaultUrl: !!data?.hasDefaultUrl,
-                    syncTargetLabel: data?.syncTargetLabel || "Apps Script",
-                });
-                if (!data?.hasDefaultUrl) return;
-                setSyncCfg(p => {
-                    if (shopSession?.scriptUrl) return p;
-                    if (p.scriptUrl) return p;
-                    return normalizeSyncCfg({ ...p, scriptUrl: data.defaultUrl });
-                });
-            } catch { }
-        };
-        void loadProxyDefaults();
-        return () => { cancelled = true; };
-    }, [shopSession]);
     useEffect(() => {
         if (!storageReady) return;
         if (skipNextDirtyMark.current) {
@@ -1649,12 +1603,7 @@ export default function App() {
         return data;
     };
     const callSyncProxy = async (action, payload = null) => {
-        const res = await fetch("/api/sync", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action, scriptUrl: activeSyncUrl, shopId: syncCfg.shopId, syncKey: syncCfg.syncKey, payload }),
-        });
-        return parseSyncResponse(res);
+        return pocketbaseSyncAction(shopSession?.pbAuth, action, payload);
     };
     const buildSyncPayload = (inventory = inv) => ({ version: 3, savedAt: new Date().toISOString(), inv: inventory.map(item => ({ ...normalizeInv(item), photos: (item.photos || []).map(stripPhotoForCloud) })), tx: tx.map(normalizeTx), shop: normalizeShopProfile(shopCfg) });
     const applyRemotePayload = (payload = {}) => {
@@ -2256,7 +2205,7 @@ export default function App() {
                         <h2 style={{ color: "var(--t1)", fontSize: 20, fontWeight: 700, marginBottom: 8 }}>{showAdminPanel ? "PhoneDukaan Admin" : "Login to PhoneDukaan"}</h2>
                         <p style={{ color: "var(--t3)", fontSize: 13, lineHeight: 1.7 }}>
                             {showAdminPanel
-                                ? "Create shop logins and save each customer's Apps Script sync setup once. Shop users only need their ID and password."
+                                ? "Create shop logins once. Shop users only need their ID and password."
                                 : "Login with the shop ID and password created in your PhoneDukaan admin panel."}
                         </p>
                     </div>
@@ -2283,7 +2232,6 @@ export default function App() {
                                 <input className="gi" value={adminForm.loginId} onChange={e => setAdminForm(f => ({ ...f, loginId: e.target.value }))} placeholder="Shop Login ID" />
                                 <input className="gi" type="password" value={adminForm.password} onChange={e => setAdminForm(f => ({ ...f, password: e.target.value }))} placeholder="Shop Password" />
                             </div>
-                            <input className="gi" value={adminForm.scriptUrl} onChange={e => setAdminForm(f => ({ ...f, scriptUrl: e.target.value }))} placeholder="Apps Script Sync URL" />
                             <input className="gi" value={adminForm.syncKey} onChange={e => setAdminForm(f => ({ ...f, syncKey: e.target.value }))} placeholder="Sync Key (Optional)" />
                             {adminError && <div style={{ color: "var(--err)", fontSize: 13, textAlign: "center", background: "rgba(248,113,113,.08)", border: "1px solid rgba(248,113,113,.2)", borderRadius: "var(--rs)", padding: "10px 14px", display: "flex", alignItems: "center", gap: 6, justifyContent: "center" }}><AlertCircle size={14} /> {adminError}</div>}
                             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -2291,7 +2239,7 @@ export default function App() {
                                 <button className="bg" onClick={() => { setAdminToken(""); setAdminShops([]); closeAdminPanel(); }} style={{ justifyContent: "center" }}>Close Admin Panel</button>
                             </div>
                             <div style={{ display: "grid", gap: 8, maxHeight: 220, overflowY: "auto" }}>
-                                {adminShops.map(shop => <div key={shop.shopId} className="gc" style={{ padding: 12 }}><div style={{ color: "var(--t1)", fontWeight: 700 }}>{shop.shopName || shop.shopId}</div><div style={{ color: "var(--t3)", fontSize: 12, marginTop: 4 }}>{shop.shopId} · {shop.loginId}</div><div style={{ color: "var(--t3)", fontSize: 12, marginTop: 2 }}>{shop.scriptUrl || "No sync URL"}</div></div>)}
+                                {adminShops.map(shop => <div key={shop.shopId} className="gc" style={{ padding: 12 }}><div style={{ color: "var(--t1)", fontWeight: 700 }}>{shop.shopName || shop.shopId}</div><div style={{ color: "var(--t3)", fontSize: 12, marginTop: 4 }}>{shop.shopId} · {shop.loginId}</div><div style={{ color: "var(--t3)", fontSize: 12, marginTop: 2 }}>PocketBase sync enabled</div></div>)}
                             </div>
                         </div>
                     </>}
@@ -2685,7 +2633,7 @@ export default function App() {
 
                     {/* ═══ SETTINGS ═══ */}
                     {pg === "settings" && <div className="fi" style={{ maxWidth: 980 }}>
-                        <div style={{ marginBottom: 28 }}><h1 style={{ color: "var(--t1)", fontSize: 28, fontWeight: 700, display: "flex", alignItems: "center", gap: 10 }}><Settings size={28} style={{ color: "var(--a)" }} /> Shop Profile, Invoice & Cloud Sync</h1><p style={{ color: "var(--t3)", fontSize: 14, marginTop: 4 }}>Configure your shop details for professional A4 portrait invoices, choose GST or regular invoice defaults, and keep everything backed up through each customer's own Apps Script, Drive, and Sheets.</p></div>
+                        <div style={{ marginBottom: 28 }}><h1 style={{ color: "var(--t1)", fontSize: 28, fontWeight: 700, display: "flex", alignItems: "center", gap: 10 }}><Settings size={28} style={{ color: "var(--a)" }} /> Shop Profile, Invoice & PocketBase Sync</h1><p style={{ color: "var(--t3)", fontSize: 14, marginTop: 4 }}>Configure your shop details for professional A4 portrait invoices, choose GST or regular invoice defaults, and keep everything backed up with PocketBase realtime sync.</p></div>
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(300px,1fr))", gap: 16, marginBottom: 16 }}>
                             <div className="gc">
                                 <h3 style={{ color: "var(--t1)", fontSize: 15, fontWeight: 600, marginBottom: 14 }}>Shop Profile & Invoice Logo</h3>
@@ -2729,16 +2677,15 @@ export default function App() {
                             </div>
                         </div>
                         <div className="gc" style={{ marginBottom: 16 }}>
-                            <h3 style={{ color: "var(--t1)", fontSize: 15, fontWeight: 600, marginBottom: 14 }}>Cloud Sync</h3>
-                            {shopSession && <div className="gc" style={{ marginBottom: 12, background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.06)" }}><div style={{ color: "var(--t1)", fontSize: 14, fontWeight: 600, marginBottom: 4 }}>Managed by PhoneDukaan Admin</div><div style={{ color: "var(--t2)", fontSize: 13, lineHeight: 1.6 }}>This shop login already includes the customer's Google Drive sync URL and sync key. Customers only need their ID and password.</div></div>}
+                            <h3 style={{ color: "var(--t1)", fontSize: 15, fontWeight: 600, marginBottom: 14 }}>PocketBase Sync</h3>
+                            {shopSession && <div className="gc" style={{ marginBottom: 12, background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.06)" }}><div style={{ color: "var(--t1)", fontSize: 14, fontWeight: 600, marginBottom: 4 }}>Managed by PhoneDukaan Admin</div><div style={{ color: "var(--t2)", fontSize: 13, lineHeight: 1.6 }}>This shop login is linked to PocketBase. Customers only need their ID and password.</div></div>}
                             {showSyncAdvanced ? <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 12 }}>
-                                <F l="Apps Script Web App URL" ic={RefreshCw}><input className="gi" value={syncCfg.scriptUrl} onChange={e => setSyncField("scriptUrl", e.target.value)} placeholder="https://script.google.com/macros/s/.../exec" /></F>
                                 <F l="Shop ID" ic={Hash}><input className="gi" value={syncCfg.shopId} onChange={e => setSyncField("shopId", e.target.value)} placeholder="main-shop" style={{ fontFamily: "'Space Mono',monospace" }} /></F>
-                                <F l="Sync Key (Optional)" ic={Lock}><input className="gi" value={syncCfg.syncKey} onChange={e => setSyncField("syncKey", e.target.value)} placeholder="Shared secret from Apps Script" /></F>
+                                <F l="Sync Key (Optional)" ic={Lock}><input className="gi" value={syncCfg.syncKey} onChange={e => setSyncField("syncKey", e.target.value)} placeholder="Optional local key" /></F>
                                 <F l="Auto Push When Data Changes" ic={ol ? Wifi : WifiOff}><label className="gi" style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}><input type="checkbox" checked={syncCfg.autoSync} onChange={e => setSyncField("autoSync", e.target.checked)} /><span>{syncCfg.autoSync ? "Enabled" : "Disabled"}</span></label></F>
                             </div> : <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 12 }}>
                                 <div style={{ padding: 12, borderRadius: 12, background: "rgba(255,255,255,.03)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 4 }}>Connection</div><div style={{ color: syncReady ? "var(--ok)" : "var(--warn)", fontWeight: 700, marginBottom: 4 }}>{syncReady ? "Connected" : "Not configured"}</div><div style={{ color: "var(--t2)", fontSize: 13, lineHeight: 1.6 }}>{syncHostLabel}</div></div>
-                                <div style={{ padding: 12, borderRadius: 12, background: "rgba(255,255,255,.03)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 4 }}>Shop ID</div><div style={{ color: "var(--t1)", fontWeight: 700, marginBottom: 4 }}>{syncCfg.shopId}</div><div style={{ color: "var(--t2)", fontSize: 13, lineHeight: 1.6 }}>{syncCfg.scriptUrl ? "Apps Script link saved on this device." : "Ask admin to save the shop Apps Script URL."}</div></div>
+                                <div style={{ padding: 12, borderRadius: 12, background: "rgba(255,255,255,.03)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 4 }}>Shop ID</div><div style={{ color: "var(--t1)", fontWeight: 700, marginBottom: 4 }}>{syncCfg.shopId}</div><div style={{ color: "var(--t2)", fontSize: 13, lineHeight: 1.6 }}>PocketBase session saved on this device.</div></div>
                                 <div style={{ padding: 12, borderRadius: 12, background: "rgba(255,255,255,.03)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 4 }}>Auto Push</div><div style={{ color: syncCfg.autoSync ? "var(--ok)" : "var(--t1)", fontWeight: 700, marginBottom: 4 }}>{syncCfg.autoSync ? "Enabled" : "Disabled"}</div><div style={{ color: "var(--t2)", fontSize: 13, lineHeight: 1.6 }}>{syncCfg.autoSync ? "Changes will sync automatically when online." : "Use Push Local to Cloud when you want to back up."}</div></div>
                             </div>}
                             <div className="action-row" style={{ marginTop: 8 }}>
@@ -2773,17 +2720,17 @@ export default function App() {
                             <div className="gc"><h3 style={{ color: "var(--t1)", fontSize: 15, fontWeight: 600, marginBottom: 12 }}>{shopSession ? "Managed Sync Setup" : "Cloud Setup"}</h3>
                                 <ol style={{ color: "var(--t2)", fontSize: 13, lineHeight: 1.7, paddingLeft: 18 }}>
                                     {shopSession ? <>
-                                        <li>This shop uses a managed Google Drive sync setup saved by the PhoneDukaan admin.</li>
-                                        <li>Business data is stored in the customer's own Google Drive, not the admin registry.</li>
+                                        <li>This shop uses a managed PocketBase sync setup saved by the PhoneDukaan admin.</li>
+                                        <li>Business data is stored in PocketBase and shared across devices for the same shop.</li>
                                         <li>Customers only need their login ID and password on new devices.</li>
                                         <li>Use Push and Pull if you want to manually confirm sync.</li>
                                     </> : <>
                                         <li>Create a shop login in the admin panel.</li>
-                                        <li>Paste the customer's Apps Script <span style={{ fontFamily: "'Space Mono',monospace" }}>/exec</span> URL once.</li>
+                                        <li>Create the matching PocketBase shop and shop user record.</li>
                                         <li>Give the customer only their login ID and password.</li>
                                     </>}
                                 </ol>
-                                <div style={{ marginTop: 12, color: "var(--t3)", fontSize: 12 }}>{shopSession ? "PhoneDukaan admin stores the customer's sync URL and sync key in the master registry. The app logs in, loads that setup automatically, and syncs business data to the customer's own Drive and Sheets." : "The browser talks to the sync proxy, and the proxy talks to the customer's own Apps Script URL saved in admin."}</div>
+                                <div style={{ marginTop: 12, color: "var(--t3)", fontSize: 12 }}>{shopSession ? "PhoneDukaan admin links the shop account to PocketBase. The app logs in, syncs inventory and transactions, and keeps data updated across devices." : "The browser talks directly to PocketBase for login, storage, files, and realtime updates."}</div>
                             </div>
                         </div>
                     </div>}

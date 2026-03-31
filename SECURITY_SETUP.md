@@ -9,34 +9,29 @@ What is safe to commit:
 
 What must never be committed:
 - `.env`
-- Apps Script deployment URLs that include private test values
-- admin secrets or sync keys
+- PocketBase admin credentials
+- real PocketBase URLs if they expose internal-only hosts
 
 Local setup
 1. Copy `.env.example` to `.env`
 2. Fill real values only in `.env`
-3. Keep your Apps Script URLs and secrets only in `.env`
+3. Keep your PocketBase URL and any secrets only in `.env`
 
-Netlify setup
-1. Open Site settings -> Environment variables
-2. Add real values there
+Deployment setup
+1. Add `VITE_POCKETBASE_URL` in your hosting environment variables
+2. Point it to your PocketBase instance URL
 3. Redeploy after changes
 
 Recommended env strategy
-- Central admin registry secrets live in `.env` locally and Netlify env vars in production
-- Per-shop customer Apps Script URLs are entered in the admin panel and stored in the central registry
+- `VITE_POCKETBASE_URL` points the frontend to your PocketBase instance
+- Admin/shop auth lives in PocketBase collections instead of local env secrets where possible
 
 Secret rotation
-- If an Apps Script admin secret or sync key was exposed, change it in Apps Script
-- Update `.env` and Netlify env vars
+- If PocketBase admin credentials were exposed, change them in PocketBase immediately
+- Update `.env` and Netlify env vars if needed
 
-Apps Script credentials used by this app
-- `PHONEDUKAAN_REGISTRY_APPS_SCRIPT_URL`
-- `APPS_SCRIPT_ADMIN_SECRET`
-- `APPS_SCRIPT_WEB_APP_URL`
-- `APPS_SCRIPT_SYNC_KEY`
-- `PHONEDUKAAN_ADMIN_ID`
-- `PHONEDUKAAN_ADMIN_PASSWORD`
+PocketBase config used by this app
+- `VITE_POCKETBASE_URL`
 
 Quick checklist before pushing code
 - `.env` is not staged
