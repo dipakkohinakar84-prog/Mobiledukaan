@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, CartesianGrid, Legend, AreaChart, Area } from "recharts";
 import { loadAppState, loadSyncState, saveAppState, saveSyncState, savePhotoBlob, loadPhotoBlob, deletePhotoBlob } from "./app-storage.js";
-import { getPocketBaseUrl, pocketbaseAdminLogin, pocketbaseListShops, pocketbaseSaveShop, pocketbaseShopLogin, pocketbaseSyncAction } from "./pocketbase-client.js";
+import { getPocketBaseUrl, pocketbaseAdminLogin, pocketbaseCreateTransaction, pocketbaseDeleteInventory, pocketbaseListShops, pocketbaseLoadShopBundle, pocketbaseSaveShop, pocketbaseShopLogin, pocketbaseUpdateShopProfile, pocketbaseUploadPhoto, pocketbaseUpsertInventory, subscribeToShopData, unsubscribeFromShopData } from "./pocketbase-client.js";
 
 const genId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const fmtDate = (d) => new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
@@ -132,6 +132,17 @@ const normalizePhotoRef = (photo, index = 0) => {
     };
 };
 const getPhotoPreview = (photo) => normalizePhotoRef(photo).previewDataUrl || "";
+const sanitizeStatus = (value = "") => {
+    const text = String(value || "").trim();
+    if (!text) return "Ready";
+    return text
+        .replace(/pocketbase/gi, "cloud")
+        .replace(/database/gi, "cloud")
+        .replace(/127\.0\.0\.1(:\d+)?/g, "")
+        .replace(/\b\d{1,3}(?:\.\d{1,3}){3}(?::\d+)?\b/g, "")
+        .replace(/\s{2,}/g, " ")
+        .trim();
+};
 const stripPhotoForCloud = (photo) => {
     const ref = normalizePhotoRef(photo);
     return {
@@ -1217,9 +1228,6 @@ export default function App() {
     const skipNextAutoSync = useRef(false);
     const skipNextDirtyMark = useRef(false);
     const syncBusyRef = useRef(false);
-    const lastAutoSyncAttemptAtRef = useRef(0);
-    const checkRemoteAndSyncRef = useRef(null);
-    const consecutiveSyncErrorsRef = useRef(0);
     const logoInputRef = useRef(null);
     const [authReady, setAuthReady] = useState(false);
     const [shopSession, setShopSession] = useState(null);
@@ -1266,6 +1274,8 @@ export default function App() {
     const [ol, setOl] = useState(typeof navigator === "undefined" ? true : navigator.onLine);
     const [syncCfg, setSyncCfg] = useState(syncSeed.current);
     const [syncBusy, setSyncBusy] = useState(false);
+    const [profileSaveBusy, setProfileSaveBusy] = useState(false);
+    const [shopProfileDirty, setShopProfileDirty] = useState(false);
     const [syncEditMode, setSyncEditMode] = useState(false);
     const [storageReady, setStorageReady] = useState(false);
     const [syncMeta, setSyncMeta] = useState(() => normalizeSyncMeta());
@@ -1274,13 +1284,17 @@ export default function App() {
     const [swReady, setSwReady] = useState(false);
     const [swUpdate, setSwUpdate] = useState(false);
     const lastRemoteCheckAtRef = useRef(0);
+    const loadPocketBaseDataRef = useRef(null);
+    const lastSavedShopProfileSignatureRef = useRef('');
+    const notifyTimeoutRef = useRef(null);
+    const shopProfileDirtyRef = useRef(false);
 
     const ef = useMemo(() => createEmptyForm(shopCfg), [shopCfg]);
     const [fm, sFm] = useState(ef);
     const liveDeviceByImei = (imei) => inv.find(i => matchImei(i, imei) && i.status === "In Stock" && i.qty > 0);
     const activeSyncUrl = getPocketBaseUrl();
     const syncReady = !!(shopSession?.pbAuth?.token && (syncCfg.shopId || shopSession?.shopId));
-    const syncSetupMessage = shopSession ? "PocketBase sync is not configured yet." : "Login required before sync.";
+    const syncSetupMessage = shopSession ? "Cloud data is not configured yet." : "Login required before saving data.";
     const syncStateLabel = syncMeta.syncState === "syncing"
         ? "Syncing"
         : syncMeta.syncState === "uploading-photos"
@@ -1300,13 +1314,17 @@ export default function App() {
         try { return activeSyncUrl ? new URL(activeSyncUrl).hostname : "Not set"; } catch { return activeSyncUrl || "Not set"; }
     })();
     const isIosInstall = typeof navigator !== "undefined" && (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1));
-    const notify = (m, t = "success") => { sNt({ m, t }); setTimeout(() => sNt(null), 3000); };
+    const notify = useCallback((m, t = "success") => {
+        sNt({ m, t });
+        if (notifyTimeoutRef.current) clearTimeout(notifyTimeoutRef.current);
+        notifyTimeoutRef.current = setTimeout(() => sNt(null), 3000);
+    }, []);
     const applyShopSession = useCallback((session) => {
         if (!session) return;
         const hasManagedSync = Boolean(String(session.shopId || "").trim() && session.pbAuth?.token && session.pbAuth?.record);
         if (!hasManagedSync) {
             setShopSession(null);
-            setSyncCfg(current => normalizeSyncCfg({ ...current, connected: false, scriptUrl: activeSyncUrl, lastStatus: "PocketBase shop session is not configured" }));
+            setSyncCfg(current => normalizeSyncCfg({ ...current, connected: false, scriptUrl: activeSyncUrl, lastStatus: "Cloud session is not configured" }));
             return;
         }
         setShopSession(session);
@@ -1316,7 +1334,7 @@ export default function App() {
             scriptUrl: activeSyncUrl,
             syncKey: session.syncKey || current.syncKey,
             connected: Boolean(session.shopId && session.pbAuth?.token),
-            lastStatus: session.shopId ? `Logged in and configured for ${syncTargetLabel}` : current.lastStatus,
+            lastStatus: session.shopId ? `Connected to ${syncTargetLabel}` : current.lastStatus,
         }));
     }, [activeSyncUrl, syncTargetLabel]);
     const fetchAdminShops = useCallback(async (token) => {
@@ -1373,6 +1391,7 @@ export default function App() {
         }
     };
     const logoutShop = () => {
+        unsubscribeFromShopData();
         window.localStorage.removeItem(AUTH_SESSION_KEY);
         setShopSession(null);
         setAuthReady(true);
@@ -1393,8 +1412,14 @@ export default function App() {
     };
     const editFromStock = (item) => { sEi(item); sFm(toForm(item)); sSf(false); sDi(null); sPg(prev => { if (typeof window !== "undefined" && prev !== "add") window.history.pushState({ page: prev }, "", window.location.pathname); return "add"; }); };
     const setSyncField = (k, v) => setSyncCfg(p => normalizeSyncCfg({ ...p, [k]: v, ...(k === "scriptUrl" || k === "shopId" || k === "syncKey" ? { connected: false } : {}) }));
-    const setShopField = (k, v) => sShopCfg(p => normalizeShopProfile({ ...p, [k]: v }));
-    const markSyncConnected = (extra = {}) => setSyncCfg(p => normalizeSyncCfg({ ...p, connected: true, ...extra }));
+    const setShopField = (k, v) => {
+        setShopProfileDirty(true);
+        shopProfileDirtyRef.current = true;
+        sShopCfg(p => normalizeShopProfile({ ...p, [k]: v }));
+    };
+    const markSyncConnected = useCallback((extra = {}) => {
+        setSyncCfg(p => normalizeSyncCfg({ ...p, connected: true, ...extra }));
+    }, []);
     const updateSyncMeta = useCallback((patch) => {
         setSyncMeta(current => normalizeSyncMeta(typeof patch === "function" ? patch(current) : { ...current, ...patch }));
     }, []);
@@ -1547,6 +1572,9 @@ export default function App() {
             window.removeEventListener("offline", onOff);
         };
     }, []);
+    useEffect(() => () => {
+        if (notifyTimeoutRef.current) clearTimeout(notifyTimeoutRef.current);
+    }, []);
     useEffect(() => {
         if (!storageReady) return;
         updateSyncMeta(current => ({
@@ -1593,269 +1621,109 @@ export default function App() {
         };
     }, []);
 
-    const parseSyncResponse = async (res) => {
-        const text = await res.text();
-        let data = null;
-        try { data = JSON.parse(text); } catch { }
-        if (data?.error) throw new Error(data.error);
-        if (!res.ok || !data) throw new Error(`Sync failed (${res.status})`);
-        if (data.ok === false) throw new Error(data.error || "Cloud sync rejected the request.");
-        return data;
-    };
-    const callSyncProxy = async (action, payload = null) => {
-        return pocketbaseSyncAction(shopSession?.pbAuth, action, payload);
-    };
-    const buildSyncPayload = (inventory = inv) => ({ version: 3, savedAt: new Date().toISOString(), inv: inventory.map(item => ({ ...normalizeInv(item), photos: (item.photos || []).map(stripPhotoForCloud) })), tx: tx.map(normalizeTx), shop: normalizeShopProfile(shopCfg) });
-    const applyRemotePayload = (payload = {}) => {
-        skipNextAutoSync.current = true;
-        sInv(Array.isArray(payload.inv) ? payload.inv.map(normalizeInv) : []);
-        sTx(Array.isArray(payload.tx) ? payload.tx.map(normalizeTx) : []);
-        sShopCfg(normalizeShopProfile(payload.shop || payload.shopProfile || DEFAULT_SHOP_PROFILE));
-    };
-    const uploadPendingPhotos = useCallback(async (inventory) => {
-        let changed = false;
+    const loadPocketBaseData = useCallback(async (silent = false) => {
+        if (!shopSession?.pbAuth?.token) return;
+        if (!silent) setSyncBusy(true);
+        try {
+            const bundle = await pocketbaseLoadShopBundle(shopSession.pbAuth);
+            skipNextAutoSync.current = true;
+            skipNextDirtyMark.current = true;
+            sInv(Array.isArray(bundle.inv) ? bundle.inv.map(normalizeInv) : []);
+            sTx(Array.isArray(bundle.tx) ? bundle.tx.map(normalizeTx) : []);
+            const nextShopProfile = normalizeShopProfile(bundle.shop || DEFAULT_SHOP_PROFILE);
+            if (!shopProfileDirtyRef.current) {
+                lastSavedShopProfileSignatureRef.current = JSON.stringify(nextShopProfile);
+                sShopCfg(nextShopProfile);
+            }
+            markSyncConnected({ lastPullAt: bundle.savedAt || new Date().toISOString(), lastStatus: `Realtime synced · ${bundle.savedAt ? fmtDateTime(bundle.savedAt) : 'Just now'}` });
+            updateSyncMeta(current => ({ ...current, pendingSync: false, syncState: ol ? "synced" : "offline", lastRemoteSavedAt: bundle.savedAt || current.lastRemoteSavedAt, lastCheckedAt: new Date().toISOString(), syncError: "" }));
+        } catch (e) {
+            const msg = e?.message || "Unable to load data.";
+            updateSyncMeta(current => ({ ...current, syncState: ol ? "error" : "offline", syncError: msg, lastCheckedAt: new Date().toISOString() }));
+            if (!silent) notify(msg, "error");
+        } finally {
+            if (!silent) setSyncBusy(false);
+        }
+    }, [markSyncConnected, notify, ol, shopSession?.pbAuth, updateSyncMeta]);
+    useEffect(() => { loadPocketBaseDataRef.current = loadPocketBaseData; }, [loadPocketBaseData]);
+    const uploadPendingPhotosForItem = useCallback(async (itemId, photos) => {
+        const nextPhotos = [];
         const failures = [];
-        const nextInventory = await Promise.all(inventory.map(async (item) => {
-            if (!item.photos?.length) return item;
-            let itemChanged = false;
-            const nextPhotos = [];
-            for (const photo of item.photos.map(normalizePhotoRef)) {
-                if (photo.fileId) {
-                    nextPhotos.push(photo);
-                    continue;
-                }
-                const blob = await loadPhotoBlob(photo.id);
-                if (!blob) {
-                    nextPhotos.push(photo);
-                    continue;
-                }
-                try {
-                    const dataUrl = await blobToDataUrl(blob);
-                    const response = await callSyncProxy("uploadPhoto", {
-                        photoId: photo.id,
-                        fileName: photo.fileName,
-                        mimeType: photo.mimeType || blob.type || "image/jpeg",
-                        dataUrl,
-                    });
-                    const uploaded = response.photo || {};
-                    nextPhotos.push(normalizePhotoRef({
-                        ...photo,
-                        fileId: uploaded.fileId || photo.fileId,
-                        fileUrl: uploaded.fileUrl || photo.fileUrl,
-                        openUrl: uploaded.openUrl || photo.openUrl,
-                        fileName: uploaded.fileName || photo.fileName,
-                        mimeType: uploaded.mimeType || photo.mimeType,
-                        size: uploaded.size || photo.size,
-                        uploadedAt: uploaded.uploadedAt || photo.uploadedAt,
-                        syncStatus: uploaded.fileId ? "synced" : photo.syncStatus,
-                    }));
-                    if (uploaded.fileId) { changed = true; itemChanged = true; }
-                } catch (error) {
-                    failures.push(error?.message || "Photo upload failed.");
-                    nextPhotos.push(normalizePhotoRef({
-                        ...photo,
-                        syncStatus: "local-only",
-                    }));
-                }
+        for (const photo of (photos || []).map(normalizePhotoRef)) {
+            if (photo.fileId) {
+                nextPhotos.push(photo);
+                continue;
             }
-            return itemChanged ? { ...item, photos: nextPhotos } : item;
-        }));
-        return { inventory: nextInventory, changed, failures };
-    }, [callSyncProxy]);
-    const pushSync = async (silent = false) => {
-        if (!syncReady) { if (!silent) notify(syncSetupMessage, "error"); return; }
-        if (!ol) { if (!silent) notify("You are offline. Sync needs internet.", "error"); return; }
-        if (syncBusyRef.current) return;
-        if (silent) lastAutoSyncAttemptAtRef.current = Date.now();
-        syncBusyRef.current = true; setSyncBusy(true);
-        updateSyncMeta(current => ({ ...current, syncState: "uploading-photos", syncError: "" }));
-        try {
-            const { inventory: syncedInventory, changed, failures } = await uploadPendingPhotos(inv);
-            if (changed) {
-                skipNextAutoSync.current = true;
-                skipNextDirtyMark.current = true;
-                sInv(syncedInventory);
+            const blob = await loadPhotoBlob(photo.id);
+            if (!blob) {
+                nextPhotos.push(photo);
+                continue;
             }
-            updateSyncMeta(current => ({ ...current, syncState: "syncing", syncError: "" }));
-            const data = await callSyncProxy("push", buildSyncPayload(syncedInventory));
-            const stamp = data.savedAt || new Date().toISOString();
-            markSyncConnected({ lastPushAt: stamp, lastStatus: `Push ok · ${fmtDateTime(stamp)}` });
-            lastAutoSyncAttemptAtRef.current = 0;
-            consecutiveSyncErrorsRef.current = 0;
-            setSyncEditMode(false);
-            updateSyncMeta(current => ({
-                ...current,
-                pendingSync: false,
-                syncState: "synced",
-                lastRemoteSavedAt: stamp,
-                lastCheckedAt: new Date().toISOString(),
-                syncError: failures.length ? failures[0] : "",
-            }));
-            if (!silent) {
-                notify(`Local data pushed to ${syncTargetLabel}.${failures.length ? " Some photos stayed local." : ""}`, failures.length ? "warning" : "success");
+            try {
+                const dataUrl = await blobToDataUrl(blob);
+                const uploaded = await pocketbaseUploadPhoto(shopSession?.pbAuth, itemId, { ...photo, dataUrl });
+                nextPhotos.push(normalizePhotoRef({ ...photo, ...uploaded }));
+            } catch (error) {
+                failures.push(error?.message || 'Photo upload failed.');
+                nextPhotos.push(normalizePhotoRef({ ...photo, syncStatus: 'local-only' }));
             }
-            if (failures.length) {
-                setSyncCfg(p => normalizeSyncCfg({ ...p, lastStatus: `Push ok · ${fmtDateTime(stamp)} · ${failures.length} photo upload${failures.length > 1 ? "s" : ""} pending` }));
-                updateSyncMeta(current => ({ ...current, pendingSync: true, syncState: ol ? "saved-local" : "offline" }));
-            }
-        } catch (e) {
-            consecutiveSyncErrorsRef.current += 1;
-            const msg = e?.message || "Push sync failed.";
-            setSyncCfg(p => normalizeSyncCfg({ ...p, lastStatus: `Push error · ${msg}` }));
-            updateSyncMeta(current => ({ ...current, syncState: ol ? "error" : "offline", syncError: msg }));
-            if (!silent) notify(msg, "error");
-        } finally {
-            syncBusyRef.current = false; setSyncBusy(false);
         }
-    };
-    const pullSync = async (silent = false) => {
-        if (!syncReady) { if (!silent) notify(syncSetupMessage, "error"); return; }
-        if (!ol) { if (!silent) notify("You are offline. Sync needs internet.", "error"); return; }
-        if (syncBusyRef.current) return;
-        syncBusyRef.current = true; setSyncBusy(true);
-        updateSyncMeta(current => ({ ...current, syncState: "syncing", syncError: "" }));
-        try {
-            const data = await callSyncProxy("pull");
-            const payload = data.data || data.payload || {};
-            applyRemotePayload(payload);
-            const stamp = data.savedAt || payload.savedAt || new Date().toISOString();
-            markSyncConnected({ lastPullAt: stamp, lastStatus: `Pull ok · ${fmtDateTime(stamp)}` });
-            setSyncEditMode(false);
-            updateSyncMeta(current => ({
-                ...current,
-                pendingSync: false,
-                syncState: "synced",
-                lastRemoteSavedAt: stamp,
-                lastCheckedAt: new Date().toISOString(),
-                syncError: "",
-            }));
-            if (!silent) notify(`${syncTargetLabel} data pulled into this device.`, "success");
-        } catch (e) {
-            const msg = e?.message || "Pull sync failed.";
-            setSyncCfg(p => normalizeSyncCfg({ ...p, lastStatus: `Pull error · ${msg}` }));
-            updateSyncMeta(current => ({ ...current, syncState: ol ? "error" : "offline", syncError: msg }));
-            if (!silent) notify(msg, "error");
-        } finally {
-            syncBusyRef.current = false; setSyncBusy(false);
-        }
-    };
-    const testSync = async () => {
-        if (!syncReady) { notify(syncSetupMessage, "error"); return; }
-        if (!ol) { notify("You are offline. Sync needs internet.", "error"); return; }
-        if (syncBusyRef.current) return;
-        syncBusyRef.current = true; setSyncBusy(true);
-        try {
-            const data = await callSyncProxy("status");
-            const stamp = data.savedAt || syncCfg.lastPushAt || syncCfg.lastPullAt || "";
-            markSyncConnected({ lastStatus: data.hasData ? `Cloud ready · ${stamp ? fmtDateTime(stamp) : "No timestamp"}` : "Cloud ready · Empty storage" });
-            setSyncEditMode(false);
-            updateSyncMeta(current => ({
-                ...current,
-                syncState: current.pendingSync ? (ol ? "saved-local" : "offline") : "synced",
-                lastRemoteSavedAt: data.savedAt || current.lastRemoteSavedAt || "",
-                lastCheckedAt: new Date().toISOString(),
-                syncError: "",
-            }));
-            notify(data.hasData ? `${syncTargetLabel} is connected and remote data exists.` : `${syncTargetLabel} is connected. Remote storage is empty.`, "success");
-        } catch (e) {
-            const msg = e?.message || "Connection test failed.";
-            setSyncCfg(p => normalizeSyncCfg({ ...p, lastStatus: `Status error · ${msg}` }));
-            updateSyncMeta(current => ({ ...current, syncState: ol ? "error" : "offline", syncError: msg, lastCheckedAt: new Date().toISOString() }));
-            notify(msg, "error");
-        } finally {
-            syncBusyRef.current = false; setSyncBusy(false);
-        }
-    };
-    const checkRemoteAndSync = useCallback(async ({ silent = true, source = "startup" } = {}) => {
-        if (!syncReady || !ol || syncBusyRef.current) return;
-        if (source === "poll" && consecutiveSyncErrorsRef.current >= 5) return;
-        const now = Date.now();
-        const minInterval = source === "login" ? 0 : 15000;
-        if (now - lastRemoteCheckAtRef.current < minInterval) return;
-        lastRemoteCheckAtRef.current = now;
-        try {
-            const data = await callSyncProxy("status");
-            consecutiveSyncErrorsRef.current = 0;
-            const remoteSavedAt = data.savedAt || "";
-            updateSyncMeta(current => {
-                const nextState = current.pendingSync ? (ol ? "saved-local" : "offline") : remoteSavedAt && current.lastRemoteSavedAt && remoteSavedAt > current.lastRemoteSavedAt ? "remote-newer" : (current.syncState === "error" ? "error" : "synced");
-                return { ...current, lastRemoteSavedAt: remoteSavedAt || current.lastRemoteSavedAt, lastCheckedAt: new Date().toISOString(), syncState: nextState };
-            });
-            if (remoteSavedAt && syncMeta.pendingSync) {
-                const retryBlocked = syncMeta.syncState === "error" && lastAutoSyncAttemptAtRef.current && (Date.now() - lastAutoSyncAttemptAtRef.current) < AUTO_SYNC_RETRY_MS;
-                if (retryBlocked) return;
-                setSyncCfg(p => normalizeSyncCfg({ ...p, lastStatus: `Local changes pending · checking remote` }));
-                void pushSync(true);
-                return;
-            }
-            const localStamp = [syncCfg.lastPushAt, syncCfg.lastPullAt, syncMeta.lastRemoteSavedAt].filter(Boolean).sort().at(-1) || "";
-            if (remoteSavedAt && remoteSavedAt > localStamp && !syncMeta.pendingSync) {
-                setSyncCfg(p => normalizeSyncCfg({ ...p, lastStatus: `Remote newer · pulling latest` }));
-                if (!silent) notify(`Remote data is newer. Pulling latest from cloud (${source}).`, "warning");
-                void pullSync(true);
-            }
-        } catch (e) {
-            consecutiveSyncErrorsRef.current += 1;
-            const msg = e?.message || "Remote check failed.";
-            updateSyncMeta(current => ({ ...current, syncState: ol ? "error" : "offline", syncError: msg, lastCheckedAt: new Date().toISOString() }));
-            if (!silent) notify(msg, "error");
-        }
-    }, [AUTO_SYNC_RETRY_MS, ol, pullSync, pushSync, setSyncCfg, syncCfg.lastPullAt, syncCfg.lastPushAt, syncMeta.lastRemoteSavedAt, syncMeta.pendingSync, syncMeta.syncState, syncReady, updateSyncMeta]);
-    checkRemoteAndSyncRef.current = checkRemoteAndSync;
+        return { photos: nextPhotos, failures };
+    }, [shopSession?.pbAuth]);
     useEffect(() => {
-        if (!storageReady) return;
-        void checkRemoteAndSyncRef.current?.({ silent: true, source: "startup" });
-    }, [storageReady]);
+        if (!storageReady || !shopSession?.pbAuth?.token) return;
+        void loadPocketBaseDataRef.current?.(true);
+    }, [shopSession?.pbAuth?.token, shopSession?.pbAuth?.record?.shop, storageReady]);
     useEffect(() => {
-        if (!storageReady || !shopSession?.shopId || !syncReady) return;
-        lastRemoteCheckAtRef.current = 0;
-        void checkRemoteAndSyncRef.current?.({ silent: true, source: "login" });
-    }, [storageReady, shopSession?.shopId, syncReady]);
-    useEffect(() => {
-        if (!storageReady) return;
-        const onVisible = () => {
-            if (document.visibilityState === "visible") void checkRemoteAndSyncRef.current?.({ silent: true, source: "resume" });
+        if (!storageReady || !shopSession?.pbAuth?.token || !shopSession?.pbAuth?.record?.shop || !syncCfg.autoSync) return;
+        let cancelled = false;
+        let cleanup = () => {};
+        const auth = shopSession.pbAuth;
+        const handleRealtimeRefresh = () => {
+            if (cancelled || syncBusyRef.current) return;
+            void loadPocketBaseDataRef.current?.(true);
         };
-        const onFocus = () => { void checkRemoteAndSyncRef.current?.({ silent: true, source: "focus" }); };
-        const onOnline = () => {
-            updateSyncMeta(current => ({ ...current, syncState: current.pendingSync ? "saved-local" : "synced", syncError: "" }));
-            consecutiveSyncErrorsRef.current = 0;
-            void checkRemoteAndSyncRef.current?.({ silent: true, source: "online" });
-        };
-        document.addEventListener("visibilitychange", onVisible);
-        window.addEventListener("focus", onFocus);
-        window.addEventListener("online", onOnline);
+        (async () => {
+            try {
+                cleanup = await subscribeToShopData(auth, handleRealtimeRefresh);
+            } catch (err) {
+                if (!cancelled) console.warn('Realtime subscribe failed:', err?.message || err);
+            }
+        })();
         return () => {
-            document.removeEventListener("visibilitychange", onVisible);
-            window.removeEventListener("focus", onFocus);
-            window.removeEventListener("online", onOnline);
+            cancelled = true;
+            try { cleanup(); } catch {}
+            unsubscribeFromShopData();
         };
-    }, [storageReady, updateSyncMeta]);
-    useEffect(() => {
-        if (!storageReady || !syncReady || !ol) return;
-        let timer = null;
-        const start = () => { if (!timer) timer = setInterval(() => { void checkRemoteAndSyncRef.current?.({ silent: true, source: "poll" }); }, 15000); };
-        const stop = () => { if (timer) { clearInterval(timer); timer = null; } };
-        const onVisibility = () => { document.visibilityState === "visible" ? start() : stop(); };
-        document.addEventListener("visibilitychange", onVisibility);
-        if (document.visibilityState === "visible") start();
-        return () => { stop(); document.removeEventListener("visibilitychange", onVisibility); };
-    }, [storageReady, syncReady, ol]);
-    useEffect(() => {
-        if (autoSyncSkip.current) { autoSyncSkip.current = false; return; }
-        if (skipNextAutoSync.current) { skipNextAutoSync.current = false; return; }
-        if (!storageReady || !syncCfg.autoSync || !syncReady || !ol || !syncMeta.pendingSync) return;
-        if (syncMeta.syncState === "error" && !lastAutoSyncAttemptAtRef.current) return;
-        if (syncMeta.syncState === "error" && consecutiveSyncErrorsRef.current >= 5) return;
-        const backoffMs = syncMeta.syncState === "error"
-            ? Math.min(AUTO_SYNC_RETRY_MS * Math.pow(2, consecutiveSyncErrorsRef.current - 1), 300000)
-            : AUTO_SYNC_RETRY_MS;
-        const retryDelay = syncMeta.syncState === "error"
-            ? Math.max(backoffMs - (Date.now() - lastAutoSyncAttemptAtRef.current), 0)
-            : 1400;
-        const timer = setTimeout(() => { void pushSync(true); }, retryDelay);
-        return () => clearTimeout(timer);
-    }, [AUTO_SYNC_RETRY_MS, storageReady, inv, tx, shopCfg, syncCfg.autoSync, syncCfg.shopId, syncCfg.syncKey, syncMeta.pendingSync, syncMeta.syncState, ol, syncReady]);
+    }, [storageReady, syncCfg.autoSync, shopSession?.pbAuth?.token, shopSession?.pbAuth?.record?.shop]);
+    const saveShopProfile = async () => {
+        if (!shopSession?.pbAuth?.token || !shopSession?.pbAuth?.record?.shop) {
+            notify('Login required before saving shop profile.', 'error');
+            return;
+        }
+        const profile = normalizeShopProfile(shopCfg);
+        const signature = JSON.stringify(profile);
+        if (signature === lastSavedShopProfileSignatureRef.current) {
+            notify('No shop profile changes to save.', 'warning');
+            return;
+        }
+        setProfileSaveBusy(true);
+        try {
+            await pocketbaseUpdateShopProfile(shopSession.pbAuth, profile);
+            lastSavedShopProfileSignatureRef.current = signature;
+            setShopProfileDirty(false);
+            shopProfileDirtyRef.current = false;
+            markSyncConnected({ lastStatus: 'Shop profile saved' });
+            updateSyncMeta(current => ({ ...current, pendingSync: false, syncState: ol ? 'synced' : 'offline', syncError: '' }));
+            notify('Shop profile saved.', 'success');
+        } catch (err) {
+            const msg = err?.message || 'Unable to save shop profile.';
+            updateSyncMeta(current => ({ ...current, syncState: 'error', syncError: msg }));
+            notify(msg, 'error');
+        } finally {
+            setProfileSaveBusy(false);
+        }
+    };
 
     const handleScan = (imei) => {
         setScs(false); const ex = findDeviceByImei(inv, imei);
@@ -1885,37 +1753,71 @@ export default function App() {
         return "";
     };
 
-    const saveInv = () => {
+    const saveInv = async () => {
         const imeiError = validateFormImeis(ei?.id);
         if (imeiError) { notify(imeiError, "error"); return; }
         if (!fm.model || !fm.brand) { notify("Brand and model are required!", "error"); return; }
         if (!(+fm.buyPrice > 0) || !(+fm.sellPrice > 0)) { notify("Buy and sell price are required.", "error"); return; }
         const nextItem = normalizeInv({ ...ei, ...fm, imei: fm.imei, imei2: fm.imei2, buyPrice: +fm.buyPrice, sellPrice: +fm.sellPrice, qty: ei?.status === "Sold" ? 0 : 1, photos: fm.photos || [], addedDate: ei?.addedDate || new Date().toISOString().slice(0, 10) });
-        if (ei) {
-            sInv(p => p.map(i => i.id === ei.id ? nextItem : i));
-            notify("Stock updated");
-            resetForm();
-            sPg("inventory");
-        }
-        else {
-            sInv(p => [nextItem, ...p]);
-            sTx(p => [normalizeTx({ id: genId(), type: "Add", stockItemId: nextItem.id, imei: nextItem.imei, imei2: nextItem.imei2, brand: nextItem.brand, model: nextItem.model, color: nextItem.color, ram: nextItem.ram, storage: nextItem.storage, batteryHealth: nextItem.batteryHealth, condition: nextItem.condition, customerName: fm.supplier, phone: fm.phone, amount: +fm.buyPrice, paidAmount: 0, dueAmount: 0, paymentMode: "", date: nextItem.addedDate, dateTime: `${nextItem.addedDate}T12:00:00`, notes: fm.notes }), ...p]);
-            notify("Added to stock");
-            resetForm();
+        try {
+            const savedRecord = await pocketbaseUpsertInventory(shopSession?.pbAuth, nextItem);
+            const savedItemBase = normalizeInv({ ...nextItem, id: savedRecord.id });
+            const uploadedPhotos = await uploadPendingPhotosForItem(savedRecord.id, savedItemBase.photos || []);
+            const savedItem = { ...savedItemBase, photos: uploadedPhotos.photos };
+            if (ei && ei.id) {
+                sInv(p => p.map(i => i.id === ei.id ? savedItem : i));
+                notify(uploadedPhotos.failures.length ? "Stock updated. Some photos are still local." : "Stock updated");
+                resetForm();
+                sPg("inventory");
+            } else {
+                sInv(p => [savedItem, ...p]);
+                const addTx = normalizeTx({ id: genId(), type: "Add", stockItemId: savedItem.id, imei: savedItem.imei, imei2: savedItem.imei2, brand: savedItem.brand, model: savedItem.model, color: savedItem.color, ram: savedItem.ram, storage: savedItem.storage, batteryHealth: savedItem.batteryHealth, condition: savedItem.condition, customerName: fm.supplier, phone: fm.phone, amount: +fm.buyPrice, paidAmount: 0, dueAmount: 0, paymentMode: "", date: savedItem.addedDate, dateTime: `${savedItem.addedDate}T12:00:00`, notes: fm.notes });
+                const savedTx = await pocketbaseCreateTransaction(shopSession?.pbAuth, addTx);
+                sTx(p => [normalizeTx({ ...addTx, id: savedTx.id, stockItemId: savedItem.id }), ...p]);
+                notify(uploadedPhotos.failures.length ? "Added to stock. Some photos are still local." : "Added to stock");
+                resetForm();
+            }
+            markSyncConnected({ lastStatus: uploadedPhotos.failures.length ? "Saved with pending photos" : "Saved" });
+            updateSyncMeta(current => ({ ...current, pendingSync: uploadedPhotos.failures.length, syncState: uploadedPhotos.failures.length ? 'saved-local' : 'synced', syncError: uploadedPhotos.failures[0] || '' }));
+        } catch (e) {
+            notify(e?.message || "Unable to save stock.", "error");
+            updateSyncMeta(current => ({ ...current, syncState: ol ? 'error' : 'offline', syncError: e?.message || 'Unable to save stock.' }));
         }
     };
-    const delInv = (id) => { sInv(p => p.filter(i => i.id !== id)); notify("Removed"); };
-    const doBuy = () => {
+    const delInv = async (id) => {
+        try {
+            await pocketbaseDeleteInventory(shopSession?.pbAuth, id);
+            sInv(p => p.filter(i => i.id !== id));
+            markSyncConnected({ lastStatus: "Deleted", lastPushAt: new Date().toISOString() });
+            updateSyncMeta(current => ({ ...current, pendingSync: false, syncState: ol ? 'synced' : 'offline', syncError: '' }));
+            notify("Removed");
+        } catch (e) {
+            notify(e?.message || "Unable to remove item.", "error");
+        }
+    };
+    const doBuy = async () => {
         const imeiError = validateFormImeis();
         if (imeiError) { notify(imeiError, "error"); return; }
         if (!fm.model || !fm.supplier) { notify("Fill required!", "error"); return; }
         if (!(+fm.buyPrice > 0) || !(+fm.sellPrice > 0)) { notify("Buy and sell price are required.", "error"); return; }
         const item = normalizeInv({ id: genId(), imei: fm.imei, imei2: fm.imei2, brand: fm.brand, model: fm.model, color: fm.color, ram: fm.ram, storage: fm.storage, batteryHealth: fm.batteryHealth, condition: fm.condition, buyPrice: +fm.buyPrice, sellPrice: +fm.sellPrice, status: "In Stock", qty: 1, addedDate: new Date().toISOString().slice(0, 10), supplier: fm.supplier, photos: fm.photos || [] });
-        sInv(p => [item, ...p]);
-        sTx(p => [normalizeTx({ id: genId(), type: "Buy", imei: item.imei, imei2: item.imei2, brand: item.brand, model: item.model, color: item.color, ram: item.ram, storage: item.storage, batteryHealth: item.batteryHealth, condition: item.condition, customerName: fm.supplier, phone: fm.phone, amount: +fm.buyPrice, paidAmount: +fm.buyPrice, dueAmount: 0, paymentMode: fm.paymentMode, date: new Date().toISOString().slice(0, 10), dateTime: new Date().toISOString(), notes: fm.notes }), ...p]);
-        sFm(ef); notify("Purchase recorded!");
+        try {
+            const savedRecord = await pocketbaseUpsertInventory(shopSession?.pbAuth, item);
+            const savedItemBase = normalizeInv({ ...item, id: savedRecord.id });
+            const uploadedPhotos = await uploadPendingPhotosForItem(savedRecord.id, savedItemBase.photos || []);
+            const savedItem = { ...savedItemBase, photos: uploadedPhotos.photos };
+            const txItem = normalizeTx({ id: genId(), type: "Buy", stockItemId: savedItem.id, imei: savedItem.imei, imei2: savedItem.imei2, brand: savedItem.brand, model: savedItem.model, color: savedItem.color, ram: savedItem.ram, storage: savedItem.storage, batteryHealth: savedItem.batteryHealth, condition: savedItem.condition, customerName: fm.supplier, phone: fm.phone, amount: +fm.buyPrice, paidAmount: +fm.buyPrice, dueAmount: 0, paymentMode: fm.paymentMode, date: new Date().toISOString().slice(0, 10), dateTime: new Date().toISOString(), notes: fm.notes });
+            const savedTx = await pocketbaseCreateTransaction(shopSession?.pbAuth, txItem);
+            sInv(p => [savedItem, ...p]);
+            sTx(p => [normalizeTx({ ...txItem, id: savedTx.id, stockItemId: savedItem.id }), ...p]);
+            markSyncConnected({ lastStatus: uploadedPhotos.failures.length ? 'Purchase saved with pending photos' : 'Purchase saved', lastPushAt: new Date().toISOString() });
+            updateSyncMeta(current => ({ ...current, pendingSync: uploadedPhotos.failures.length, syncState: uploadedPhotos.failures.length ? 'saved-local' : (ol ? 'synced' : 'offline'), syncError: uploadedPhotos.failures[0] || '' }));
+            sFm(ef); notify(uploadedPhotos.failures.length ? "Purchase recorded. Some photos are still local." : "Purchase recorded!");
+        } catch (e) {
+            notify(e?.message || "Unable to record purchase.", "error");
+        }
     };
-    const doSell = () => {
+    const doSell = async () => {
         const item = liveDeviceByImei(fm.imei);
         if (!item || !fm.customerName) { notify("IMEI & Customer required!", "error"); return; }
         if (!(+fm.amount > 0)) { notify("Enter the selling amount.", "error"); return; }
@@ -1924,9 +1826,18 @@ export default function App() {
         const amount = +fm.amount || 0, paidAmount = +fm.paidAmount || amount, dueAmount = Math.max(amount - paidAmount, 0), nextQty = Math.max(0, (item.qty || 1) - 1), now = new Date();
         const tax = calcInvoiceTotals(amount, fm.billType, fm.gstRate);
         const sale = normalizeTx({ id: genId(), type: "Sell", invoiceNo: makeInvoiceNo(tx, shopCfg.invoicePrefix), imei: item.imei, imei2: item.imei2, brand: item.brand, model: item.model, color: item.color, ram: item.ram, storage: item.storage, batteryHealth: item.batteryHealth, condition: item.condition, customerName: fm.customerName, phone: fm.phone, amount, paidAmount, dueAmount, costPrice: item.buyPrice, paymentMode: fm.paymentMode, date: now.toISOString().slice(0, 10), dateTime: now.toISOString(), notes: fm.notes, billType: fm.billType, gstRate: tax.gstRate, taxableAmount: tax.taxableAmount, gstAmount: tax.gstAmount, cgstAmount: tax.cgstAmount, sgstAmount: tax.sgstAmount, totalAmount: tax.totalAmount, shopSnapshot: shopCfg });
-        sInv(p => p.map(i => i.id === item.id ? { ...i, status: nextQty > 0 ? "In Stock" : "Sold", qty: nextQty, customerName: fm.customerName, customerPhone: fm.phone, soldDate: sale.dateTime, lastInvoiceNo: sale.invoiceNo } : i));
-        sTx(p => [sale, ...p]);
-        sFm(ef); notify("Sale recorded!");
+        try {
+            const updatedItem = { ...item, status: nextQty > 0 ? "In Stock" : "Sold", qty: nextQty, customerName: fm.customerName, customerPhone: fm.phone, soldDate: sale.dateTime, lastInvoiceNo: sale.invoiceNo };
+            await pocketbaseUpsertInventory(shopSession?.pbAuth, updatedItem);
+            const savedTx = await pocketbaseCreateTransaction(shopSession?.pbAuth, { ...sale, stockItemId: item.id });
+            sInv(p => p.map(i => i.id === item.id ? normalizeInv(updatedItem) : i));
+            sTx(p => [normalizeTx({ ...sale, id: savedTx.id, stockItemId: item.id }), ...p]);
+            markSyncConnected({ lastStatus: 'Sale saved', lastPushAt: new Date().toISOString() });
+            updateSyncMeta(current => ({ ...current, pendingSync: false, syncState: ol ? 'synced' : 'offline', syncError: '' }));
+            sFm(ef); notify("Sale recorded!");
+        } catch (e) {
+            notify(e?.message || "Unable to record sale.", "error");
+        }
     };
 
     const stats = useMemo(() => {
@@ -2239,7 +2150,7 @@ export default function App() {
                                 <button className="bg" onClick={() => { setAdminToken(""); setAdminShops([]); closeAdminPanel(); }} style={{ justifyContent: "center" }}>Close Admin Panel</button>
                             </div>
                             <div style={{ display: "grid", gap: 8, maxHeight: 220, overflowY: "auto" }}>
-                                {adminShops.map(shop => <div key={shop.shopId} className="gc" style={{ padding: 12 }}><div style={{ color: "var(--t1)", fontWeight: 700 }}>{shop.shopName || shop.shopId}</div><div style={{ color: "var(--t3)", fontSize: 12, marginTop: 4 }}>{shop.shopId} · {shop.loginId}</div><div style={{ color: "var(--t3)", fontSize: 12, marginTop: 2 }}>PocketBase sync enabled</div></div>)}
+                                {adminShops.map(shop => <div key={shop.shopId} className="gc" style={{ padding: 12 }}><div style={{ color: "var(--t1)", fontWeight: 700 }}>{shop.shopName || shop.shopId}</div><div style={{ color: "var(--t3)", fontSize: 12, marginTop: 4 }}>{shop.shopId} · {shop.loginId}</div><div style={{ color: "var(--t3)", fontSize: 12, marginTop: 2 }}>Cloud access enabled</div></div>)}
                             </div>
                         </div>
                     </>}
@@ -2633,7 +2544,7 @@ export default function App() {
 
                     {/* ═══ SETTINGS ═══ */}
                     {pg === "settings" && <div className="fi" style={{ maxWidth: 980 }}>
-                        <div style={{ marginBottom: 28 }}><h1 style={{ color: "var(--t1)", fontSize: 28, fontWeight: 700, display: "flex", alignItems: "center", gap: 10 }}><Settings size={28} style={{ color: "var(--a)" }} /> Shop Profile, Invoice & PocketBase Sync</h1><p style={{ color: "var(--t3)", fontSize: 14, marginTop: 4 }}>Configure your shop details for professional A4 portrait invoices, choose GST or regular invoice defaults, and keep everything backed up with PocketBase realtime sync.</p></div>
+                        <div style={{ marginBottom: 28 }}><h1 style={{ color: "var(--t1)", fontSize: 28, fontWeight: 700, display: "flex", alignItems: "center", gap: 10 }}><Settings size={28} style={{ color: "var(--a)" }} /> Shop Profile & Invoice</h1><p style={{ color: "var(--t3)", fontSize: 14, marginTop: 4 }}>Configure your shop details for professional A4 portrait invoices and keep everything updated automatically across logged-in devices.</p></div>
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(300px,1fr))", gap: 16, marginBottom: 16 }}>
                             <div className="gc">
                                 <h3 style={{ color: "var(--t1)", fontSize: 15, fontWeight: 600, marginBottom: 14 }}>Shop Profile & Invoice Logo</h3>
@@ -2649,6 +2560,7 @@ export default function App() {
                                         <input ref={logoInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleLogoPick} />
                                     </div>
                                     <div style={{ color: "var(--t3)", fontSize: 12, lineHeight: 1.6 }}>This uploaded shop logo is used on invoice PDFs only. The app itself uses the separate {APP_NAME} brand logo.</div>
+                                    <div className="action-row"><button className="bp" onClick={() => void saveShopProfile()} disabled={profileSaveBusy}>{profileSaveBusy ? "Saving..." : "Save Shop Profile"}</button>{shopProfileDirty ? <span style={{ color: "var(--warn)", fontSize: 12, alignSelf: "center" }}>Unsaved changes</span> : null}</div>
                                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12 }}>
                                         <F l="Shop Name" ic={Smartphone}><input className="gi" value={shopCfg.shopName} onChange={e => setShopField("shopName", e.target.value)} placeholder="PhoneDukaan" /></F>
                                         <F l="Legal Name" ic={FileText}><input className="gi" value={shopCfg.legalName} onChange={e => setShopField("legalName", e.target.value)} placeholder="Business legal name" /></F>
@@ -2677,30 +2589,24 @@ export default function App() {
                             </div>
                         </div>
                         <div className="gc" style={{ marginBottom: 16 }}>
-                            <h3 style={{ color: "var(--t1)", fontSize: 15, fontWeight: 600, marginBottom: 14 }}>PocketBase Sync</h3>
-                            {shopSession && <div className="gc" style={{ marginBottom: 12, background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.06)" }}><div style={{ color: "var(--t1)", fontSize: 14, fontWeight: 600, marginBottom: 4 }}>Managed by PhoneDukaan Admin</div><div style={{ color: "var(--t2)", fontSize: 13, lineHeight: 1.6 }}>This shop login is linked to PocketBase. Customers only need their ID and password.</div></div>}
+                            <h3 style={{ color: "var(--t1)", fontSize: 15, fontWeight: 600, marginBottom: 14 }}>Data Status</h3>
+                            {shopSession && <div className="gc" style={{ marginBottom: 12, background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.06)" }}><div style={{ color: "var(--t1)", fontSize: 14, fontWeight: 600, marginBottom: 4 }}>Automatic updates active</div><div style={{ color: "var(--t2)", fontSize: 13, lineHeight: 1.6 }}>Changes on one logged-in device appear automatically on the others.</div></div>}
                             {showSyncAdvanced ? <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 12 }}>
                                 <F l="Shop ID" ic={Hash}><input className="gi" value={syncCfg.shopId} onChange={e => setSyncField("shopId", e.target.value)} placeholder="main-shop" style={{ fontFamily: "'Space Mono',monospace" }} /></F>
-                                <F l="Sync Key (Optional)" ic={Lock}><input className="gi" value={syncCfg.syncKey} onChange={e => setSyncField("syncKey", e.target.value)} placeholder="Optional local key" /></F>
-                                <F l="Auto Push When Data Changes" ic={ol ? Wifi : WifiOff}><label className="gi" style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}><input type="checkbox" checked={syncCfg.autoSync} onChange={e => setSyncField("autoSync", e.target.checked)} /><span>{syncCfg.autoSync ? "Enabled" : "Disabled"}</span></label></F>
+                                <F l="Automatic Updates" ic={ol ? Wifi : WifiOff}><label className="gi" style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}><input type="checkbox" checked={syncCfg.autoSync} onChange={e => setSyncField("autoSync", e.target.checked)} /><span>{syncCfg.autoSync ? "Enabled" : "Disabled"}</span></label></F>
                             </div> : <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 12 }}>
-                                <div style={{ padding: 12, borderRadius: 12, background: "rgba(255,255,255,.03)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 4 }}>Connection</div><div style={{ color: syncReady ? "var(--ok)" : "var(--warn)", fontWeight: 700, marginBottom: 4 }}>{syncReady ? "Connected" : "Not configured"}</div><div style={{ color: "var(--t2)", fontSize: 13, lineHeight: 1.6 }}>{syncHostLabel}</div></div>
-                                <div style={{ padding: 12, borderRadius: 12, background: "rgba(255,255,255,.03)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 4 }}>Shop ID</div><div style={{ color: "var(--t1)", fontWeight: 700, marginBottom: 4 }}>{syncCfg.shopId}</div><div style={{ color: "var(--t2)", fontSize: 13, lineHeight: 1.6 }}>PocketBase session saved on this device.</div></div>
-                                <div style={{ padding: 12, borderRadius: 12, background: "rgba(255,255,255,.03)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 4 }}>Auto Push</div><div style={{ color: syncCfg.autoSync ? "var(--ok)" : "var(--t1)", fontWeight: 700, marginBottom: 4 }}>{syncCfg.autoSync ? "Enabled" : "Disabled"}</div><div style={{ color: "var(--t2)", fontSize: 13, lineHeight: 1.6 }}>{syncCfg.autoSync ? "Changes will sync automatically when online." : "Use Push Local to Cloud when you want to back up."}</div></div>
+                                <div style={{ padding: 12, borderRadius: 12, background: "rgba(255,255,255,.03)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 4 }}>Connection</div><div style={{ color: syncReady ? "var(--ok)" : "var(--warn)", fontWeight: 700, marginBottom: 4 }}>{syncReady ? "Connected" : "Not configured"}</div><div style={{ color: "var(--t2)", fontSize: 13, lineHeight: 1.6 }}>{syncReady ? "Securely connected" : "Waiting for login"}</div></div>
+                                <div style={{ padding: 12, borderRadius: 12, background: "rgba(255,255,255,.03)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 4 }}>Shop ID</div><div style={{ color: "var(--t1)", fontWeight: 700, marginBottom: 4 }}>{syncCfg.shopId}</div><div style={{ color: "var(--t2)", fontSize: 13, lineHeight: 1.6 }}>Saved on this device</div></div>
+                                <div style={{ padding: 12, borderRadius: 12, background: "rgba(255,255,255,.03)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 4 }}>Automatic Updates</div><div style={{ color: syncCfg.autoSync ? "var(--ok)" : "var(--t1)", fontWeight: 700, marginBottom: 4 }}>{syncCfg.autoSync ? "Enabled" : "Disabled"}</div><div style={{ color: "var(--t2)", fontSize: 13, lineHeight: 1.6 }}>{syncCfg.autoSync ? "Changes update across devices automatically." : "Automatic updates paused on this device."}</div></div>
                             </div>}
-                            <div className="action-row" style={{ marginTop: 8 }}>
-                                <button className="bp" onClick={() => pushSync(false)} disabled={syncBusy}><RefreshCw size={16} /> {syncBusy ? "Working..." : "Push Local to Cloud"}</button>
-                                <button className="bg" onClick={pullSync} disabled={syncBusy}><Download size={16} /> Pull Cloud to Local</button>
-                                <button className="bg" onClick={testSync} disabled={syncBusy}><CheckCircle size={16} /> Test Connection</button>
-                                {syncCfg.connected && !shopSession ? <button className="bg" onClick={() => setSyncEditMode(v => !v)} disabled={syncBusy}><Edit2 size={16} /> {showSyncAdvanced ? "Hide Setup" : "Edit Setup"}</button> : null}
-                            </div>
+                            <div style={{ marginTop: 10, color: "var(--t3)", fontSize: 13 }}>Changes are saved automatically and appear on other logged-in devices.</div>
                         </div>
                         <div className="gc" style={{ marginBottom: 16 }}>
                             <h3 style={{ color: "var(--t1)", fontSize: 15, fontWeight: 600, marginBottom: 14 }}>App Install & Offline</h3>
                             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 12 }}>
                                 <div style={{ padding: 12, borderRadius: 12, background: "rgba(255,255,255,.03)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 4 }}>Install Status</div><div style={{ color: installed ? "var(--ok)" : "var(--t1)", fontWeight: 600 }}>{installed ? "Installed" : installEvt ? "Ready to install" : isIosInstall ? "Use Add to Home Screen" : "Install prompt not ready"}</div></div>
                                 <div style={{ padding: 12, borderRadius: 12, background: "rgba(255,255,255,.03)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 4 }}>Offline Cache</div><div style={{ color: swReady ? "var(--ok)" : "var(--warn)", fontWeight: 600 }}>{swReady ? "Offline cache active" : "Preparing offline cache"}</div></div>
-                                <div style={{ padding: 12, borderRadius: 12, background: "rgba(255,255,255,.03)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 4 }}>Local Data</div><div style={{ color: "var(--t1)", fontWeight: 600 }}>Stored in IndexedDB for faster offline use on this device.</div></div>
+                                <div style={{ padding: 12, borderRadius: 12, background: "rgba(255,255,255,.03)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 4 }}>Local Data</div><div style={{ color: "var(--t1)", fontWeight: 600 }}>Stored securely on this device for offline use.</div></div>
                             </div>
                             <div className="action-row" style={{ marginTop: 8 }}>
                                 {!installed && <button className="bp" onClick={() => void promptInstall()}><Download size={16} /> Install App</button>}
@@ -2712,26 +2618,12 @@ export default function App() {
                                 <div style={{ display: "grid", gap: 10 }}>
                                     <div style={{ padding: 12, borderRadius: 12, background: "rgba(255,255,255,.03)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 4 }}>Connection</div><div style={{ color: ol ? "var(--ok)" : "var(--warn)", fontWeight: 600 }}>{ol ? "Online" : "Offline"} · {syncReady ? "Connected" : "Waiting for setup"}</div></div>
                                     <div style={{ padding: 12, borderRadius: 12, background: "rgba(255,255,255,.03)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 4 }}>Sync State</div><div style={{ color: syncMeta.syncState === "error" ? "var(--err)" : syncMeta.syncState === "offline" ? "var(--warn)" : "var(--t2)", fontWeight: 600 }}>{syncStateLabel}{syncMeta.pendingSync ? " · pending changes" : ""}</div></div>
-                                    <div style={{ padding: 12, borderRadius: 12, background: "rgba(255,255,255,.03)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 4 }}>Last Status</div><div style={{ color: "var(--t2)", fontWeight: 600 }}>{syncCfg.lastStatus}</div></div>
-                                    <div style={{ padding: 12, borderRadius: 12, background: "rgba(255,255,255,.03)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 4 }}>Last Push</div><div style={{ color: "var(--t2)", fontWeight: 600 }}>{syncCfg.lastPushAt ? fmtDateTime(syncCfg.lastPushAt) : "Never"}</div></div>
-                                    <div style={{ padding: 12, borderRadius: 12, background: "rgba(255,255,255,.03)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 4 }}>Last Pull</div><div style={{ color: "var(--t2)", fontWeight: 600 }}>{syncCfg.lastPullAt ? fmtDateTime(syncCfg.lastPullAt) : "Never"}</div></div>
+                                    <div style={{ padding: 12, borderRadius: 12, background: "rgba(255,255,255,.03)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 4 }}>Last Status</div><div style={{ color: "var(--t2)", fontWeight: 600 }}>{sanitizeStatus(syncCfg.lastStatus)}</div></div>
+                                    <div style={{ padding: 12, borderRadius: 12, background: "rgba(255,255,255,.03)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 4 }}>Last Remote Update</div><div style={{ color: "var(--t2)", fontWeight: 600 }}>{syncMeta.lastRemoteSavedAt ? fmtDateTime(syncMeta.lastRemoteSavedAt) : "Never"}</div></div>
+                                    <div style={{ padding: 12, borderRadius: 12, background: "rgba(255,255,255,.03)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 4 }}>Live Updates</div><div style={{ color: "var(--t2)", fontWeight: 600 }}>{syncCfg.autoSync ? "Watching for new changes" : "Paused on this device"}</div></div>
                                 </div>
                             </div>
-                            <div className="gc"><h3 style={{ color: "var(--t1)", fontSize: 15, fontWeight: 600, marginBottom: 12 }}>{shopSession ? "Managed Sync Setup" : "Cloud Setup"}</h3>
-                                <ol style={{ color: "var(--t2)", fontSize: 13, lineHeight: 1.7, paddingLeft: 18 }}>
-                                    {shopSession ? <>
-                                        <li>This shop uses a managed PocketBase sync setup saved by the PhoneDukaan admin.</li>
-                                        <li>Business data is stored in PocketBase and shared across devices for the same shop.</li>
-                                        <li>Customers only need their login ID and password on new devices.</li>
-                                        <li>Use Push and Pull if you want to manually confirm sync.</li>
-                                    </> : <>
-                                        <li>Create a shop login in the admin panel.</li>
-                                        <li>Create the matching PocketBase shop and shop user record.</li>
-                                        <li>Give the customer only their login ID and password.</li>
-                                    </>}
-                                </ol>
-                                <div style={{ marginTop: 12, color: "var(--t3)", fontSize: 12 }}>{shopSession ? "PhoneDukaan admin links the shop account to PocketBase. The app logs in, syncs inventory and transactions, and keeps data updated across devices." : "The browser talks directly to PocketBase for login, storage, files, and realtime updates."}</div>
-                            </div>
+
                         </div>
                     </div>}
 

@@ -9,8 +9,9 @@ const pbUrl = String(
 const COLLECTIONS = {
   shops: 'shops',
   shopUsers: 'shop_users',
-  sync: 'shop_sync',
-  photos: 'shop_photos',
+  inventory: 'inventory',
+  transactions: 'transactions',
+  photos: 'photos',
 }
 
 function ensureUrl() {
@@ -22,9 +23,7 @@ function createClient(auth) {
   const pb = new PocketBase(ensureUrl())
   pb.autoCancellation(false)
   pb.authStore = new BaseAuthStore()
-  if (auth?.token && auth?.record) {
-    pb.authStore.save(auth.token, auth.record)
-  }
+  if (auth?.token && auth?.record) pb.authStore.save(auth.token, auth.record)
   return pb
 }
 
@@ -33,12 +32,21 @@ function buildShopUserEmail(loginId, shopId) {
   return `${safe}@users.phonedukaan.local`
 }
 
-async function getFirstOrNull(service, filter) {
-  try {
-    return await service.getFirstListItem(filter)
-  } catch (error) {
-    if (error?.status === 404) return null
-    throw error
+function shopFilter(shopRecordId) {
+  return `shop="${String(shopRecordId).replace(/"/g, '\\"')}"`
+}
+
+function pbPhotoToRef(pb, record) {
+  const fileField = Array.isArray(record.file) ? record.file[0] : record.file
+  return {
+    id: record.photoId || record.id,
+    fileId: record.id,
+    fileName: fileField || '',
+    mimeType: inferMimeType(fileField),
+    size: 0,
+    uploadedAt: record.uploadedAt || record.created || '',
+    fileUrl: fileField ? pb.files.getURL(record, fileField) : '',
+    syncStatus: fileField ? 'synced' : 'local-only',
   }
 }
 
@@ -48,11 +56,8 @@ export function getPocketBaseUrl() {
 
 export async function pocketbaseAdminLogin(loginId, password) {
   const pb = createClient()
-  const auth = await pb.admins.authWithPassword(String(loginId || '').trim(), String(password || '').trim())
-  return {
-    token: auth.token,
-    record: auth.record,
-  }
+  const auth = await pb.collection('_superusers').authWithPassword(String(loginId || '').trim(), String(password || '').trim())
+  return { token: auth.token, record: auth.record }
 }
 
 export async function pocketbaseListShops(adminAuth) {
@@ -62,21 +67,13 @@ export async function pocketbaseListShops(adminAuth) {
     pb.collection(COLLECTIONS.shopUsers).getFullList({ sort: '-created' }),
   ])
   const usersByShop = new Map()
-  users.forEach((user) => {
-    if (!user.shop) return
-    usersByShop.set(String(user.shop), user)
-  })
-  return shops.map((shop) => {
-    const user = usersByShop.get(String(shop.id))
-    return {
-      shopId: shop.shopId || shop.id,
-      shopName: shop.name || shop.shopName || shop.shopId || shop.id,
-      loginId: user?.username || '',
-      scriptUrl: 'PocketBase',
-      syncKey: 'Managed',
-      updatedAt: shop.updated || shop.created || '',
-    }
-  })
+  users.forEach((user) => { if (user.shop) usersByShop.set(String(user.shop), user) })
+  return shops.map((shop) => ({
+    shopId: shop.shopId || shop.id,
+    shopName: shop.name || shop.shopId || shop.id,
+    loginId: usersByShop.get(String(shop.id))?.username || '',
+    updatedAt: shop.updated || shop.created || '',
+  }))
 }
 
 export async function pocketbaseSaveShop(adminAuth, form) {
@@ -86,16 +83,13 @@ export async function pocketbaseSaveShop(adminAuth, form) {
   const password = String(form.password || '').trim()
   if (!normalizedShopId || !loginId || !password) throw new Error('Shop ID, login ID, and password are required.')
 
-  let shop = await getFirstOrNull(pb.collection(COLLECTIONS.shops), `shopId="${normalizedShopId.replace(/"/g, '\\"')}"`)
-  const shopPayload = {
-    shopId: normalizedShopId,
-    name: String(form.shopName || normalizedShopId).trim() || normalizedShopId,
-  }
-  shop = shop
-    ? await pb.collection(COLLECTIONS.shops).update(shop.id, shopPayload)
-    : await pb.collection(COLLECTIONS.shops).create(shopPayload)
+  let shop = null
+  try { shop = await pb.collection(COLLECTIONS.shops).getFirstListItem(`shopId="${normalizedShopId.replace(/"/g, '\\"')}"`) } catch (e) { if (e?.status !== 404) throw e }
+  const shopPayload = { shopId: normalizedShopId, name: String(form.shopName || normalizedShopId).trim() || normalizedShopId }
+  shop = shop ? await pb.collection(COLLECTIONS.shops).update(shop.id, shopPayload) : await pb.collection(COLLECTIONS.shops).create(shopPayload)
 
-  let user = await getFirstOrNull(pb.collection(COLLECTIONS.shopUsers), `username="${loginId.replace(/"/g, '\\"')}"`)
+  let user = null
+  try { user = await pb.collection(COLLECTIONS.shopUsers).getFirstListItem(`username="${loginId.replace(/"/g, '\\"')}"`) } catch (e) { if (e?.status !== 404) throw e }
   const userPayload = {
     username: loginId,
     email: buildShopUserEmail(loginId, normalizedShopId),
@@ -105,14 +99,7 @@ export async function pocketbaseSaveShop(adminAuth, form) {
     shop: shop.id,
     active: true,
   }
-  user = user
-    ? await pb.collection(COLLECTIONS.shopUsers).update(user.id, userPayload)
-    : await pb.collection(COLLECTIONS.shopUsers).create(userPayload)
-
-  let sync = await getFirstOrNull(pb.collection(COLLECTIONS.sync), `shop="${shop.id}"`)
-  if (!sync) {
-    await pb.collection(COLLECTIONS.sync).create({ shop: shop.id, shopId: normalizedShopId, shopName: shop.name, payload: {}, savedAt: '' })
-  }
+  user = user ? await pb.collection(COLLECTIONS.shopUsers).update(user.id, userPayload) : await pb.collection(COLLECTIONS.shopUsers).create(userPayload)
 
   return { ok: true, shop: { shopId: normalizedShopId, shopName: shop.name, loginId: user.username } }
 }
@@ -129,75 +116,332 @@ export async function pocketbaseShopLogin(loginId, password) {
       id: shop.id,
       shopId: shop.shopId || shop.id,
       shopName: shop.name || shop.shopId || shop.id,
-      scriptUrl: ensureUrl(),
-      syncKey: '',
     },
   }
 }
 
-async function getShopSyncRecord(pb, shopRecordId) {
-  return getFirstOrNull(pb.collection(COLLECTIONS.sync), `shop="${String(shopRecordId)}"`)
+export async function pocketbaseLoadShopBundle(shopAuth) {
+  const pb = createClient(shopAuth)
+  const shopRecordId = shopAuth?.record?.shop
+  if (!shopRecordId) throw new Error('PocketBase shop session is missing shop relation.')
+
+  const [shop, inventory, transactions, photos] = await Promise.all([
+    pb.collection(COLLECTIONS.shops).getOne(shopRecordId),
+    pb.collection(COLLECTIONS.inventory).getFullList({ filter: shopFilter(shopRecordId), sort: '-created' }),
+    pb.collection(COLLECTIONS.transactions).getFullList({ filter: shopFilter(shopRecordId), sort: '-created' }),
+    pb.collection(COLLECTIONS.photos).getFullList({ filter: shopFilter(shopRecordId), sort: '-created' }),
+  ])
+
+  const photosByItemId = new Map()
+  photos.forEach((photo) => {
+    const itemId = String(photo.inventoryItem || '')
+    if (!itemId) return
+    const list = photosByItemId.get(itemId) || []
+    list.push(pbPhotoToRef(pb, photo))
+    photosByItemId.set(itemId, list)
+  })
+
+  return {
+    shop: await shopRecordToProfile(pb, shop),
+    inv: inventory.map((record) => inventoryRecordToItem(record, photosByItemId.get(String(record.id)) || [])),
+    tx: transactions.map(transactionRecordToItem),
+    savedAt: newestTimestamp([shop.updated, ...inventory.map(r => r.updated), ...transactions.map(r => r.updated), ...photos.map(r => r.updated)]),
+  }
 }
 
-export async function pocketbaseSyncAction(shopAuth, action, payload = null) {
+export async function pocketbaseUpsertInventory(shopAuth, item) {
+  const pb = createClient(shopAuth)
+  const shopRecordId = shopAuth?.record?.shop
+  if (!shopRecordId) throw new Error('PocketBase shop session is missing shop relation.')
+  const payload = inventoryItemToRecord(item, shopRecordId)
+  return isPocketbaseId(item?.id)
+    ? pb.collection(COLLECTIONS.inventory).update(item.id, payload)
+    : pb.collection(COLLECTIONS.inventory).create(payload)
+}
+
+export async function pocketbaseDeleteInventory(shopAuth, itemId) {
+  const pb = createClient(shopAuth)
+  if (!isPocketbaseId(itemId)) return
+  const photos = await pb.collection(COLLECTIONS.photos).getFullList({ filter: `inventoryItem="${String(itemId).replace(/"/g, '\\"')}"` })
+  await Promise.all(photos.map((photo) => pb.collection(COLLECTIONS.photos).delete(photo.id)))
+  await pb.collection(COLLECTIONS.inventory).delete(itemId)
+}
+
+export async function pocketbaseCreateTransaction(shopAuth, tx) {
+  const pb = createClient(shopAuth)
+  const shopRecordId = shopAuth?.record?.shop
+  if (!shopRecordId) throw new Error('PocketBase shop session is missing shop relation.')
+  return pb.collection(COLLECTIONS.transactions).create(transactionItemToRecord(tx, shopRecordId))
+}
+
+export async function pocketbaseUpdateShopProfile(shopAuth, profile) {
   const pb = createClient(shopAuth)
   const shopRecordId = shopAuth?.record?.shop
   if (!shopRecordId) throw new Error('PocketBase shop session is missing shop relation.')
   const shop = await pb.collection(COLLECTIONS.shops).getOne(shopRecordId)
+  const nextPayload = shopProfileToRecord(profile, shop)
+  const logoData = String(profile.logoData || '')
 
-  if (action === 'status') {
-    const record = await getShopSyncRecord(pb, shopRecordId)
-    const stored = record?.payload || {}
-    return { ok: true, shopId: shop.shopId || shop.id, hasData: Boolean(record && (stored.inv?.length || stored.tx?.length || stored.shop)), hasShop: Boolean(stored.shop), savedAt: record?.savedAt || '' }
-  }
-
-  if (action === 'pull') {
-    const record = await getShopSyncRecord(pb, shopRecordId)
-    const stored = record?.payload || { version: 3, savedAt: '', inv: [], tx: [], shop: {} }
-    return { ok: true, shopId: shop.shopId || shop.id, savedAt: record?.savedAt || stored.savedAt || '', data: stored }
-  }
-
-  if (action === 'push') {
-    if (!payload || !Array.isArray(payload.inv) || !Array.isArray(payload.tx)) throw new Error('Payload must include inv and tx arrays.')
-    const savedAt = new Date().toISOString()
-    const syncPayload = {
-      version: Number(payload.version || 3),
-      savedAt,
-      inv: payload.inv,
-      tx: payload.tx,
-      shop: payload.shop && typeof payload.shop === 'object' ? payload.shop : {},
-    }
-    const record = await getShopSyncRecord(pb, shopRecordId)
-    const body = { shop: shopRecordId, shopId: shop.shopId || shop.id, shopName: shop.name || shop.shopId || shop.id, payload: syncPayload, savedAt }
-    if (record) await pb.collection(COLLECTIONS.sync).update(record.id, body)
-    else await pb.collection(COLLECTIONS.sync).create(body)
-    return { ok: true, shopId: shop.shopId || shop.id, savedAt }
-  }
-
-  if (action === 'uploadPhoto') {
-    if (!payload?.photoId || !payload?.dataUrl) throw new Error('Photo payload must include photoId and dataUrl.')
-    const file = await dataUrlToFile(payload.dataUrl, payload.fileName || `${payload.photoId}.jpg`, payload.mimeType || 'image/jpeg')
-    let record = await getFirstOrNull(pb.collection(COLLECTIONS.photos), `shop="${shopRecordId}" && photoId="${String(payload.photoId).replace(/"/g, '\\"')}"`)
+  if (logoData.startsWith('data:')) {
     const form = new FormData()
-    form.append('shop', shopRecordId)
-    form.append('photoId', String(payload.photoId))
-    form.append('itemId', String(payload.itemId || ''))
-    form.append('uploadedAt', new Date().toISOString())
-    form.append('file', file)
-    record = record
-      ? await pb.collection(COLLECTIONS.photos).update(record.id, form)
-      : await pb.collection(COLLECTIONS.photos).create(form)
-    const fileField = Array.isArray(record.file) ? record.file[0] : record.file
-    const fileUrl = pb.files.getURL(record, fileField)
-    return { ok: true, shopId: shop.shopId || shop.id, photo: { photoId: payload.photoId, fileId: record.id, fileName: payload.fileName || file.name, mimeType: payload.mimeType || file.type || 'image/jpeg', size: file.size, uploadedAt: record.uploadedAt || new Date().toISOString(), fileUrl } }
+    Object.entries(nextPayload).forEach(([key, value]) => {
+      form.append(key, value == null ? '' : String(value))
+    })
+    form.append('logo', await dataUrlToFile(logoData, 'shop-logo.png', inferMimeTypeFromDataUrl(logoData)))
+    return pb.collection(COLLECTIONS.shops).update(shopRecordId, form)
   }
 
-  throw new Error(`Unsupported sync action: ${action}`)
+  if (!logoData && shop.logo) {
+    nextPayload.logo = null
+  }
+
+  return pb.collection(COLLECTIONS.shops).update(shopRecordId, nextPayload)
+}
+
+export async function pocketbaseUploadPhoto(shopAuth, itemId, photo) {
+  const pb = createClient(shopAuth)
+  const shopRecordId = shopAuth?.record?.shop
+  if (!shopRecordId) throw new Error('PocketBase shop session is missing shop relation.')
+  const file = await dataUrlToFile(photo.dataUrl, photo.fileName || `${photo.id}.jpg`, photo.mimeType || 'image/jpeg')
+  const form = new FormData()
+  form.append('shop', shopRecordId)
+  form.append('photoId', String(photo.id || ''))
+  form.append('inventoryItem', String(itemId || ''))
+  form.append('uploadedAt', new Date().toISOString())
+  form.append('file', file)
+  const record = await pb.collection(COLLECTIONS.photos).create(form)
+  return pbPhotoToRef(pb, record)
+}
+
+let realtimeClient = null
+let realtimeUnsubscribers = []
+
+export async function subscribeToShopData(shopAuth, onChange) {
+  const pb = createClient(shopAuth)
+  realtimeClient = pb
+  const shopRecordId = shopAuth?.record?.shop
+  if (!shopRecordId) return () => {}
+  try {
+    realtimeUnsubscribers = await Promise.all([
+      pb.collection(COLLECTIONS.inventory).subscribe('*', () => onChange()),
+      pb.collection(COLLECTIONS.transactions).subscribe('*', () => onChange()),
+      pb.collection(COLLECTIONS.photos).subscribe('*', () => onChange()),
+      pb.collection(COLLECTIONS.shops).subscribe(shopRecordId, () => onChange()),
+    ])
+  } catch (err) {
+    console.warn('PocketBase realtime subscribe failed:', err?.message)
+    return () => {}
+  }
+  return () => unsubscribeFromShopData()
+}
+
+export function unsubscribeFromShopData() {
+  realtimeUnsubscribers.forEach((fn) => {
+    try { fn() } catch {}
+  })
+  realtimeUnsubscribers = []
+  if (realtimeClient) {
+    try { realtimeClient.realtime.disconnect() } catch {}
+    realtimeClient = null
+  }
+}
+
+function inventoryRecordToItem(record, photos) {
+  return {
+    id: record.id,
+    imei: record.imei || '',
+    imei2: record.imei2 || '',
+    brand: record.brand || 'Samsung',
+    model: record.model || '',
+    color: record.color || '',
+    ram: record.ram || '',
+    storage: record.storage || '',
+    batteryHealth: record.batteryHealth || '',
+    condition: record.condition || 'New',
+    buyPrice: Number(record.buyPrice || 0),
+    sellPrice: Number(record.sellPrice || 0),
+    status: record.status || 'In Stock',
+    qty: Number(record.qty || 0),
+    addedDate: record.addedDate || '',
+    supplier: record.supplier || '',
+    customerName: record.customerName || '',
+    customerPhone: record.customerPhone || '',
+    soldDate: record.soldDate || '',
+    lastInvoiceNo: record.lastInvoiceNo || '',
+    photos,
+  }
+}
+
+function transactionRecordToItem(record) {
+  return {
+    id: record.id,
+    type: record.type || 'Buy',
+    stockItemId: record.inventoryItem || '',
+    imei: record.imei || '',
+    imei2: record.imei2 || '',
+    brand: record.brand || '',
+    model: record.model || '',
+    color: record.color || '',
+    ram: record.ram || '',
+    storage: record.storage || '',
+    batteryHealth: record.batteryHealth || '',
+    condition: record.condition || '',
+    customerName: record.customerName || '',
+    phone: record.phone || '',
+    amount: Number(record.amount || 0),
+    paidAmount: Number(record.paidAmount || 0),
+    dueAmount: Number(record.dueAmount || 0),
+    costPrice: Number(record.costPrice || 0),
+    paymentMode: record.paymentMode || 'Cash',
+    invoiceNo: record.invoiceNo || '',
+    billType: record.billType || 'NON GST',
+    gstRate: Number(record.gstRate || 0),
+    taxableAmount: Number(record.taxableAmount || 0),
+    gstAmount: Number(record.gstAmount || 0),
+    cgstAmount: Number(record.cgstAmount || 0),
+    sgstAmount: Number(record.sgstAmount || 0),
+    totalAmount: Number(record.totalAmount || 0),
+    date: record.date || '',
+    dateTime: record.dateTime || '',
+    notes: record.notes || '',
+    shopSnapshot: null,
+  }
+}
+
+function inventoryItemToRecord(item, shopRecordId) {
+  return {
+    shop: shopRecordId,
+    imei: item.imei || '',
+    imei2: item.imei2 || '',
+    brand: item.brand || '',
+    model: item.model || '',
+    color: item.color || '',
+    ram: item.ram || '',
+    storage: item.storage || '',
+    batteryHealth: item.batteryHealth || '',
+    condition: item.condition || 'New',
+    buyPrice: Number(item.buyPrice || 0),
+    sellPrice: Number(item.sellPrice || 0),
+    status: item.status || 'In Stock',
+    qty: Number(item.qty || 0),
+    supplier: item.supplier || '',
+    addedDate: item.addedDate || '',
+    customerName: item.customerName || '',
+    customerPhone: item.customerPhone || '',
+    soldDate: item.soldDate || '',
+    lastInvoiceNo: item.lastInvoiceNo || '',
+  }
+}
+
+function transactionItemToRecord(item, shopRecordId) {
+  return {
+    shop: shopRecordId,
+    inventoryItem: item.stockItemId || '',
+    type: item.type || 'Buy',
+    invoiceNo: item.invoiceNo || '',
+    imei: item.imei || '',
+    imei2: item.imei2 || '',
+    brand: item.brand || '',
+    model: item.model || '',
+    color: item.color || '',
+    ram: item.ram || '',
+    storage: item.storage || '',
+    batteryHealth: item.batteryHealth || '',
+    condition: item.condition || '',
+    customerName: item.customerName || '',
+    phone: item.phone || '',
+    amount: Number(item.amount || 0),
+    paidAmount: Number(item.paidAmount || 0),
+    dueAmount: Number(item.dueAmount || 0),
+    costPrice: Number(item.costPrice || 0),
+    paymentMode: item.paymentMode || 'Cash',
+    billType: item.billType || 'NON GST',
+    gstRate: Number(item.gstRate || 0),
+    taxableAmount: Number(item.taxableAmount || 0),
+    gstAmount: Number(item.gstAmount || 0),
+    cgstAmount: Number(item.cgstAmount || 0),
+    sgstAmount: Number(item.sgstAmount || 0),
+    totalAmount: Number(item.totalAmount || 0),
+    date: item.date || '',
+    dateTime: item.dateTime || '',
+    notes: item.notes || '',
+  }
+}
+
+async function shopRecordToProfile(pb, shop) {
+  const logoField = Array.isArray(shop.logo) ? shop.logo[0] : shop.logo
+  return {
+    shopName: shop.name || '',
+    legalName: shop.legalName || shop.name || '',
+    logoData: logoField ? await fileUrlToDataUrl(pb.files.getURL(shop, logoField)) : '',
+    address: shop.address || '',
+    location: shop.location || '',
+    phone: shop.phone || '',
+    email: shop.email || '',
+    gstin: shop.gstin || '',
+    state: shop.state || '',
+    stateCode: shop.stateCode || '',
+    invoicePrefix: shop.invoicePrefix || 'INV',
+    defaultBillType: shop.defaultBillType || 'NON GST',
+    defaultGstRate: Number(shop.defaultGstRate || 18),
+    footer: shop.footer || '',
+    terms: shop.terms || '',
+  }
+}
+
+function shopProfileToRecord(profile, currentShop = {}) {
+  return {
+    shopId: currentShop.shopId || '',
+    name: profile.shopName || currentShop.name || '',
+    legalName: profile.legalName || '',
+    address: profile.address || '',
+    location: profile.location || '',
+    phone: profile.phone || '',
+    email: profile.email || '',
+    gstin: profile.gstin || '',
+    state: profile.state || '',
+    stateCode: profile.stateCode || '',
+    invoicePrefix: profile.invoicePrefix || 'INV',
+    defaultBillType: profile.defaultBillType || 'NON GST',
+    defaultGstRate: Number(profile.defaultGstRate || 18),
+    footer: profile.footer || '',
+    terms: profile.terms || '',
+  }
+}
+
+function isPocketbaseId(value) {
+  return /^[a-z0-9]{15}$/i.test(String(value || ''))
+}
+
+function inferMimeType(name = '') {
+  const lower = String(name).toLowerCase()
+  if (lower.endsWith('.png')) return 'image/png'
+  if (lower.endsWith('.webp')) return 'image/webp'
+  return 'image/jpeg'
+}
+
+function inferMimeTypeFromDataUrl(dataUrl = '') {
+  const match = String(dataUrl).match(/^data:([^;,]+)[;,]/i)
+  return match?.[1] || 'image/png'
+}
+
+function newestTimestamp(values) {
+  return values.filter(Boolean).sort().at(-1) || ''
 }
 
 async function dataUrlToFile(dataUrl, fileName, mimeType) {
   const response = await fetch(dataUrl)
   const blob = await response.blob()
-  const contentType = mimeType || blob.type || 'application/octet-stream'
-  return new File([blob], fileName, { type: contentType })
+  return new File([blob], fileName, { type: mimeType || blob.type || 'application/octet-stream' })
+}
+
+async function fileUrlToDataUrl(url) {
+  const response = await fetch(url)
+  const blob = await response.blob()
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result || ''))
+    reader.onerror = reject
+    reader.readAsDataURL(blob)
+  })
 }

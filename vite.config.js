@@ -41,9 +41,10 @@ export default defineConfig({
           },
           {
             urlPattern: ({ request }) => ['script', 'style', 'worker'].includes(request.destination),
-            handler: 'StaleWhileRevalidate',
+            handler: 'NetworkFirst',
             options: {
               cacheName: 'app-assets',
+              networkTimeoutSeconds: 3,
             },
           },
           {

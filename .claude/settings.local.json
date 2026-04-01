@@ -11,7 +11,9 @@
       "Bash(python -c \"import base64; data = open\\(''C:/Users/rct/Desktop/Mobnage/public/pd-icon.png'',''rb''\\).read\\(\\); print\\(len\\(data\\)\\); b = base64.b64encode\\(data\\).decode\\(\\); print\\(b[:80]\\); print\\(''...''\\); print\\(len\\(b\\)\\)\")",
       "Bash(node -e \"const fs=require\\(''fs''\\);const d=fs.readFileSync\\(''C:/Users/rct/Desktop/Mobnage/public/pd-icon.png''\\);const b=d.toString\\(''base64''\\);console.log\\(''size:'',d.length,''b64len:'',b.length\\);console.log\\(b.slice\\(0,80\\)\\)\")",
       "Bash(node -e \"const fs=require\\(''fs''\\);const d=fs.readFileSync\\(''C:\\\\Users\\\\rct\\\\Desktop\\\\Mobnage\\\\public\\\\pd-icon.png''\\);const b=d.toString\\(''base64''\\);console.log\\(''size:'',d.length,''b64len:'',b.length\\)\")",
-      "Bash(npx vite:*)"
+      "Bash(npx vite:*)",
+      "Bash(npm install:*)",
+      "WebSearch"
     ]
   }
 }
