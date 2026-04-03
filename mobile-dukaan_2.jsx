@@ -7,7 +7,7 @@ import {
     User, Phone, Calendar, Hash, Palette, HardDrive, Tag, Layers, LogOut,
     ChevronRight, CreditCard, Banknote, QrCode, LayoutGrid, List, Bell,
     ImagePlus, Images, ChevronLeft, ZoomIn, RotateCcw, Upload, Aperture, Battery,
-    Download, Share2, Lock, MapPin, Mail, Printer, Zap
+    Download, Share2, Lock, MapPin, Mail, Printer, Zap, Shield, Clock
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, CartesianGrid, Legend, AreaChart, Area } from "recharts";
 import { loadAppState, loadSyncState, saveAppState, saveSyncState, savePhotoBlob, loadPhotoBlob, deletePhotoBlob } from "./app-storage.js";
@@ -93,6 +93,8 @@ const DEFAULT_SHOP_PROFILE = {
     invoicePrefix: "INV",
     defaultBillType: "NON GST",
     defaultGstRate: 18,
+    hsnCode: "8517",
+    stickerShowPrice: true,
     footer: "Handset checked and delivered in working condition.",
     terms: "Goods once sold will be serviced as per shop policy.",
 };
@@ -103,6 +105,21 @@ const extractScanImei = (raw = "") => {
     const text = String(raw || "");
     const match = text.match(/\d{15}/);
     return cleanImei(match ? match[0] : text);
+};
+const playScanBeep = () => {
+    try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        const ctx = new AudioCtx();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine"; osc.frequency.value = 920;
+        gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.045, ctx.currentTime + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.12);
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.start(); osc.stop(ctx.currentTime + 0.13);
+    } catch { }
 };
 const photoIdFromLegacy = (value = "", index = 0) => `photo-${index}-${String(value).slice(0, 24).replace(/[^a-z0-9]/gi, "").toLowerCase() || genId()}`;
 const normalizePhotoRef = (photo, index = 0) => {
@@ -142,6 +159,11 @@ const sanitizeStatus = (value = "") => {
         .replace(/\b\d{1,3}(?:\.\d{1,3}){3}(?::\d+)?\b/g, "")
         .replace(/\s{2,}/g, " ")
         .trim();
+};
+const maskAadhaar = (value = "") => {
+    const digits = String(value || "").replace(/\D/g, "");
+    if (digits.length < 4) return value || "—";
+    return `XXXX XXXX ${digits.slice(-4)}`;
 };
 const stripPhotoForCloud = (photo) => {
     const ref = normalizePhotoRef(photo);
@@ -213,6 +235,33 @@ const fmtSpecs = (ram = "", storage = "") => [String(ram || "").trim(), String(s
 const roundMoney = (n) => Math.round((Number(n || 0) + Number.EPSILON) * 100) / 100;
 const formatMoney = (n) => Number(roundMoney(n)).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtMoney = (n) => `Rs ${formatMoney(n)}`;
+const amountInWords = (num) => {
+    const n = Math.abs(roundMoney(num));
+    if (n === 0) return "Rupees Zero Only";
+    const ones = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
+    const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+    const twoDigit = (v) => {
+        if (v === 0) return "";
+        if (v < 20) return ones[v];
+        return tens[Math.floor(v / 10)] + (v % 10 ? " " + ones[v % 10] : "");
+    };
+    const integer = Math.floor(n);
+    const paise = Math.round((n - integer) * 100);
+    let remaining = integer;
+    const parts = [];
+    const crore = Math.floor(remaining / 10000000);
+    if (crore) { parts.push(twoDigit(crore) + " Crore"); remaining %= 10000000; }
+    const lakh = Math.floor(remaining / 100000);
+    if (lakh) { parts.push(twoDigit(lakh) + " Lakh"); remaining %= 100000; }
+    const thousand = Math.floor(remaining / 1000);
+    if (thousand) { parts.push(twoDigit(thousand) + " Thousand"); remaining %= 1000; }
+    const hundred = Math.floor(remaining / 100);
+    if (hundred) { parts.push(ones[hundred] + " Hundred"); remaining %= 100; }
+    if (remaining) parts.push(twoDigit(remaining));
+    let result = "Rupees " + parts.join(" ");
+    if (paise > 0) result += " and " + twoDigit(paise) + " Paise";
+    return result + " Only";
+};
 const pickText = (value, fallback = "") => value === undefined || value === null ? fallback : String(value);
 const migrateLegacyName = (value, fallback = APP_NAME) => {
     const text = pickText(value, fallback);
@@ -232,10 +281,12 @@ const normalizeShopProfile = (cfg = {}) => ({
     invoicePrefix: pickText(cfg.invoicePrefix, DEFAULT_SHOP_PROFILE.invoicePrefix).replace(/\s+/g, "").toUpperCase(),
     defaultBillType: cfg.defaultBillType === "GST" ? "GST" : "NON GST",
     defaultGstRate: cfg.defaultGstRate === "" ? "" : Number(cfg.defaultGstRate ?? DEFAULT_SHOP_PROFILE.defaultGstRate) || 18,
+    hsnCode: pickText(cfg.hsnCode, DEFAULT_SHOP_PROFILE.hsnCode),
+    stickerShowPrice: cfg.stickerShowPrice === undefined ? true : !!cfg.stickerShowPrice,
     footer: pickText(cfg.footer, DEFAULT_SHOP_PROFILE.footer),
     terms: pickText(cfg.terms, DEFAULT_SHOP_PROFILE.terms),
 });
-const createEmptyForm = (shop = DEFAULT_SHOP_PROFILE) => ({ imei: "", imei2: "", brand: "Samsung", model: "", color: "", ram: "", storage: "128GB", batteryHealth: "", condition: "New", buyPrice: "", sellPrice: "", status: "In Stock", qty: "1", supplier: "", customerName: "", phone: "", amount: "", paidAmount: "", dueAmount: "0", paymentMode: "Cash", notes: "", photos: [], billType: shop.defaultBillType || "NON GST", gstRate: String(shop.defaultGstRate || 18) });
+const createEmptyForm = (shop = DEFAULT_SHOP_PROFILE) => ({ imei: "", imei2: "", brand: "Samsung", model: "", color: "", ram: "", storage: "128GB", batteryHealth: "", condition: "New", buyPrice: "", sellPrice: "", status: "In Stock", qty: "1", supplier: "", customerName: "", phone: "", amount: "", paidAmount: "", dueAmount: "0", paymentMode: "Cash", notes: "", photos: [], sellerName: "", sellerPhone: "", sellerAadhaarNumber: "", purchaseDate: isoDate(), sellerAgreementAccepted: false, sellerIdPhotoData: "", sellerPhotoData: "", sellerSignatureData: "", warrantyType: "No Warranty", warrantyMonths: "", billType: shop.defaultBillType || "NON GST", gstRate: String(shop.defaultGstRate || 18) });
 const calcInvoiceTotals = (amount, billType = "NON GST", gstRate = 18) => {
     const total = roundMoney(amount);
     const rate = Number(gstRate || 0);
@@ -277,6 +328,26 @@ const makeInvoiceNo = (tx, prefix = DEFAULT_SHOP_PROFILE.invoicePrefix) => {
     const now = new Date();
     return `${prefix}-${now.getFullYear().toString().slice(-2)}${String(now.getMonth() + 1).padStart(2, "0")}-${String(tx.filter(t => t.type === "Sell").length + 1).padStart(4, "0")}`;
 };
+const WARRANTY_TYPES = ["No Warranty", "Testing Warranty", "1 Year Warranty"];
+const getWarrantyStatus = (item) => {
+    if (!item.warrantyType || item.warrantyType === "No Warranty") return { label: "Out of Warranty", active: false, remaining: "" };
+    const months = item.warrantyType === "1 Year Warranty" ? 12 : Number(item.warrantyMonths || 0);
+    if (!months || !item.purchaseDate) return { label: "Out of Warranty", active: false, remaining: "" };
+    const start = new Date(item.purchaseDate);
+    if (isNaN(start.getTime())) return { label: "Out of Warranty", active: false, remaining: "" };
+    const end = new Date(start);
+    end.setMonth(end.getMonth() + months);
+    const now = new Date();
+    if (now >= end) return { label: "Out of Warranty", active: false, remaining: "Expired" };
+    const diffMs = end - now;
+    const totalDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+    const m = Math.floor(totalDays / 30);
+    const d = totalDays % 30;
+    const parts = [];
+    if (m > 0) parts.push(`${m} month${m > 1 ? "s" : ""}`);
+    if (d > 0) parts.push(`${d} day${d > 1 ? "s" : ""}`);
+    return { label: parts.join(" ") + " remaining", active: true, remaining: parts.join(" ") };
+};
 const normalizeInv = (it = {}) => ({
     id: it.id || genId(),
     imei: cleanImei(it.imei || it.imei1),
@@ -295,8 +366,18 @@ const normalizeInv = (it = {}) => ({
     addedDate: it.addedDate || new Date().toISOString().slice(0, 10),
     supplier: it.supplier || "",
     photos: Array.isArray(it.photos) ? it.photos.map(normalizePhotoRef) : [],
+    sellerName: it.sellerName || "",
+    sellerPhone: it.sellerPhone || "",
+    sellerAadhaarNumber: it.sellerAadhaarNumber || "",
+    purchaseDate: it.purchaseDate || "",
+    sellerAgreementAccepted: !!it.sellerAgreementAccepted,
+    sellerIdPhotoData: it.sellerIdPhotoData || it.sellerIdPhotoUrl || "",
+    sellerPhotoData: it.sellerPhotoData || it.sellerPhotoUrl || "",
+    sellerSignatureData: it.sellerSignatureData || it.sellerSignatureUrl || "",
     customerName: it.customerName || "",
     customerPhone: it.customerPhone || "",
+    warrantyType: it.warrantyType || "No Warranty",
+    warrantyMonths: Number(it.warrantyMonths || 0),
     soldDate: it.soldDate || "",
     lastInvoiceNo: it.lastInvoiceNo || "",
 });
@@ -331,6 +412,10 @@ const normalizeTx = (it = {}) => ({
     date: it.date || new Date().toISOString().slice(0, 10),
     dateTime: it.dateTime || `${it.date || new Date().toISOString().slice(0, 10)}T12:00:00`,
     notes: it.notes || "",
+    sellerName: it.sellerName || "",
+    sellerPhone: it.sellerPhone || "",
+    sellerAadhaarNumber: it.sellerAadhaarNumber || "",
+    purchaseDate: it.purchaseDate || "",
     whatsAppMessageAt: it.whatsAppMessageAt || "",
     whatsAppPdfAt: it.whatsAppPdfAt || "",
     shopSnapshot: it.shopSnapshot ? normalizeShopProfile(it.shopSnapshot) : null,
@@ -388,146 +473,428 @@ const makeInvoiceText = (sale, shop) => `${shop.shopName} ${sale.invoiceNo || "I
 const buildInvoiceDoc = async (sale, shop) => {
     const { jsPDF } = await import("jspdf");
     const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const accent = [20, 71, 120];
-    const soft = [242, 246, 250];
-    const ink = [35, 43, 53];
-    const muted = [102, 112, 122];
-    const billTypeLabel = sale.billType === "GST" ? "GST TAX INVOICE" : "INVOICE";
-    const shopProfile = getSaleShop(sale, shop);
-    const qty = 1;
+    const pw = doc.internal.pageSize.getWidth();
+    const ph = doc.internal.pageSize.getHeight();
+    const ml = 12, mr = 12, cw = pw - ml - mr;
+    const accent = [22, 54, 92];
+    const accent2 = [38, 90, 140];
+    const gold = [180, 140, 60];
+    const dark = [25, 25, 30];
+    const mid = [90, 100, 110];
+    const soft = [130, 140, 150];
+    const bg = [245, 247, 250];
+    const bgAlt = [235, 239, 244];
+    const border = [190, 198, 210];
+    const white = [255, 255, 255];
+    const isGST = sale.billType === "GST";
+    const billLabel = isGST ? "TAX INVOICE" : "INVOICE";
+    const sp = getSaleShop(sale, shop);
+    const hsn = sp.hsnCode || "";
+    const unitRate = isGST ? sale.taxableAmount : (sale.totalAmount || sale.amount);
+    const totalAmt = sale.totalAmount || sale.amount;
+    const rX = pw - mr; // right edge
 
+    // ═══════ OUTER BORDER ═══════
+    doc.setDrawColor(...accent);
+    doc.setLineWidth(0.6);
+    doc.rect(ml - 2, 6, cw + 4, ph - 12);
+    doc.setDrawColor(...gold);
+    doc.setLineWidth(0.2);
+    doc.rect(ml - 1, 7, cw + 2, ph - 14);
+
+    // ═══════ HEADER SECTION ═══════
     doc.setFillColor(...accent);
-    doc.rect(0, 0, pageWidth, 38, "F");
-    doc.setFillColor(...soft);
-    doc.roundedRect(12, 46, pageWidth - 24, pageHeight - 58, 4, 4, "F");
-    doc.setDrawColor(225, 232, 238);
-    doc.roundedRect(12, 46, pageWidth - 24, pageHeight - 58, 4, 4);
+    doc.rect(ml, 10, cw, 28, "F");
 
-    if (shopProfile.logoData) {
+    // Decorative gold line under header
+    doc.setFillColor(...gold);
+    doc.rect(ml, 38, cw, 1.2, "F");
+
+    // Logo
+    let hx = ml + 6;
+    if (sp.logoData) {
         try {
-            doc.addImage(shopProfile.logoData, "PNG", 14, 9, 18, 18);
+            doc.setFillColor(255, 255, 255);
+            doc.roundedRect(ml + 3, 13, 22, 22, 1.5, 1.5, "F");
+            doc.addImage(sp.logoData, "PNG", ml + 4, 14, 20, 20);
         } catch {
-            try { doc.addImage(shopProfile.logoData, "JPEG", 14, 9, 18, 18); } catch { }
+            try { doc.addImage(sp.logoData, "JPEG", ml + 4, 14, 20, 20); } catch { }
         }
+        hx = ml + 28;
     }
 
+    // Shop name
     doc.setTextColor(255, 255, 255);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(18);
-    doc.text(shopProfile.shopName || shopProfile.legalName, shopProfile.logoData ? 36 : 14, 17);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9.5);
-    const headLines = [shopProfile.address, shopProfile.location, [shopProfile.phone, shopProfile.email].filter(Boolean).join("  |  "), shopProfile.gstin ? `GSTIN: ${shopProfile.gstin}` : ""].filter(Boolean);
-    doc.text(headLines, shopProfile.logoData ? 36 : 14, 24);
+    doc.text(sp.shopName || sp.legalName, hx, 21);
 
+    // Shop details line 1: address
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(200, 215, 230);
+    const addrLine = [sp.address, sp.location].filter(Boolean).join(", ");
+    if (addrLine) doc.text(addrLine, hx, 27);
+    // Shop details line 2: phone | email
+    const contactLine = [sp.phone, sp.email].filter(Boolean).join("  |  ");
+    if (contactLine) doc.text(contactLine, hx, 32);
+
+    // Invoice badge (right side)
     doc.setFillColor(255, 255, 255);
-    doc.roundedRect(pageWidth - 72, 9, 58, 20, 3, 3, "F");
+    doc.roundedRect(rX - 52, 13, 50, 10, 1.5, 1.5, "F");
     doc.setTextColor(...accent);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(11);
-    doc.text(billTypeLabel, pageWidth - 43, 17, { align: "center" });
+    doc.text(billLabel, rX - 27, 20, { align: "center" });
+    // Invoice number below badge
+    doc.setTextColor(200, 215, 230);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8.5);
-    doc.text(`Invoice: ${sale.invoiceNo || "-"}`, pageWidth - 43, 23, { align: "center" });
+    doc.text(`# ${sale.invoiceNo || "-"}`, rX - 27, 29, { align: "center" });
 
-    doc.setTextColor(...ink);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(11);
-    doc.text("Bill To", 18, 58);
-    doc.text("Invoice Details", pageWidth - 78, 58);
-    doc.setDrawColor(220, 226, 232);
-    doc.line(18, 61, pageWidth - 18, 61);
+    let cy = 42;
 
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9.5);
-    const customerLines = [sale.customerName || "Walk-in customer", sale.phone || "Phone not saved", sale.notes || "No special remarks"].filter(Boolean);
-    doc.text(doc.splitTextToSize(customerLines.join("\n"), 90), 18, 68);
-    const invoiceMeta = [
-        `Date: ${fmtDateTime(sale.dateTime || sale.date)}`,
-        `Payment: ${sale.paymentMode || "Cash"}`,
-        `State: ${shopProfile.state || "-"}`,
-        `State Code: ${shopProfile.stateCode || "-"}`,
-    ];
-    doc.text(invoiceMeta, pageWidth - 78, 68);
+    // ═══════ GSTIN BAR ═══════
+    if (isGST && sp.gstin) {
+        doc.setFillColor(...bgAlt);
+        doc.rect(ml, cy, cw, 7, "F");
+        doc.setDrawColor(...border);
+        doc.setLineWidth(0.15);
+        doc.line(ml, cy + 7, ml + cw, cy + 7);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(8);
+        doc.setTextColor(...accent);
+        doc.text(`GSTIN: ${sp.gstin}`, ml + 4, cy + 5);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(...mid);
+        doc.text(`State: ${sp.state || "-"}  |  Code: ${sp.stateCode || "-"}`, rX - 2, cy + 5, { align: "right" });
+        cy += 9;
+    } else {
+        cy += 2;
+    }
 
-    const tableY = 100;
+    // ═══════ BILL TO + INVOICE DETAILS (side by side in bordered boxes) ═══════
+    const boxY = cy + 1;
+    const boxH = 30;
+    const halfW = cw / 2 - 1;
+
+    // Left box: Bill To
+    doc.setDrawColor(...border);
+    doc.setLineWidth(0.25);
+    doc.rect(ml, boxY, halfW, boxH);
     doc.setFillColor(...accent);
-    doc.rect(18, tableY, pageWidth - 36, 10, "F");
+    doc.rect(ml, boxY, halfW, 6, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.setTextColor(255, 255, 255);
+    doc.text("BILL TO", ml + 3, boxY + 4.2);
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(...dark);
+    doc.text(sale.customerName || "Walk-in Customer", ml + 3, boxY + 12);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8.5);
+    doc.setTextColor(...mid);
+    doc.text(`Phone: ${sale.phone || "Not provided"}`, ml + 3, boxY + 18);
+    if (sale.notes) {
+        const nw = doc.splitTextToSize(sale.notes, halfW - 6);
+        doc.setFontSize(7.5);
+        doc.text(nw.slice(0, 2), ml + 3, boxY + 24);
+    }
+
+    // Right box: Invoice Details
+    const rbX = ml + halfW + 2;
+    doc.setDrawColor(...border);
+    doc.rect(rbX, boxY, halfW, boxH);
+    doc.setFillColor(...accent);
+    doc.rect(rbX, boxY, halfW, 6, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.setTextColor(255, 255, 255);
+    doc.text("INVOICE DETAILS", rbX + 3, boxY + 4.2);
+
+    const detailPairs = [
+        ["Invoice No.", sale.invoiceNo || "-"],
+        ["Date", fmtDateTime(sale.dateTime || sale.date)],
+        ["Payment", sale.paymentMode || "Cash"],
+    ];
+    if (sp.state && !isGST) detailPairs.push(["State", sp.state]);
+    let dy = boxY + 12;
+    detailPairs.forEach(([label, val]) => {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8);
+        doc.setTextColor(...soft);
+        doc.text(label + ":", rbX + 3, dy);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(...dark);
+        doc.text(val, rbX + 28, dy);
+        dy += 5.5;
+    });
+
+    cy = boxY + boxH + 4;
+
+    // ═══════ ITEM TABLE ═══════
+    const tY = cy;
+
+    // Column positions (right columns sized for "Rs XX,XX,XXX.XX")
+    const c1 = ml;           // S.No start
+    const c2 = ml + 12;      // Description start
+    const c6 = rX;           // Amount right edge
+    const c5r = c6 - 2;      // Amount right text edge
+    const c5 = c6 - 34;      // Amount col start
+    const c4r = c5 - 2;      // Rate right text edge
+    const c4 = c5 - 34;      // Rate col start
+    const c3r = c4;          // Qty right edge
+    const c3 = c4 - 12;      // Qty col start
+    const c2r = c3;          // HSN right edge (or Qty if no HSN)
+    const cHsn = hsn ? c3 - 18 : c3; // HSN col start
+
+    // Table header
+    doc.setFillColor(...accent);
+    doc.rect(ml, tY, cw, 8, "F");
     doc.setTextColor(255, 255, 255);
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(9.5);
-    doc.text("Description", 22, tableY + 6.5);
-    doc.text("Qty", pageWidth - 70, tableY + 6.5, { align: "right" });
-    doc.text("Amount", pageWidth - 22, tableY + 6.5, { align: "right" });
+    doc.setFontSize(7.5);
+    doc.text("S.No", c1 + 3, tY + 5.5);
+    doc.text("Description", c2 + 2, tY + 5.5);
+    if (hsn) doc.text("HSN", cHsn + 2, tY + 5.5);
+    doc.text("Qty", c3 + 2, tY + 5.5);
+    doc.text("Rate", c4r, tY + 5.5, { align: "right" });
+    doc.text("Amount", c5r, tY + 5.5, { align: "right" });
 
-    doc.setTextColor(...ink);
-    doc.setFont("helvetica", "normal");
-    const description = [
+    // Vertical lines in header
+    doc.setDrawColor(255, 255, 255, 80);
+    doc.setLineWidth(0.15);
+    const vLines = [c2, ...(hsn ? [cHsn] : []), c3, c4, c5];
+    vLines.forEach(x => doc.line(x, tY + 1, x, tY + 7));
+
+    // Table row
+    const descMaxW = (hsn ? cHsn : c3) - c2 - 4;
+    const descText = [
         `${sale.brand} ${sale.model}`,
-        `Color: ${sale.color || "-"}   Specs: ${fmtSpecs(sale.ram, sale.storage)}   Condition: ${sale.condition || "-"}`,
-        `IMEI 1: ${sale.imei}`,
-        `IMEI 2: ${sale.imei2 || "Not provided"}`,
-    ].join("\n");
-    const descLines = doc.splitTextToSize(description, pageWidth - 90);
-    const rowHeight = Math.max(24, descLines.length * 5 + 6);
-    doc.rect(18, tableY + 10, pageWidth - 36, rowHeight);
-    doc.setFontSize(9.2);
-    doc.text(descLines, 22, tableY + 16);
-    doc.text(String(qty), pageWidth - 70, tableY + 16, { align: "right" });
-    doc.text(fmtMoney(sale.totalAmount || sale.amount), pageWidth - 22, tableY + 16, { align: "right" });
+        [sale.color ? `Color: ${sale.color}` : "", fmtSpecs(sale.ram, sale.storage) !== "-" ? `Specs: ${fmtSpecs(sale.ram, sale.storage)}` : "", sale.condition ? `Condition: ${sale.condition}` : ""].filter(Boolean).join("  |  "),
+        `IMEI 1: ${sale.imei || "-"}`,
+        sale.imei2 ? `IMEI 2: ${sale.imei2}` : "",
+    ].filter(Boolean).join("\n");
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    const descLines = doc.splitTextToSize(descText, descMaxW);
+    const rowH = Math.max(20, descLines.length * 4.2 + 8);
+    const rowY = tY + 8;
 
-    const totalsY = tableY + rowHeight + 26;
-    doc.setFillColor(255, 255, 255);
-    doc.roundedRect(pageWidth - 88, totalsY, 70, sale.billType === "GST" ? 44 : 30, 3, 3, "F");
-    doc.setDrawColor(220, 226, 232);
-    doc.roundedRect(pageWidth - 88, totalsY, 70, sale.billType === "GST" ? 44 : 30, 3, 3);
-    doc.setTextColor(...muted);
+    // Row background
+    doc.setFillColor(...bg);
+    doc.rect(ml, rowY, cw, rowH, "F");
+
+    // Row border
+    doc.setDrawColor(...border);
+    doc.setLineWidth(0.2);
+    doc.rect(ml, rowY, cw, rowH);
+
+    // Vertical grid lines in row
+    vLines.forEach(x => doc.line(x, rowY, x, rowY + rowH));
+
+    // Row data
+    doc.setTextColor(...dark);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8.5);
+    doc.text("1", (c1 + c2) / 2, rowY + 6, { align: "center" });
+
+    // Description - first line bold
+    doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
-    doc.text("Taxable Amount", pageWidth - 84, totalsY + 8);
-    doc.setTextColor(...ink);
-    doc.text(fmtMoney(sale.taxableAmount), pageWidth - 22, totalsY + 8, { align: "right" });
-    let totalsCursor = totalsY + 15;
-    if (sale.billType === "GST") {
-        doc.setTextColor(...muted);
-        doc.text(`CGST (${formatMoney(sale.gstRate / 2)}%)`, pageWidth - 84, totalsCursor);
-        doc.setTextColor(...ink);
-        doc.text(fmtMoney(sale.cgstAmount), pageWidth - 22, totalsCursor, { align: "right" });
-        totalsCursor += 7;
-        doc.setTextColor(...muted);
-        doc.text(`SGST (${formatMoney(sale.gstRate / 2)}%)`, pageWidth - 84, totalsCursor);
-        doc.setTextColor(...ink);
-        doc.text(fmtMoney(sale.sgstAmount), pageWidth - 22, totalsCursor, { align: "right" });
-        totalsCursor += 9;
-    } else {
-        totalsCursor += 4;
+    doc.text(`${sale.brand} ${sale.model}`, c2 + 2, rowY + 6);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.8);
+    doc.setTextColor(...mid);
+    const detailLines = descLines.slice(1);
+    if (detailLines.length) doc.text(detailLines, c2 + 2, rowY + 11);
+
+    if (hsn) {
+        doc.setTextColor(...dark);
+        doc.setFontSize(8);
+        doc.text(hsn, cHsn + 3, rowY + 6);
     }
-    doc.setDrawColor(225, 232, 238);
-    doc.line(pageWidth - 84, totalsCursor - 3, pageWidth - 22, totalsCursor - 3);
+    doc.setTextColor(...dark);
+    doc.setFontSize(8.5);
+    doc.text("1", (c3 + c4) / 2, rowY + 6, { align: "center" });
+    doc.text(fmtMoney(unitRate), c4r, rowY + 6, { align: "right" });
     doc.setFont("helvetica", "bold");
-    doc.text("Grand Total", pageWidth - 84, totalsCursor + 2);
-    doc.text(fmtMoney(sale.totalAmount || sale.amount), pageWidth - 22, totalsCursor + 2, { align: "right" });
-    doc.setFont("helvetica", "normal");
-    doc.text(`Paid: ${fmtMoney(sale.paidAmount)}`, pageWidth - 84, totalsCursor + 10);
-    doc.text(`Due: ${fmtMoney(sale.dueAmount)}`, pageWidth - 22, totalsCursor + 10, { align: "right" });
+    doc.text(fmtMoney(totalAmt), c5r, rowY + 6, { align: "right" });
 
-    const notesY = totalsY + 58;
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(...ink);
-    doc.text("Terms & Notes", 18, notesY);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9.2);
-    const notesLines = doc.splitTextToSize([sale.notes || "No additional sale notes.", shopProfile.terms, shopProfile.footer].filter(Boolean).join("\n\n"), pageWidth - 100);
-    doc.text(notesLines, 18, notesY + 7);
+    // Bottom table border (thick)
+    doc.setDrawColor(...accent);
+    doc.setLineWidth(0.4);
+    doc.line(ml, rowY + rowH, ml + cw, rowY + rowH);
 
-    doc.setDrawColor(220, 226, 232);
-    doc.line(pageWidth - 72, pageHeight - 34, pageWidth - 20, pageHeight - 34);
+    cy = rowY + rowH + 2;
+
+    // ═══════ AMOUNT IN WORDS BAR ═══════
+    doc.setFillColor(...bgAlt);
+    doc.rect(ml, cy, cw, 8, "F");
+    doc.setDrawColor(...border);
+    doc.setLineWidth(0.15);
+    doc.rect(ml, cy, cw, 8);
     doc.setFont("helvetica", "bold");
-    doc.text("Authorised Signatory", pageWidth - 46, pageHeight - 28, { align: "center" });
+    doc.setFontSize(7.5);
+    doc.setTextColor(...accent);
+    doc.text("Amount in Words:", ml + 3, cy + 5.2);
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(8);
+    doc.setTextColor(...dark);
+    const wordsStr = amountInWords(totalAmt);
+    doc.text(wordsStr, ml + 32, cy + 5.2, { maxWidth: cw - 36 });
+
+    cy += 10;
+
+    // ═══════ BOTTOM SECTION: Terms (left) + Totals (right) ═══════
+    const totW = 82;
+    const totX = rX - totW;
+    const termsW = totX - ml - 4;
+    const secStartY = cy;
+
+    // ── Totals Section (right) with border ──
+    const totH = isGST ? 56 : 38;
+    doc.setDrawColor(...border);
+    doc.setLineWidth(0.25);
+    doc.rect(totX, secStartY, totW, totH);
+
+    // Totals header
+    doc.setFillColor(...accent);
+    doc.rect(totX, secStartY, totW, 6, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.setTextColor(255, 255, 255);
+    doc.text("AMOUNT DETAILS", totX + totW / 2, secStartY + 4.2, { align: "center" });
+
+    let tCur = secStartY + 10;
+    const totLx = totX + 3;
+    const totRx = rX - 2;
+
+    // Taxable Amount
     doc.setFont("helvetica", "normal");
-    doc.setTextColor(...muted);
-    doc.text(billTypeLabel, 18, pageHeight - 20);
+    doc.setFontSize(8);
+    doc.setTextColor(...mid);
+    doc.text(isGST ? "Taxable Amount" : "Sub Total", totLx, tCur);
+    doc.setTextColor(...dark);
+    doc.text(fmtMoney(sale.taxableAmount), totRx, tCur, { align: "right" });
+    tCur += 6;
+
+    if (isGST) {
+        doc.setTextColor(...mid);
+        doc.text(`CGST @ ${formatMoney(sale.gstRate / 2)}%`, totLx, tCur);
+        doc.setTextColor(...dark);
+        doc.text(fmtMoney(sale.cgstAmount), totRx, tCur, { align: "right" });
+        tCur += 6;
+        doc.setTextColor(...mid);
+        doc.text(`SGST @ ${formatMoney(sale.gstRate / 2)}%`, totLx, tCur);
+        doc.setTextColor(...dark);
+        doc.text(fmtMoney(sale.sgstAmount), totRx, tCur, { align: "right" });
+        tCur += 6;
+    }
+
+    // Divider before grand total
+    doc.setDrawColor(...accent);
+    doc.setLineWidth(0.3);
+    doc.line(totLx, tCur, totRx, tCur);
+    tCur += 5;
+
+    // Grand Total (highlighted row)
+    doc.setFillColor(...accent);
+    doc.rect(totX, tCur - 3.5, totW, 9, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(255, 255, 255);
+    doc.text("GRAND TOTAL", totLx, tCur + 2);
+    doc.text(fmtMoney(totalAmt), totRx, tCur + 2, { align: "right" });
+    tCur += 10;
+
+    // Paid / Due row
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(...mid);
+    doc.text("Paid:", totLx, tCur);
+    doc.setTextColor(...dark);
+    doc.setFont("helvetica", "bold");
+    doc.text(fmtMoney(sale.paidAmount), totLx + 12, tCur);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...mid);
+    doc.text("Due:", totX + totW / 2 + 2, tCur);
+    const dueColor = Number(sale.dueAmount || 0) > 0 ? [190, 40, 40] : dark;
+    doc.setTextColor(...dueColor);
+    doc.setFont("helvetica", "bold");
+    doc.text(fmtMoney(sale.dueAmount), totRx, tCur, { align: "right" });
+
+    // ── Terms Section (left) ──
+    doc.setDrawColor(...border);
+    doc.setLineWidth(0.25);
+    doc.rect(ml, secStartY, termsW, totH);
+    doc.setFillColor(...accent);
+    doc.rect(ml, secStartY, termsW, 6, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.setTextColor(255, 255, 255);
+    doc.text("TERMS & CONDITIONS", ml + 3, secStartY + 4.2);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    doc.setTextColor(...mid);
+    const termsText = [sp.terms, sp.footer].filter(Boolean).join("\n");
+    const tLines = doc.splitTextToSize(termsText || "Thank you for your purchase.", termsW - 6);
+    doc.text(tLines.slice(0, 6), ml + 3, secStartY + 12);
+
+    cy = secStartY + totH + 4;
+
+    // ═══════ DECLARATION + SIGNATURE ═══════
+    const footSecY = cy;
+    const footH = 32;
+    doc.setDrawColor(...border);
+    doc.setLineWidth(0.25);
+    doc.rect(ml, footSecY, cw, footH);
+    // Vertical divider splitting left/right
+    const footMidX = ml + cw / 2;
+    doc.line(footMidX, footSecY, footMidX, footSecY + footH);
+
+    // Left: Declaration
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.setTextColor(...accent);
+    doc.text("Declaration:", ml + 3, footSecY + 5);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7);
+    doc.setTextColor(...mid);
+    const declText = "We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.";
+    const declLines = doc.splitTextToSize(declText, cw / 2 - 8);
+    doc.text(declLines, ml + 3, footSecY + 10);
+
+    // Right: Signature
+    const sigCenterX = footMidX + cw / 4;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.setTextColor(...accent);
+    doc.text(`For ${sp.shopName || sp.legalName}`, sigCenterX, footSecY + 5, { align: "center" });
+
+    // Signature line
+    doc.setDrawColor(...accent);
+    doc.setLineWidth(0.3);
+    const sigLineY = footSecY + footH - 8;
+    doc.line(sigCenterX - 28, sigLineY, sigCenterX + 28, sigLineY);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    doc.setTextColor(...mid);
+    doc.text("Authorised Signatory", sigCenterX, sigLineY + 4, { align: "center" });
+
+    // ═══════ PAGE FOOTER ═══════
+    const footerY = footSecY + footH + 4;
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(7);
+    doc.setTextColor(...soft);
+    doc.text("Thank you for your business!", pw / 2, footerY, { align: "center" });
+    doc.setFont("helvetica", "normal");
+    doc.text(billLabel, ml, footerY);
+    doc.text("Page 1 of 1", rX, footerY, { align: "right" });
+
     return doc;
 };
 const makeInvoiceFile = async (sale, shop) => {
@@ -679,8 +1046,11 @@ const makeReportFile = async ({ rows, summary, reportType, rangeLabel, shop }) =
 };
 const buildStickerDoc = async (item, shop) => {
     const { jsPDF } = await import("jspdf");
-    const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: [30, 50] });
     const shopProfile = normalizeShopProfile(shop || DEFAULT_SHOP_PROFILE);
+    const isUsedOrRefurb = item.condition === "Used" || item.condition === "Refurbished";
+    const hasWarrantyInfo = isUsedOrRefurb && item.warrantyType && item.warrantyType !== "No Warranty";
+    const stickerH = hasWarrantyInfo ? 34 : 30;
+    const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: [stickerH, 50] });
     const accent = [20, 71, 120];
     const ink = [28, 36, 44];
     const muted = [95, 103, 112];
@@ -690,9 +1060,9 @@ const buildStickerDoc = async (item, shop) => {
     const brandLines = doc.splitTextToSize(brandLine || "Mobile", 45);
 
     doc.setFillColor(...paper);
-    doc.rect(0, 0, 50, 30, "F");
+    doc.rect(0, 0, 50, stickerH, "F");
     doc.setDrawColor(210, 217, 224);
-    doc.roundedRect(0.8, 0.8, 48.4, 28.4, 1.2, 1.2);
+    doc.roundedRect(0.8, 0.8, 48.4, stickerH - 1.6, 1.2, 1.2);
 
     doc.setFillColor(...accent);
     doc.rect(0, 0, 50, 5.2, "F");
@@ -742,6 +1112,40 @@ const buildStickerDoc = async (item, shop) => {
         doc.setFont("courier", "bold");
         doc.setFontSize(5.8);
         doc.text(item.imei2, 12.2, 27.0);
+    }
+
+    const warranty = getWarrantyStatus(item);
+    const bottomY = item.imei2 ? 24.3 : 27.0;
+
+    if (shopProfile.stickerShowPrice && (item.sellPrice || item.buyPrice)) {
+        const price = item.sellPrice || item.buyPrice;
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(6);
+        doc.setTextColor(...accent);
+        doc.text(`Rs ${formatMoney(price)}`, 48, bottomY, { align: "right" });
+    }
+
+    if (hasWarrantyInfo) {
+        // Expand sticker height to fit warranty line
+        const wY = 29;
+        doc.setFillColor(240, 248, 240);
+        doc.rect(0, wY - 2.5, 50, 3.5, "F");
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(4.2);
+        if (warranty.active) {
+            doc.setTextColor(30, 130, 60);
+            const wLabel = `W: ${warranty.remaining}`;
+            doc.text(wLabel, 2.2, wY);
+        } else {
+            doc.setTextColor(160, 80, 40);
+            doc.text("WARRANTY EXPIRED", 2.2, wY);
+        }
+        if (item.purchaseDate) {
+            doc.setTextColor(...muted);
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(4);
+            doc.text(`Purch: ${fmtDate(item.purchaseDate)}`, 48, wY, { align: "right" });
+        }
     }
 
     return doc;
@@ -922,6 +1326,118 @@ function PhotoUp({ photos = [], onChange, max = 6 }) {
             <input ref={fr} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={addFile} />
             {cam && <CamCap onCapture={cap} onClose={() => setCam(false)} />}
             {photos.length > 0 && <div style={{ color: "var(--t3)", fontSize: 11, marginTop: 6 }}>{photos.length}/{max} photos</div>}
+        </div>
+    );
+}
+
+function SingleImageInput({ label, value, onChange, accept = "image/*" }) {
+    const inputRef = useRef(null);
+    const pickFile = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const previewDataUrl = await createPreviewDataUrl(file);
+        onChange(previewDataUrl);
+        e.target.value = "";
+    };
+    return (
+        <div style={{ display: "grid", gap: 8 }}>
+            <div style={{ width: "100%", maxWidth: 180, aspectRatio: "4/3", borderRadius: 12, overflow: "hidden", border: "1px solid var(--gbo)", background: "rgba(255,255,255,.03)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                {value
+                    ? <img src={value} alt={label} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    : <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, color: "var(--t3)", fontSize: 12 }}><ImagePlus size={20} /><span>{label}</span></div>}
+            </div>
+            <div className="action-row">
+                <button className="bg" type="button" onClick={() => inputRef.current?.click()}><Upload size={16} /> Upload</button>
+                {value ? <button className="bg" type="button" onClick={() => onChange("")}><Trash2 size={16} /> Remove</button> : null}
+            </div>
+            <input ref={inputRef} type="file" accept={accept} style={{ display: "none" }} onChange={pickFile} />
+        </div>
+    );
+}
+
+function SignaturePad({ value, onChange }) {
+    const canvasRef = useRef(null);
+    const drawingRef = useRef(false);
+
+    useEffect(() => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext("2d");
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        if (!value) return;
+        const img = new Image();
+        img.onload = () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        };
+        img.src = value;
+    }, [value]);
+
+    const getPos = (event) => {
+        const canvas = canvasRef.current;
+        const rect = canvas.getBoundingClientRect();
+        const touch = event.touches?.[0];
+        const clientX = touch ? touch.clientX : event.clientX;
+        const clientY = touch ? touch.clientY : event.clientY;
+        return {
+            x: ((clientX - rect.left) / rect.width) * canvas.width,
+            y: ((clientY - rect.top) / rect.height) * canvas.height,
+        };
+    };
+
+    const start = (event) => {
+        const canvas = canvasRef.current;
+        const ctx = canvas.getContext("2d");
+        const pos = getPos(event);
+        drawingRef.current = true;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = "#ffffff";
+        ctx.beginPath();
+        ctx.moveTo(pos.x, pos.y);
+        event.preventDefault?.();
+    };
+
+    const move = (event) => {
+        if (!drawingRef.current) return;
+        const canvas = canvasRef.current;
+        const ctx = canvas.getContext("2d");
+        const pos = getPos(event);
+        ctx.lineTo(pos.x, pos.y);
+        ctx.stroke();
+        event.preventDefault?.();
+    };
+
+    const end = () => {
+        if (!drawingRef.current) return;
+        drawingRef.current = false;
+        onChange(canvasRef.current.toDataURL("image/png"));
+    };
+
+    const clear = () => {
+        const canvas = canvasRef.current;
+        const ctx = canvas.getContext("2d");
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        onChange("");
+    };
+
+    return (
+        <div style={{ display: "grid", gap: 8 }}>
+            <canvas
+                ref={canvasRef}
+                width={560}
+                height={220}
+                style={{ width: "100%", borderRadius: 12, border: "1px solid var(--gbo)", background: "rgba(255,255,255,.03)", touchAction: "none" }}
+                onMouseDown={start}
+                onMouseMove={move}
+                onMouseUp={end}
+                onMouseLeave={end}
+                onTouchStart={start}
+                onTouchMove={move}
+                onTouchEnd={end}
+            />
+            <div className="action-row"><button className="bg" type="button" onClick={clear}><RotateCcw size={16} /> Clear Signature</button></div>
         </div>
     );
 }
@@ -1288,6 +1804,13 @@ export default function App() {
     const lastSavedShopProfileSignatureRef = useRef('');
     const notifyTimeoutRef = useRef(null);
     const shopProfileDirtyRef = useRef(false);
+    const scannerBufRef = useRef("");
+    const scannerLastKeyRef = useRef(0);
+    const scannerTimeoutRef = useRef(null);
+    const pgRef = useRef(null);
+    const fmRef = useRef(null);
+    const invRef = useRef(null);
+    const scsRef = useRef(false);
 
     const ef = useMemo(() => createEmptyForm(shopCfg), [shopCfg]);
     const [fm, sFm] = useState(ef);
@@ -1462,7 +1985,8 @@ export default function App() {
         if (k === "imei" || k === "imei2") next[k] = cleanImei(v);
         if (k === "amount" || k === "paidAmount") {
             const total = Number(k === "amount" ? v : next.amount) || 0;
-            const paid = Number(k === "paidAmount" ? v : next.paidAmount) || 0;
+            let paid = Number(k === "paidAmount" ? v : next.paidAmount) || 0;
+            if (paid > total && total > 0) { paid = total; next.paidAmount = String(total); }
             next.dueAmount = String(Math.max(total - paid, 0));
         }
         if (k === "gstRate") next.gstRate = String(v).replace(/[^\d.]/g, "");
@@ -1511,6 +2035,49 @@ export default function App() {
         };
         window.addEventListener("popstate", handlePopState);
         return () => window.removeEventListener("popstate", handlePopState);
+    }, []);
+    // ── sync refs for hardware barcode scanner ──
+    useEffect(() => { pgRef.current = pg; }, [pg]);
+    useEffect(() => { fmRef.current = fm; }, [fm]);
+    useEffect(() => { invRef.current = inv; }, [inv]);
+    useEffect(() => { scsRef.current = scs; }, [scs]);
+    // ── hardware barcode scanner (USB / Bluetooth) ──
+    useEffect(() => {
+        const CHAR_GAP_MS = 50;
+        const MIN_LENGTH = 10;
+        const IDLE_RESET_MS = 200;
+        const handleKeyDown = (e) => {
+            const now = Date.now();
+            const gap = now - scannerLastKeyRef.current;
+            scannerLastKeyRef.current = now;
+            if (scsRef.current) return;
+            if (e.key === "Enter") {
+                const buf = scannerBufRef.current;
+                if (buf.length >= MIN_LENGTH) {
+                    const imei = extractScanImei(buf);
+                    if (hasImei(imei)) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const ae = document.activeElement;
+                        if (ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA")) ae.blur();
+                        processScannerImei(imei);
+                    }
+                }
+                scannerBufRef.current = "";
+                clearTimeout(scannerTimeoutRef.current);
+                return;
+            }
+            if (e.key.length !== 1) return;
+            if (gap > CHAR_GAP_MS) scannerBufRef.current = "";
+            scannerBufRef.current += e.key;
+            clearTimeout(scannerTimeoutRef.current);
+            scannerTimeoutRef.current = setTimeout(() => { scannerBufRef.current = ""; }, IDLE_RESET_MS);
+        };
+        window.addEventListener("keydown", handleKeyDown, true);
+        return () => {
+            window.removeEventListener("keydown", handleKeyDown, true);
+            clearTimeout(scannerTimeoutRef.current);
+        };
     }, []);
     // ────────────────────────────────────────
     useEffect(() => {
@@ -1638,6 +2205,7 @@ export default function App() {
             markSyncConnected({ lastPullAt: bundle.savedAt || new Date().toISOString(), lastStatus: `Realtime synced · ${bundle.savedAt ? fmtDateTime(bundle.savedAt) : 'Just now'}` });
             updateSyncMeta(current => ({ ...current, pendingSync: false, syncState: ol ? "synced" : "offline", lastRemoteSavedAt: bundle.savedAt || current.lastRemoteSavedAt, lastCheckedAt: new Date().toISOString(), syncError: "" }));
         } catch (e) {
+            console.error('[PhoneDukaan] sync failed:', e);
             const msg = e?.message || "Unable to load data.";
             updateSyncMeta(current => ({ ...current, syncState: ol ? "error" : "offline", syncError: msg, lastCheckedAt: new Date().toISOString() }));
             if (!silent) notify(msg, "error");
@@ -1743,6 +2311,51 @@ export default function App() {
         sSf(false); sPg(st === "buy" || st === "buy2" ? "buy" : "add");
     };
 
+    const processScannerImei = (imei) => {
+        playScanBeep();
+        const curPg = pgRef.current;
+        const curFm = fmRef.current;
+        const curInv = invRef.current;
+        if (curPg === "sell") {
+            const live = curInv.find(i => matchImei(i, imei) && i.status === "In Stock" && i.qty > 0);
+            if (live) {
+                sFm(toForm(live, { amount: live.sellPrice, paidAmount: live.sellPrice, dueAmount: 0, customerName: "", phone: "", notes: "" }));
+                notify("Device found — ready to sell", "success");
+            } else {
+                sFm(toForm({}, { imei }));
+                notify("No matching device. IMEI filled.", "warning");
+            }
+            return;
+        }
+        if (curPg === "add" || curPg === "buy") {
+            if (hasImei(cleanImei(curFm.imei)) && cleanImei(curFm.imei) !== imei) {
+                uf("imei2", imei);
+                const ex = findDeviceByImei(curInv, imei);
+                notify(ex ? "IMEI 2 set — already exists in history" : "IMEI 2 scanned", ex ? "warning" : "success");
+            } else {
+                const ex = findDeviceByImei(curInv, imei);
+                if (ex) { sEi(ex); sFm(toForm(ex)); notify("IMEI found — editing existing", "warning"); }
+                else { uf("imei", imei); notify("IMEI scanned", "success"); }
+            }
+            return;
+        }
+        const ex = findDeviceByImei(curInv, imei);
+        if (ex && ex.status === "In Stock") {
+            sFm(toForm(ex, { amount: ex.sellPrice, paidAmount: ex.sellPrice, dueAmount: 0, customerName: "", phone: "", notes: "" }));
+            goPage("sell");
+            notify("Device found in stock — sell form ready", "success");
+        } else if (ex) {
+            sEi(ex); sFm(toForm(ex));
+            goPage("add");
+            notify("IMEI found — editing existing record", "warning");
+        } else {
+            resetForm();
+            setTimeout(() => uf("imei", imei), 0);
+            goPage("add");
+            notify("New IMEI scanned — add to stock", "success");
+        }
+    };
+
     const validateFormImeis = (skipId) => {
         const i1 = cleanImei(fm.imei), i2 = cleanImei(fm.imei2);
         if (!hasImei(i1)) return "IMEI 1 must be 15 digits.";
@@ -1757,7 +2370,7 @@ export default function App() {
         const imeiError = validateFormImeis(ei?.id);
         if (imeiError) { notify(imeiError, "error"); return; }
         if (!fm.model || !fm.brand) { notify("Brand and model are required!", "error"); return; }
-        if (!(+fm.buyPrice > 0) || !(+fm.sellPrice > 0)) { notify("Buy and sell price are required.", "error"); return; }
+        if (!(+fm.sellPrice > 0)) { notify("Sell price is required.", "error"); return; }
         const nextItem = normalizeInv({ ...ei, ...fm, imei: fm.imei, imei2: fm.imei2, buyPrice: +fm.buyPrice, sellPrice: +fm.sellPrice, qty: ei?.status === "Sold" ? 0 : 1, photos: fm.photos || [], addedDate: ei?.addedDate || new Date().toISOString().slice(0, 10) });
         try {
             const savedRecord = await pocketbaseUpsertInventory(shopSession?.pbAuth, nextItem);
@@ -1799,14 +2412,29 @@ export default function App() {
         const imeiError = validateFormImeis();
         if (imeiError) { notify(imeiError, "error"); return; }
         if (!fm.model || !fm.supplier) { notify("Fill required!", "error"); return; }
-        if (!(+fm.buyPrice > 0) || !(+fm.sellPrice > 0)) { notify("Buy and sell price are required.", "error"); return; }
-        const item = normalizeInv({ id: genId(), imei: fm.imei, imei2: fm.imei2, brand: fm.brand, model: fm.model, color: fm.color, ram: fm.ram, storage: fm.storage, batteryHealth: fm.batteryHealth, condition: fm.condition, buyPrice: +fm.buyPrice, sellPrice: +fm.sellPrice, status: "In Stock", qty: 1, addedDate: new Date().toISOString().slice(0, 10), supplier: fm.supplier, photos: fm.photos || [] });
+        if (!(+fm.sellPrice > 0)) { notify("Sell price is required.", "error"); return; }
+        const requiresSellerVerification = fm.condition === "Used" || fm.condition === "Refurbished";
+        if (requiresSellerVerification) {
+            if (!fm.sellerName.trim() || !fm.sellerPhone.trim() || !fm.sellerAadhaarNumber.trim() || !fm.purchaseDate) {
+                notify("Seller name, phone, Aadhaar number, and purchase date are required for used/refurbished purchases.", "error");
+                return;
+            }
+            if (String(fm.sellerAadhaarNumber).replace(/\D/g, "").length !== 12) {
+                notify("Seller Aadhaar number must be 12 digits.", "error");
+                return;
+            }
+            if (!fm.sellerIdPhotoData || !fm.sellerPhotoData || !fm.sellerSignatureData || !fm.sellerAgreementAccepted) {
+                notify("Seller ID photo, seller photo, signature, and agreement confirmation are required for used/refurbished purchases.", "error");
+                return;
+            }
+        }
+        const item = normalizeInv({ id: genId(), imei: fm.imei, imei2: fm.imei2, brand: fm.brand, model: fm.model, color: fm.color, ram: fm.ram, storage: fm.storage, batteryHealth: fm.batteryHealth, condition: fm.condition, buyPrice: +fm.buyPrice, sellPrice: +fm.sellPrice, status: "In Stock", qty: 1, addedDate: new Date().toISOString().slice(0, 10), supplier: fm.supplier, photos: fm.photos || [], sellerName: fm.sellerName, sellerPhone: fm.sellerPhone, sellerAadhaarNumber: fm.sellerAadhaarNumber, purchaseDate: fm.purchaseDate, sellerAgreementAccepted: fm.sellerAgreementAccepted, sellerIdPhotoData: fm.sellerIdPhotoData, sellerPhotoData: fm.sellerPhotoData, sellerSignatureData: fm.sellerSignatureData });
         try {
             const savedRecord = await pocketbaseUpsertInventory(shopSession?.pbAuth, item);
             const savedItemBase = normalizeInv({ ...item, id: savedRecord.id });
             const uploadedPhotos = await uploadPendingPhotosForItem(savedRecord.id, savedItemBase.photos || []);
             const savedItem = { ...savedItemBase, photos: uploadedPhotos.photos };
-            const txItem = normalizeTx({ id: genId(), type: "Buy", stockItemId: savedItem.id, imei: savedItem.imei, imei2: savedItem.imei2, brand: savedItem.brand, model: savedItem.model, color: savedItem.color, ram: savedItem.ram, storage: savedItem.storage, batteryHealth: savedItem.batteryHealth, condition: savedItem.condition, customerName: fm.supplier, phone: fm.phone, amount: +fm.buyPrice, paidAmount: +fm.buyPrice, dueAmount: 0, paymentMode: fm.paymentMode, date: new Date().toISOString().slice(0, 10), dateTime: new Date().toISOString(), notes: fm.notes });
+            const txItem = normalizeTx({ id: genId(), type: "Buy", stockItemId: savedItem.id, imei: savedItem.imei, imei2: savedItem.imei2, brand: savedItem.brand, model: savedItem.model, color: savedItem.color, ram: savedItem.ram, storage: savedItem.storage, batteryHealth: savedItem.batteryHealth, condition: savedItem.condition, customerName: fm.supplier, phone: fm.phone, amount: +fm.buyPrice, paidAmount: +fm.buyPrice, dueAmount: 0, paymentMode: fm.paymentMode, date: new Date().toISOString().slice(0, 10), dateTime: new Date().toISOString(), notes: fm.notes, sellerName: fm.sellerName, sellerPhone: fm.sellerPhone, sellerAadhaarNumber: fm.sellerAadhaarNumber, purchaseDate: fm.purchaseDate });
             const savedTx = await pocketbaseCreateTransaction(shopSession?.pbAuth, txItem);
             sInv(p => [savedItem, ...p]);
             sTx(p => [normalizeTx({ ...txItem, id: savedTx.id, stockItemId: savedItem.id }), ...p]);
@@ -1879,7 +2507,7 @@ export default function App() {
             imei2: t.imei2,
             amount: t.type === "Sell" ? (t.totalAmount || t.amount || 0) : (t.amount || 0),
             dueAmount: t.dueAmount || 0,
-            profit: t.type === "Sell" ? (((t.billType === "GST" ? t.taxableAmount : t.amount) || 0) - (t.costPrice || 0)) : 0,
+            profit: t.type === "Sell" ? ((t.amount || 0) - (t.costPrice || 0)) : 0,
             invoiceNo: t.invoiceNo || "",
             billType: t.billType || "",
             paymentMode: t.paymentMode || "",
@@ -2230,7 +2858,9 @@ export default function App() {
                                 <F l="Storage" ic={HardDrive}><StorageInput value={fm.storage} onChange={v => uf("storage", v)} /></F>
                                 <F l="Battery Health (Optional)" ic={Battery}><input className="gi" value={fm.batteryHealth} onChange={e => uf("batteryHealth", e.target.value)} placeholder="e.g. 92%" /></F>
                                 <F l="Condition" ic={Layers}><select className="gs" value={fm.condition} onChange={e => uf("condition", e.target.value)}>{CONDITIONS.map(c => <option key={c}>{c}</option>)}</select></F>
-                                <F l="Buy Price" ic={IndianRupee}><input className="gi" type="number" value={fm.buyPrice} onChange={e => uf("buyPrice", e.target.value)} placeholder="₹0" /></F>
+                                <F l="Warranty" ic={Shield}><select className="gs" value={fm.warrantyType || "No Warranty"} onChange={e => uf("warrantyType", e.target.value)}>{WARRANTY_TYPES.map(w => <option key={w}>{w}</option>)}</select></F>
+                                {fm.warrantyType === "Testing Warranty" && <F l="Warranty Period (Months)" ic={Clock}><input className="gi" type="number" min="1" max="36" value={fm.warrantyMonths} onChange={e => uf("warrantyMonths", e.target.value)} placeholder="e.g. 3" /></F>}
+                                <F l="Buy Price (Optional)" ic={IndianRupee}><input className="gi" type="number" value={fm.buyPrice} onChange={e => uf("buyPrice", e.target.value)} placeholder="₹0" /></F>
                                 <F l="Sell Price" ic={IndianRupee}><input className="gi" type="number" value={fm.sellPrice} onChange={e => uf("sellPrice", e.target.value)} placeholder="₹0" /></F>
                                 <F l="Serialized Stock" ic={Package}><div className="gi" style={{ display: "flex", alignItems: "center", minHeight: 48 }}>Each mobile saves as qty 1. Use Buy when you want to record supplier purchase details too.</div></F>
                                 <F l="Supplier (Optional)" ic={User}><input className="gi" value={fm.supplier} onChange={e => uf("supplier", e.target.value)} placeholder="Supplier" /></F>
@@ -2290,6 +2920,7 @@ export default function App() {
                                             {it.color && <span style={{ color: "var(--t2)", fontSize: 10, background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.1)", padding: "2px 8px", borderRadius: 20 }}>{it.color}</span>}
                                             <span style={{ color: "var(--t2)", fontSize: 10, background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.1)", padding: "2px 8px", borderRadius: 20 }}>{fmtSpecs(it.ram, it.storage)}</span>
                                             {it.batteryHealth && <span style={{ color: "var(--t2)", fontSize: 10, background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.1)", padding: "2px 8px", borderRadius: 20 }}>Battery {it.batteryHealth}</span>}
+                                            {(() => { const w = getWarrantyStatus(it); return w.active ? <span style={{ color: "var(--ok)", fontSize: 10, background: "rgba(0,200,100,.08)", border: "1px solid rgba(0,200,100,.2)", padding: "2px 8px", borderRadius: 20 }}>{w.label}</span> : it.warrantyType && it.warrantyType !== "No Warranty" ? <span style={{ color: "var(--t3)", fontSize: 10, background: "rgba(255,255,255,.05)", border: "1px solid rgba(255,255,255,.08)", padding: "2px 8px", borderRadius: 20 }}>Out of Warranty</span> : null; })()}
                                             <span className={`ba ${statBadge(it.status)}`} style={{ fontSize: 10, padding: "2px 8px" }}>{it.status}</span>
                                         </div>
                                     </div>
@@ -2366,14 +2997,28 @@ export default function App() {
                                     <span className={`ba ${condBadge(di.condition)}`} style={{ fontSize: 12 }}>{di.condition}</span>
                                 </div>
                                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 20 }}>
-                                    {[{ l: "Color", v: di.color || "—", ic: Palette }, { l: "RAM", v: di.ram || "—", ic: Layers }, { l: "Storage", v: di.storage, ic: HardDrive }, { l: "Battery", v: di.batteryHealth || "—", ic: Battery }, { l: "Status", v: di.status, ic: Tag }, { l: "Supplier", v: di.supplier || "—", ic: User }, { l: "Added", v: fmtDate(di.addedDate), ic: Calendar }, { l: "Invoice", v: di.lastInvoiceNo || "—", ic: FileText }, { l: "Sold To", v: di.customerName || "—", ic: Phone }].map((d, i) =>
-                                        <div key={i}><div style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--t3)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}><d.ic size={12} /> {d.l}</div><div style={{ color: "var(--t1)", fontSize: 14, fontWeight: 500 }}>{d.v}</div></div>
+                                    {[{ l: "Color", v: di.color || "—", ic: Palette }, { l: "RAM", v: di.ram || "—", ic: Layers }, { l: "Storage", v: di.storage, ic: HardDrive }, { l: "Battery", v: di.batteryHealth || "—", ic: Battery }, { l: "Warranty", v: (() => { const w = getWarrantyStatus(di); return w.active ? w.label : w.label; })(), ic: Shield, color: getWarrantyStatus(di).active ? "var(--ok)" : "var(--t3)" }, { l: "Status", v: di.status, ic: Tag }, { l: "Supplier", v: di.supplier || "—", ic: User }, { l: "Added", v: fmtDate(di.addedDate), ic: Calendar }, { l: "Invoice", v: di.lastInvoiceNo || "—", ic: FileText }, { l: "Sold To", v: di.customerName || "—", ic: Phone }].map((d, i) =>
+                                        <div key={i}><div style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--t3)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}><d.ic size={12} /> {d.l}</div><div style={{ color: d.color || "var(--t1)", fontSize: 14, fontWeight: 500 }}>{d.v}</div></div>
                                     )}
                                 </div>
+                                {(di.condition === "Used" || di.condition === "Refurbished") && <div className="gc" style={{ background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.08)", marginBottom: 16 }}>
+                                    <h3 style={{ color: "var(--t1)", fontSize: 15, fontWeight: 600, marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}><Lock size={16} style={{ color: "var(--warn)" }} /> Seller Verification</h3>
+                                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 12, marginBottom: 14 }}>
+                                        {[{ l: "Seller Name", v: di.sellerName || "—", ic: User }, { l: "Seller Phone", v: di.sellerPhone || "—", ic: Phone }, { l: "Aadhaar", v: maskAadhaar(di.sellerAadhaarNumber), ic: Hash }, { l: "Purchase Date", v: di.purchaseDate ? fmtDate(di.purchaseDate) : "—", ic: Calendar }].map((d, i) =>
+                                            <div key={`seller-${i}`}><div style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--t3)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}><d.ic size={12} /> {d.l}</div><div style={{ color: "var(--t1)", fontSize: 14, fontWeight: 500 }}>{d.v}</div></div>
+                                        )}
+                                    </div>
+                                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 12 }}>
+                                        <div><div style={{ color: "var(--t3)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", marginBottom: 6 }}>Seller ID Photo</div>{di.sellerIdPhotoData ? <img src={di.sellerIdPhotoData} alt="Seller ID" style={{ width: "100%", maxWidth: 220, aspectRatio: "4/3", objectFit: "cover", borderRadius: 12, border: "1px solid var(--gbo)" }} /> : <div style={{ color: "var(--t3)", fontSize: 13 }}>Not uploaded</div>}</div>
+                                        <div><div style={{ color: "var(--t3)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", marginBottom: 6 }}>Seller Photo</div>{di.sellerPhotoData ? <img src={di.sellerPhotoData} alt="Seller" style={{ width: "100%", maxWidth: 220, aspectRatio: "4/3", objectFit: "cover", borderRadius: 12, border: "1px solid var(--gbo)" }} /> : <div style={{ color: "var(--t3)", fontSize: 13 }}>Not uploaded</div>}</div>
+                                        <div><div style={{ color: "var(--t3)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", marginBottom: 6 }}>Seller Signature</div>{di.sellerSignatureData ? <img src={di.sellerSignatureData} alt="Seller signature" style={{ width: "100%", maxWidth: 220, aspectRatio: "4/3", objectFit: "contain", borderRadius: 12, border: "1px solid var(--gbo)", background: "rgba(255,255,255,.02)" }} /> : <div style={{ color: "var(--t3)", fontSize: 13 }}>Not uploaded</div>}</div>
+                                    </div>
+                                    <div style={{ color: di.sellerAgreementAccepted ? "var(--ok)" : "var(--warn)", fontSize: 13, fontWeight: 600, marginTop: 12 }}>{di.sellerAgreementAccepted ? "Seller ownership declaration recorded" : "Seller ownership declaration not recorded"}</div>
+                                </div>}
                                 <div style={{ display: "flex", gap: 16, padding: "16px 0", borderTop: "1px solid rgba(255,255,255,.06)", borderBottom: "1px solid rgba(255,255,255,.06)", marginBottom: 16 }}>
-                                    <div style={{ flex: 1 }}><div style={{ color: "var(--t3)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", marginBottom: 4 }}>Buy</div><div style={{ color: "var(--a2)", fontSize: 22, fontWeight: 700 }}>{fmtCurrency(di.buyPrice)}</div></div>
+                                    {di.buyPrice > 0 && <div style={{ flex: 1 }}><div style={{ color: "var(--t3)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", marginBottom: 4 }}>Buy</div><div style={{ color: "var(--a2)", fontSize: 22, fontWeight: 700 }}>{fmtCurrency(di.buyPrice)}</div></div>}
                                     <div style={{ flex: 1 }}><div style={{ color: "var(--t3)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", marginBottom: 4 }}>Sell</div><div style={{ color: "var(--ok)", fontSize: 22, fontWeight: 700 }}>{fmtCurrency(di.sellPrice)}</div></div>
-                                    <div style={{ flex: 1 }}><div style={{ color: "var(--t3)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", marginBottom: 4 }}>Margin</div><div style={{ color: "var(--warn)", fontSize: 22, fontWeight: 700 }}>{fmtCurrency(di.sellPrice - di.buyPrice)}</div></div>
+                                    {di.buyPrice > 0 && <div style={{ flex: 1 }}><div style={{ color: "var(--t3)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", marginBottom: 4 }}>Margin</div><div style={{ color: "var(--warn)", fontSize: 22, fontWeight: 700 }}>{fmtCurrency(di.sellPrice - di.buyPrice)}</div></div>}
                                 </div>
                                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                                     <button className="bg" onClick={() => void printSticker(di)}><Printer size={16} /> Print Sticker</button>
@@ -2407,6 +3052,26 @@ export default function App() {
                                 <F l="Phone" ic={Phone}><input className="gi" type="tel" value={fm.phone} onChange={e => uf("phone", e.target.value)} placeholder="Phone" /></F>
                                 <F l="Payment" ic={CreditCard}><select className="gs" value={fm.paymentMode} onChange={e => uf("paymentMode", e.target.value)}>{PAYMENT_MODES.map(p => <option key={p}>{p}</option>)}</select></F>
                             </div>
+                            {(fm.condition === "Used" || fm.condition === "Refurbished") && <div className="gc" style={{ background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.08)", marginTop: 12 }}>
+                                <h3 style={{ color: "var(--t1)", fontSize: 15, fontWeight: 600, marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}><Lock size={16} style={{ color: "var(--warn)" }} /> Seller Verification</h3>
+                                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12 }}>
+                                    <F l="Seller Name *" ic={User}><input className="gi" value={fm.sellerName} onChange={e => uf("sellerName", e.target.value)} placeholder="Seller full name" /></F>
+                                    <F l="Seller Phone *" ic={Phone}><input className="gi" type="tel" value={fm.sellerPhone} onChange={e => uf("sellerPhone", e.target.value)} placeholder="Seller phone" /></F>
+                                    <F l="Aadhaar Number *" ic={Hash}><input className="gi" value={fm.sellerAadhaarNumber} onChange={e => uf("sellerAadhaarNumber", e.target.value.replace(/[^\d]/g, "").slice(0, 12))} placeholder="12 digit Aadhaar" style={{ fontFamily: "'Space Mono',monospace" }} /></F>
+                                    <F l="Purchase Date *" ic={Calendar}><input className="gi" type="date" value={fm.purchaseDate} onChange={e => uf("purchaseDate", e.target.value)} /></F>
+                                </div>
+                                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 16, marginTop: 14 }}>
+                                    <F l="Seller ID Photo *" ic={FileText}><SingleImageInput label="Seller ID" value={fm.sellerIdPhotoData} onChange={v => uf("sellerIdPhotoData", v)} /></F>
+                                    <F l="Seller Photo *" ic={Camera}><SingleImageInput label="Seller Photo" value={fm.sellerPhotoData} onChange={v => uf("sellerPhotoData", v)} /></F>
+                                </div>
+                                <div style={{ marginTop: 14 }}>
+                                    <F l="Seller Signature *" ic={Edit2}><SignaturePad value={fm.sellerSignatureData} onChange={v => uf("sellerSignatureData", v)} /></F>
+                                </div>
+                                <label className="gi" style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer", marginTop: 14 }}>
+                                    <input type="checkbox" checked={!!fm.sellerAgreementAccepted} onChange={e => uf("sellerAgreementAccepted", e.target.checked)} style={{ marginTop: 3 }} />
+                                    <span>I confirm the seller has declared lawful ownership of this device and agrees to transfer it to the shop.</span>
+                                </label>
+                            </div>}
                             <F l="Notes" ic={FileText}><input className="gi" value={fm.notes} onChange={e => uf("notes", e.target.value)} placeholder="Notes" /></F>
                             <div className="action-row"><button className="bp" style={{ background: "linear-gradient(135deg,#8b5cf6,#6d28d9)" }} onClick={doBuy}><ArrowDownCircle size={16} /> Record Purchase</button><button className="bg" onClick={() => sFm(ef)}>Clear</button></div>
                         </div>
@@ -2446,7 +3111,7 @@ export default function App() {
                                     <div><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 3 }}>Grand Total</div><div style={{ color: "var(--t1)", fontWeight: 700 }}>{fmtMoney(salePreview.totalAmount)}</div></div>
                                 </div>
                             </div>}
-                            {fm.amount && fm.buyPrice && <div style={{ background: "rgba(255,255,255,.03)", padding: 14, borderRadius: "var(--rs)", marginTop: 8, marginBottom: 8 }}><div style={{ display: "flex", justifyContent: "space-between", color: "var(--t2)", fontSize: 14 }}><span>Profit</span><span style={{ color: (fm.billType === "GST" ? salePreview.taxableAmount : +fm.amount) - +fm.buyPrice >= 0 ? "var(--ok)" : "var(--err)", fontWeight: 700 }}>{fmtCurrency((fm.billType === "GST" ? salePreview.taxableAmount : +fm.amount) - +fm.buyPrice)}</span></div></div>}
+                            {fm.amount && fm.buyPrice && <div style={{ background: "rgba(255,255,255,.03)", padding: 14, borderRadius: "var(--rs)", marginTop: 8, marginBottom: 8 }}><div style={{ display: "flex", justifyContent: "space-between", color: "var(--t2)", fontSize: 14 }}><span>Profit</span><span style={{ color: +fm.amount - +fm.buyPrice >= 0 ? "var(--ok)" : "var(--err)", fontWeight: 700 }}>{fmtCurrency(+fm.amount - +fm.buyPrice)}</span></div></div>}
                             <div className="action-row"><button className="bs" onClick={doSell}><ArrowUpCircle size={16} /> Complete Sale</button><button className="bg" onClick={() => sFm(ef)}>Clear</button></div>
                         </div>
                         {latestSell && <div className="gc" style={{ marginTop: 16, border: "1px solid rgba(0,212,255,.18)" }}>
@@ -2579,6 +3244,8 @@ export default function App() {
                                     <F l="Invoice Prefix" ic={Hash}><input className="gi" value={shopCfg.invoicePrefix} onChange={e => setShopField("invoicePrefix", e.target.value)} placeholder="INV" style={{ fontFamily: "'Space Mono',monospace" }} /></F>
                                     <F l="Default Bill Type" ic={FileText}><select className="gs" value={shopCfg.defaultBillType} onChange={e => setShopField("defaultBillType", e.target.value)}>{BILL_TYPES.map(type => <option key={type}>{type}</option>)}</select></F>
                                     <F l="Default GST Rate %" ic={IndianRupee}><input className="gi" type="number" step="0.01" value={shopCfg.defaultGstRate} onChange={e => setShopField("defaultGstRate", e.target.value)} placeholder="18" /></F>
+                                    <F l="HSN/SAC Code" ic={Hash}><input className="gi" value={shopCfg.hsnCode} onChange={e => setShopField("hsnCode", e.target.value)} placeholder="8517" style={{ fontFamily: "'Space Mono',monospace" }} /></F>
+                                    <F l="Show Price on Sticker" ic={Printer}><label className="gi" style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}><input type="checkbox" checked={shopCfg.stickerShowPrice} onChange={e => setShopField("stickerShowPrice", e.target.checked)} /><span>{shopCfg.stickerShowPrice ? "Yes — sell price shown on sticker" : "No — price hidden on sticker"}</span></label></F>
                                     <F l="Footer Note" ic={FileText}><textarea className="gi" style={{ minHeight: 84 }} value={shopCfg.footer} onChange={e => setShopField("footer", e.target.value)} placeholder="Thank you note / declaration" /></F>
                                     <F l="Terms & Warranty" ic={FileText}><textarea className="gi" style={{ minHeight: 84 }} value={shopCfg.terms} onChange={e => setShopField("terms", e.target.value)} placeholder="Service / warranty / return terms" /></F>
                                 </div>

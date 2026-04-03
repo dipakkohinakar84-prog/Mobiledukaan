@@ -143,7 +143,7 @@ export async function pocketbaseLoadShopBundle(shopAuth) {
 
   return {
     shop: await shopRecordToProfile(pb, shop),
-    inv: inventory.map((record) => inventoryRecordToItem(record, photosByItemId.get(String(record.id)) || [])),
+    inv: inventory.map((record) => inventoryRecordToItem(pb, record, photosByItemId.get(String(record.id)) || [])),
     tx: transactions.map(transactionRecordToItem),
     savedAt: newestTimestamp([shop.updated, ...inventory.map(r => r.updated), ...transactions.map(r => r.updated), ...photos.map(r => r.updated)]),
   }
@@ -154,6 +154,17 @@ export async function pocketbaseUpsertInventory(shopAuth, item) {
   const shopRecordId = shopAuth?.record?.shop
   if (!shopRecordId) throw new Error('PocketBase shop session is missing shop relation.')
   const payload = inventoryItemToRecord(item, shopRecordId)
+  const hasSellerFiles = [item?.sellerIdPhotoData, item?.sellerPhotoData, item?.sellerSignatureData].some((value) => String(value || '').startsWith('data:'))
+  if (hasSellerFiles) {
+    const form = new FormData()
+    Object.entries(payload).forEach(([key, value]) => form.append(key, value == null ? '' : String(value)))
+    if (String(item?.sellerIdPhotoData || '').startsWith('data:')) form.append('sellerIdPhoto', await dataUrlToFile(item.sellerIdPhotoData, 'seller-id.jpg', inferMimeTypeFromDataUrl(item.sellerIdPhotoData)))
+    if (String(item?.sellerPhotoData || '').startsWith('data:')) form.append('sellerPhoto', await dataUrlToFile(item.sellerPhotoData, 'seller-photo.jpg', inferMimeTypeFromDataUrl(item.sellerPhotoData)))
+    if (String(item?.sellerSignatureData || '').startsWith('data:')) form.append('sellerSignature', await dataUrlToFile(item.sellerSignatureData, 'seller-signature.png', inferMimeTypeFromDataUrl(item.sellerSignatureData)))
+    return isPocketbaseId(item?.id)
+      ? pb.collection(COLLECTIONS.inventory).update(item.id, form)
+      : pb.collection(COLLECTIONS.inventory).create(form)
+  }
   return isPocketbaseId(item?.id)
     ? pb.collection(COLLECTIONS.inventory).update(item.id, payload)
     : pb.collection(COLLECTIONS.inventory).create(payload)
@@ -246,7 +257,10 @@ export function unsubscribeFromShopData() {
   }
 }
 
-function inventoryRecordToItem(record, photos) {
+function inventoryRecordToItem(pb, record, photos) {
+  const sellerIdPhotoField = Array.isArray(record.sellerIdPhoto) ? record.sellerIdPhoto[0] : record.sellerIdPhoto
+  const sellerPhotoField = Array.isArray(record.sellerPhoto) ? record.sellerPhoto[0] : record.sellerPhoto
+  const sellerSignatureField = Array.isArray(record.sellerSignature) ? record.sellerSignature[0] : record.sellerSignature
   return {
     id: record.id,
     imei: record.imei || '',
@@ -264,6 +278,16 @@ function inventoryRecordToItem(record, photos) {
     qty: Number(record.qty || 0),
     addedDate: record.addedDate || '',
     supplier: record.supplier || '',
+    sellerName: record.sellerName || '',
+    sellerPhone: record.sellerPhone || '',
+    sellerAadhaarNumber: record.sellerAadhaarNumber || '',
+    purchaseDate: record.purchaseDate || '',
+    warrantyType: record.warrantyType || 'No Warranty',
+    warrantyMonths: Number(record.warrantyMonths || 0),
+    sellerAgreementAccepted: !!record.sellerAgreementAccepted,
+    sellerIdPhotoData: sellerIdPhotoField ? pb.files.getURL(record, sellerIdPhotoField) : '',
+    sellerPhotoData: sellerPhotoField ? pb.files.getURL(record, sellerPhotoField) : '',
+    sellerSignatureData: sellerSignatureField ? pb.files.getURL(record, sellerSignatureField) : '',
     customerName: record.customerName || '',
     customerPhone: record.customerPhone || '',
     soldDate: record.soldDate || '',
@@ -304,6 +328,10 @@ function transactionRecordToItem(record) {
     date: record.date || '',
     dateTime: record.dateTime || '',
     notes: record.notes || '',
+    sellerName: record.sellerName || '',
+    sellerPhone: record.sellerPhone || '',
+    sellerAadhaarNumber: record.sellerAadhaarNumber || '',
+    purchaseDate: record.purchaseDate || '',
     shopSnapshot: null,
   }
 }
@@ -325,6 +353,13 @@ function inventoryItemToRecord(item, shopRecordId) {
     status: item.status || 'In Stock',
     qty: Number(item.qty || 0),
     supplier: item.supplier || '',
+    sellerName: item.sellerName || '',
+    sellerPhone: item.sellerPhone || '',
+    sellerAadhaarNumber: item.sellerAadhaarNumber || '',
+    purchaseDate: item.purchaseDate || '',
+    warrantyType: item.warrantyType || 'No Warranty',
+    warrantyMonths: Number(item.warrantyMonths || 0),
+    sellerAgreementAccepted: !!item.sellerAgreementAccepted,
     addedDate: item.addedDate || '',
     customerName: item.customerName || '',
     customerPhone: item.customerPhone || '',
@@ -365,6 +400,10 @@ function transactionItemToRecord(item, shopRecordId) {
     date: item.date || '',
     dateTime: item.dateTime || '',
     notes: item.notes || '',
+    sellerName: item.sellerName || '',
+    sellerPhone: item.sellerPhone || '',
+    sellerAadhaarNumber: item.sellerAadhaarNumber || '',
+    purchaseDate: item.purchaseDate || '',
   }
 }
 
@@ -384,6 +423,8 @@ async function shopRecordToProfile(pb, shop) {
     invoicePrefix: shop.invoicePrefix || 'INV',
     defaultBillType: shop.defaultBillType || 'NON GST',
     defaultGstRate: Number(shop.defaultGstRate || 18),
+    hsnCode: shop.hsnCode || '8517',
+    stickerShowPrice: shop.stickerShowPrice === undefined ? true : !!shop.stickerShowPrice,
     footer: shop.footer || '',
     terms: shop.terms || '',
   }
@@ -404,6 +445,8 @@ function shopProfileToRecord(profile, currentShop = {}) {
     invoicePrefix: profile.invoicePrefix || 'INV',
     defaultBillType: profile.defaultBillType || 'NON GST',
     defaultGstRate: Number(profile.defaultGstRate || 18),
+    hsnCode: profile.hsnCode || '8517',
+    stickerShowPrice: profile.stickerShowPrice === undefined ? true : !!profile.stickerShowPrice,
     footer: profile.footer || '',
     terms: profile.terms || '',
   }

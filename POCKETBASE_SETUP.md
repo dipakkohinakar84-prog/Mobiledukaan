@@ -52,6 +52,14 @@ Recommended collections:
   - `status` (text)
   - `qty` (number)
   - `supplier` (text)
+  - `sellerName` (text)
+  - `sellerPhone` (text)
+  - `sellerAadhaarNumber` (text)
+  - `purchaseDate` (text)
+  - `sellerAgreementAccepted` (bool)
+  - `sellerIdPhoto` (file, max 1)
+  - `sellerPhoto` (file, max 1)
+  - `sellerSignature` (file, max 1)
   - `addedDate` (text)
   - `customerName` (text)
   - `customerPhone` (text)
@@ -105,3 +113,4 @@ Suggested rules for first setup
 Notes
 - The app loads inventory, transactions, shop profile, and photos directly from PocketBase collections.
 - Changes are written directly to PocketBase and realtime subscriptions re-fetch updated collections.
+- For `Buy` entries with `Used` or `Refurbished` condition, seller verification fields should be filled for compliance and safety.
