@@ -1464,7 +1464,7 @@ function LB({ photos, si = 0, onClose }) {
 
 // ═══ IMEI Scanner ═══
 function IMEIS({ onScan, onClose, getCameraStream, releaseCameraLater }) {
-    const vr = useRef(null), sr = useRef(null), rr = useRef(null), xr = useRef(null), cr = useRef(null), ar = useRef(null), br = useRef(false), busy = useRef(false);
+    const vr = useRef(null), sr = useRef(null), rr = useRef(null), xr = useRef(null), cr = useRef(null), ar = useRef(null), br = useRef(false), busy = useRef(false), fr = useRef(null);
     const [sc, setSc] = useState(false);
     const [er, setEr] = useState("");
     const [mi, setMi] = useState("");
@@ -1476,6 +1476,7 @@ function IMEIS({ onScan, onClose, getCameraStream, releaseCameraLater }) {
     const clearTimers = useCallback(() => {
         if (rr.current) { window.cancelAnimationFrame(rr.current); rr.current = null; }
         if (xr.current) { window.clearTimeout(xr.current); xr.current = null; }
+        if (fr.current) { clearInterval(fr.current); fr.current = null; }
         busy.current = false;
     }, []);
 
@@ -1516,7 +1517,7 @@ function IMEIS({ onScan, onClose, getCameraStream, releaseCameraLater }) {
     const startPreviewStream = useCallback(async () => {
         if (!navigator.mediaDevices?.getUserMedia) throw new Error("This browser does not support live camera scanning. Use manual entry.");
         const stream = getCameraStream ? await getCameraStream() : await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: { ideal: "environment" }, width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } },
+            video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } },
             audio: false,
         });
         sr.current = stream;
@@ -1600,9 +1601,10 @@ function IMEIS({ onScan, onClose, getCameraStream, releaseCameraLater }) {
         setHt("Searching IMEI barcode. Align only the IMEI barcode inside the scan band.");
         setSc(true);
         focusCamera();
+        fr.current = setInterval(() => focusCamera(), 2000);
         const cropCanvas = document.createElement("canvas");
         const cropCtx = cropCanvas.getContext("2d");
-        let lastScan = 0;
+        let lastScan = 0, lastCW = 0, lastCH = 0;
         const loop = (ts) => {
             if (!vr.current || !sr.current) return;
             if (ts - lastScan < 100 || busy.current) { rr.current = requestAnimationFrame(loop); return; }
@@ -1610,14 +1612,13 @@ function IMEIS({ onScan, onClose, getCameraStream, releaseCameraLater }) {
             busy.current = true;
             try {
                 const v = vr.current;
-                const vw = v.videoWidth || 640;
-                const vh = v.videoHeight || 480;
-                const sx = Math.floor(vw * 0.05);
-                const sy = Math.floor(vh * 0.28);
-                const sw = Math.floor(vw * 0.90);
-                const sh = Math.floor(vh * 0.44);
-                cropCanvas.width = sw;
-                cropCanvas.height = sh;
+                const vw = v.videoWidth || 1280;
+                const vh = v.videoHeight || 720;
+                const sx = Math.floor(vw * 0.06);
+                const sy = Math.floor(vh * 0.33);
+                const sw = Math.floor(vw * 0.88);
+                const sh = Math.floor(vh * 0.34);
+                if (lastCW !== sw || lastCH !== sh) { cropCanvas.width = sw; cropCanvas.height = sh; lastCW = sw; lastCH = sh; }
                 cropCtx.drawImage(v, sx, sy, sw, sh, 0, 0, sw, sh);
                 const result = reader.decodeFromCanvas(cropCanvas);
                 busy.current = false;
@@ -1642,6 +1643,7 @@ function IMEIS({ onScan, onClose, getCameraStream, releaseCameraLater }) {
         setEng("Fast scanner");
         setHt("Searching IMEI barcode. Hold the box or *#06# barcode steady inside the scan band.");
         focusCamera();
+        fr.current = setInterval(() => focusCamera(), 2000);
         const detector = new window.BarcodeDetector({ formats: supported });
         let lastScan = 0;
         const loop = (ts) => {
@@ -1840,7 +1842,7 @@ export default function App() {
             camStream.current = null;
         }
         const stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: { ideal: "environment" }, width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } },
+            video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } },
             audio: false,
         });
         camStream.current = stream;
