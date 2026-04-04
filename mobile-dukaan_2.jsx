@@ -7,7 +7,8 @@ import {
     User, Phone, Calendar, Hash, Palette, HardDrive, Tag, Layers, LogOut,
     ChevronRight, CreditCard, Banknote, QrCode, LayoutGrid, List, Bell,
     ImagePlus, Images, ChevronLeft, ZoomIn, RotateCcw, Upload, Aperture, Battery,
-    Download, Share2, Lock, MapPin, Mail, Printer, Zap, Shield, Clock
+    Download, Share2, Lock, MapPin, Mail, Printer, Zap, Shield, Clock,
+    Trash, ArchiveRestore
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, CartesianGrid, Legend, AreaChart, Area } from "recharts";
 import { loadAppState, loadSyncState, saveAppState, saveSyncState, savePhotoBlob, loadPhotoBlob, deletePhotoBlob } from "./app-storage.js";
@@ -18,7 +19,7 @@ const fmtDate = (d) => new Date(d).toLocaleDateString("en-IN", { day: "2-digit",
 const daysInStock = (d) => Math.max(0, Math.floor((Date.now() - new Date(d).getTime()) / 86400000));
 const fmtCurrency = (n) => "₹" + Number(n || 0).toLocaleString("en-IN");
 const CONDITIONS = ["New", "Refurbished", "Used"];
-const STATUSES = ["In Stock", "Sold"];
+const STATUSES = ["In Stock", "Sold", "Deleted"];
 const PAYMENT_MODES = ["Cash", "UPI", "Card", "Bank Transfer", "EMI"];
 const BRANDS = ["Samsung", "Apple", "OnePlus", "Xiaomi", "Vivo", "Oppo", "Realme", "Motorola", "Nothing", "Google", "iQOO", "Poco", "Other"];
 const REPORT_TYPES = ["All", "Buy", "Sell", "Add"];
@@ -362,7 +363,8 @@ const normalizeInv = (it = {}) => ({
     buyPrice: Number(it.buyPrice || 0),
     sellPrice: Number(it.sellPrice || 0),
     status: it.status || "In Stock",
-    qty: it.status === "Sold" ? 0 : 1,
+    deletedAt: it.deletedAt || "",
+    qty: (it.status === "Sold" || it.status === "Deleted") ? 0 : 1,
     addedDate: it.addedDate || new Date().toISOString().slice(0, 10),
     supplier: it.supplier || "",
     photos: Array.isArray(it.photos) ? it.photos.map(normalizePhotoRef) : [],
@@ -457,11 +459,11 @@ const matchImei = (item, imei) => {
     const value = cleanImei(imei);
     return value && (item.imei === value || item.imei2 === value);
 };
-const findDeviceByImei = (items, imei) => items.find(item => matchImei(item, imei));
+const findDeviceByImei = (items, imei) => items.find(item => item.status !== "Deleted" && matchImei(item, imei));
 const findDuplicateImei = (items, imei, skipId) => {
     const value = cleanImei(imei);
     if (!value) return null;
-    return items.find(item => item.id !== skipId && (item.imei === value || item.imei2 === value));
+    return items.find(item => item.id !== skipId && item.status !== "Deleted" && (item.imei === value || item.imei2 === value));
 };
 const makeWhatsAppUrl = (phone, text) => {
     const digits = String(phone || "").replace(/\D/g, "");
@@ -1807,6 +1809,7 @@ export default function App() {
     const [vm, sVm] = useState("grid");
     const [lb, sLb] = useState(null);
     const [di, sDi] = useState(null);
+    const [confirmDel, setConfirmDel] = useState(null);
     const [canPersist] = useState(typeof window !== "undefined" && !!window.localStorage);
     const [ol, setOl] = useState(typeof navigator === "undefined" ? true : navigator.onLine);
     const [syncCfg, setSyncCfg] = useState(syncSeed.current);
@@ -2451,13 +2454,41 @@ export default function App() {
     };
     const delInv = async (id) => {
         try {
-            await pocketbaseDeleteInventory(shopSession?.pbAuth, id);
-            sInv(p => p.filter(i => i.id !== id));
-            markSyncConnected({ lastStatus: "Deleted", lastPushAt: new Date().toISOString() });
+            const item = inv.find(i => i.id === id);
+            if (!item) return;
+            const updated = { ...item, status: "Deleted", deletedAt: new Date().toISOString() };
+            await pocketbaseUpsertInventory(shopSession?.pbAuth, updated);
+            sInv(p => p.map(i => i.id === id ? updated : i));
+            markSyncConnected({ lastStatus: "Moved to Bin", lastPushAt: new Date().toISOString() });
             updateSyncMeta(current => ({ ...current, pendingSync: false, syncState: ol ? 'synced' : 'offline', syncError: '' }));
-            notify("Removed");
+            notify("Moved to Bin");
         } catch (e) {
             notify(e?.message || "Unable to remove item.", "error");
+        }
+    };
+    const restoreInv = async (id) => {
+        try {
+            const item = inv.find(i => i.id === id);
+            if (!item) return;
+            const updated = { ...item, status: "In Stock", qty: 1, deletedAt: "" };
+            await pocketbaseUpsertInventory(shopSession?.pbAuth, updated);
+            sInv(p => p.map(i => i.id === id ? updated : i));
+            markSyncConnected({ lastStatus: "Restored", lastPushAt: new Date().toISOString() });
+            updateSyncMeta(current => ({ ...current, pendingSync: false, syncState: ol ? 'synced' : 'offline', syncError: '' }));
+            notify("Restored to Stock", "success");
+        } catch (e) {
+            notify(e?.message || "Unable to restore item.", "error");
+        }
+    };
+    const permDelInv = async (id) => {
+        try {
+            await pocketbaseDeleteInventory(shopSession?.pbAuth, id);
+            sInv(p => p.filter(i => i.id !== id));
+            markSyncConnected({ lastStatus: "Permanently deleted", lastPushAt: new Date().toISOString() });
+            updateSyncMeta(current => ({ ...current, pendingSync: false, syncState: ol ? 'synced' : 'offline', syncError: '' }));
+            notify("Permanently deleted");
+        } catch (e) {
+            notify(e?.message || "Unable to delete item.", "error");
         }
     };
     const doBuy = async () => {
@@ -2529,9 +2560,11 @@ export default function App() {
     }, [inv, tx]);
 
     const fi = useMemo(() => inv.filter(i => {
+        if (i.status === "Deleted") return false;
         const ms = !sq || [i.imei, i.imei2, i.brand, i.model, i.color, i.ram, i.storage, i.supplier].some(f => (f || "").toLowerCase().includes(sq.toLowerCase()));
         return ms && (fc === "All" || i.condition === fc) && (fs === "All" || i.status === fs);
     }), [inv, sq, fc, fs]);
+    const recycleBinItems = useMemo(() => inv.filter(i => i.status === "Deleted"), [inv]);
     const latestSell = useMemo(() => tx.find(t => t.type === "Sell") || null, [tx]);
     const latestInvoices = useMemo(() => tx.filter(t => t.type === "Sell").slice(0, 3), [tx]);
     const invoiceRecords = useMemo(() => {
@@ -2768,7 +2801,7 @@ export default function App() {
         notify("Sticker PDF opened for printing.", "success");
     };
 
-    const nav = [{ id: "dashboard", ic: Home, l: "Dashboard" }, { id: "add", ic: Plus, l: "Add" }, { id: "buy", ic: ArrowDownCircle, l: "Buy" }, { id: "sell", ic: ArrowUpCircle, l: "Sell" }, { id: "transactions", ic: FileText, l: "Invoices" }, { id: "reports", ic: BarChart3, l: "Reports" }, { id: "inventory", ic: Package, l: "Stock" }, { id: "settings", ic: Settings, l: "Settings" }];
+    const nav = [{ id: "dashboard", ic: Home, l: "Dashboard" }, { id: "add", ic: Plus, l: "Add" }, { id: "buy", ic: ArrowDownCircle, l: "Buy" }, { id: "sell", ic: ArrowUpCircle, l: "Sell" }, { id: "transactions", ic: FileText, l: "Invoices" }, { id: "reports", ic: BarChart3, l: "Reports" }, { id: "inventory", ic: Package, l: "Stock" }, { id: "recycle", ic: Trash, l: "Bin" }, { id: "settings", ic: Settings, l: "Settings" }];
 
     const condBadge = (c) => c === "New" ? "bn" : c === "Refurbished" ? "br" : "bu";
     const statBadge = (s) => s === "In Stock" ? "bi" : s === "Sold" ? "bso" : "bre";
@@ -2850,7 +2883,7 @@ export default function App() {
                         <div style={{ color: "var(--t3)", fontSize: 11, marginLeft: 4, letterSpacing: ".04em", textTransform: "uppercase" }}>Mobile Shop Manager</div>
                     </div>
                     <nav style={{ flex: 1, display: "flex", flexDirection: "column", gap: 4 }}>
-                        {nav.map(n => <div key={n.id} className={`ni ${pg === n.id ? "ac" : ""}`} onClick={() => goPage(n.id)}><n.ic size={18} /> {n.l}</div>)}
+                        {nav.map(n => <div key={n.id} className={`ni ${pg === n.id ? "ac" : ""}`} onClick={() => goPage(n.id)}><n.ic size={18} /> {n.l}{n.id === "recycle" && recycleBinItems.length > 0 && <span style={{ marginLeft: "auto", background: "var(--err)", color: "#fff", fontSize: 10, fontWeight: 700, borderRadius: 99, minWidth: 18, height: 18, display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "0 5px" }}>{recycleBinItems.length}</span>}</div>)}
                     </nav>
                     <div style={{ padding: "16px 8px", borderTop: "1px solid var(--gbo)", display: "grid", gap: 12 }}><div style={{ display: "flex", alignItems: "center", gap: 8 }}>{ol ? <Wifi size={14} color="var(--ok)" /> : <WifiOff size={14} color="var(--warn)" />}<span style={{ color: "var(--t3)", fontSize: 12 }}>{shopSession?.shopName || shopSession?.shopId || "No shop"} · {syncStateLabel}</span></div><button className="bg" onClick={logoutShop} style={{ justifyContent: "center", width: "100%" }}><LogOut size={15} /> Logout</button></div>
                 </div>
@@ -3000,7 +3033,7 @@ export default function App() {
                                             <button className="bg hcard-ab" style={{ padding: 8 }} onClick={e => { e.stopPropagation(); void printSticker(it); }}><Printer size={15} /></button>
                                             <button className="bg hcard-ab" style={{ padding: 8 }} onClick={e => { e.stopPropagation(); sDi(it); }}><Eye size={15} /></button>
                                             <button className="bg hcard-ab" style={{ padding: 8 }} onClick={e => { e.stopPropagation(); editFromStock(it); }}><Edit2 size={15} /></button>
-                                            <button className="bd hcard-ab" style={{ padding: 8 }} onClick={e => { e.stopPropagation(); delInv(it.id); }}><Trash2 size={15} /></button>
+                                            <button className="bd hcard-ab" style={{ padding: 8 }} onClick={e => { e.stopPropagation(); setConfirmDel(it); }}><Trash2 size={15} /></button>
                                         </div>
                                     </div>
                                 </div>
@@ -3022,7 +3055,7 @@ export default function App() {
                                         <td style={{ padding: "12px 14px", color: "var(--t2)", fontSize: 13 }}>{fmtCurrency(it.buyPrice)}</td>
                                         <td style={{ padding: "12px 14px", color: "var(--ok)", fontSize: 13, fontWeight: 500 }}>{fmtCurrency(it.sellPrice)}</td>
                                         <td style={{ padding: "12px 14px" }}><span className={`ba ${statBadge(it.status)}`}>{it.status}</span></td>
-                                        <td style={{ padding: "12px 14px" }}><div style={{ display: "flex", gap: 4 }}><button className="bg" style={{ padding: 6 }} onClick={() => void printSticker(it)}><Printer size={14} /></button><button className="bg" style={{ padding: 6 }} onClick={() => sDi(it)}><Eye size={14} /></button><button className="bg" style={{ padding: 6 }} onClick={() => editFromStock(it)}><Edit2 size={14} /></button><button className="bd" style={{ padding: 6 }} onClick={() => delInv(it.id)}><Trash2 size={14} /></button></div></td>
+                                        <td style={{ padding: "12px 14px" }}><div style={{ display: "flex", gap: 4 }}><button className="bg" style={{ padding: 6 }} onClick={() => void printSticker(it)}><Printer size={14} /></button><button className="bg" style={{ padding: 6 }} onClick={() => sDi(it)}><Eye size={14} /></button><button className="bg" style={{ padding: 6 }} onClick={() => editFromStock(it)}><Edit2 size={14} /></button><button className="bd" style={{ padding: 6 }} onClick={() => setConfirmDel(it)}><Trash2 size={14} /></button></div></td>
                                     </tr>)}</tbody>
                                 </table>
                             </div>}
@@ -3076,10 +3109,47 @@ export default function App() {
                                     <button className="bg" onClick={() => void printSticker(di)}><Printer size={16} /> Print Sticker</button>
                                     <button className="bp" onClick={() => editFromStock(di)}><Edit2 size={16} /> Edit</button>
                                     {di.status === "In Stock" && di.qty > 0 && <button className="bs" onClick={() => { sFm(toForm(di, { amount: di.sellPrice, paidAmount: di.sellPrice, dueAmount: 0, customerName: "", phone: "", notes: "" })); sPg("sell"); sDi(null); }}><ArrowUpCircle size={16} /> Sell This</button>}
-                                    <button className="bd" onClick={() => { delInv(di.id); sDi(null); }}><Trash2 size={16} /> Delete</button>
+                                    <button className="bd" onClick={() => setConfirmDel(di)}><Trash2 size={16} /> Delete</button>
                                 </div>
                             </div>
                         </div>
+                    </div>}
+
+                    {/* ═══ RECYCLE BIN ═══ */}
+                    {pg === "recycle" && <div className="fi">
+                        <div style={{ marginBottom: 28 }}>
+                            <h1 style={{ color: "var(--t1)", fontSize: 28, fontWeight: 700, display: "flex", alignItems: "center", gap: 10 }}><Trash size={28} style={{ color: "var(--err)" }} /> Bin</h1>
+                            <p style={{ color: "var(--t3)", fontSize: 13, marginTop: 6 }}>Deleted items stay here until you permanently delete them. You can restore items back to stock.</p>
+                        </div>
+                        {recycleBinItems.length > 0 && <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
+                            <button className="bd" onClick={() => setConfirmDel({ _emptyAll: true })}><Trash2 size={16} /> Empty Bin</button>
+                        </div>}
+                        {recycleBinItems.length > 0 ? <div style={{ display: "grid", gap: 12 }}>
+                            {recycleBinItems.map(it => <div key={it.id} className="gc" style={{ padding: 14, display: "flex", gap: 14, alignItems: "flex-start" }}>
+                                <div style={{ width: 52, height: 52, borderRadius: 10, overflow: "hidden", flexShrink: 0, border: "1px solid var(--gbo)", cursor: it.photos?.length ? "pointer" : "default" }} onClick={() => it.photos?.length ? sLb({ photos: it.photos, si: 0 }) : null}>
+                                    {it.photos?.length > 0 ? <img src={getPhotoPreview(it.photos[0])} style={{ width: "100%", height: "100%", objectFit: "cover" }} alt="" /> : <div style={{ width: "100%", height: "100%", background: BRAND_GRADIENTS[it.brand] || BRAND_GRADIENTS.Other, display: "flex", alignItems: "center", justifyContent: "center" }}><Smartphone size={20} style={{ opacity: .4, color: "#fff" }} /></div>}
+                                </div>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, marginBottom: 6 }}>
+                                        <div>
+                                            <div style={{ color: "var(--t1)", fontSize: 14, fontWeight: 600 }}>{it.brand} {it.model}</div>
+                                            <div style={{ color: "var(--t3)", fontSize: 11 }}>{it.color}{it.storage ? ` · ${it.storage}` : ""}</div>
+                                        </div>
+                                        <span className={`ba ${condBadge(it.condition)}`} style={{ flexShrink: 0 }}>{it.condition}</span>
+                                    </div>
+                                    <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 14px", fontSize: 12, marginBottom: 10 }}>
+                                        {it.imei && <span style={{ color: "var(--t2)", fontFamily: "'Space Mono',monospace", fontSize: 11 }}>{it.imei}</span>}
+                                        <span style={{ color: "var(--ok)", fontWeight: 600 }}>{fmtCurrency(it.sellPrice)}</span>
+                                        {it.buyPrice > 0 && <span style={{ color: "var(--t3)" }}>Buy {fmtCurrency(it.buyPrice)}</span>}
+                                        <span style={{ color: "var(--t3)" }}>{it.deletedAt ? fmtDate(it.deletedAt) : ""}</span>
+                                    </div>
+                                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                                        <button className="bp" style={{ padding: "6px 14px", fontSize: 12 }} onClick={() => restoreInv(it.id)}><ArchiveRestore size={14} /> Restore</button>
+                                        <button className="bd" style={{ padding: "6px 14px", fontSize: 12 }} onClick={() => setConfirmDel({ ...it, _permanent: true })}><Trash2 size={14} /> Delete Forever</button>
+                                    </div>
+                                </div>
+                            </div>)}
+                        </div> : <div className="gc" style={{ textAlign: "center", padding: 48 }}><Trash size={40} style={{ color: "var(--t3)", marginBottom: 12 }} /><p style={{ color: "var(--t2)", fontSize: 15 }}>Bin is empty</p><p style={{ color: "var(--t3)", fontSize: 13, marginTop: 4 }}>Deleted items will appear here</p></div>}
                     </div>}
 
                     {/* ═══ BUY ═══ */}
@@ -3347,6 +3417,27 @@ export default function App() {
                     </div>}
 
                 </div>
+
+                {confirmDel && <div className="so fi" style={{ zIndex: 999 }}><div style={{ background: "var(--c)", borderRadius: 16, padding: 28, maxWidth: 380, width: "90vw", textAlign: "center", border: "1px solid var(--gbo)" }}>
+                    <div style={{ width: 48, height: 48, borderRadius: "50%", background: "rgba(239,68,68,.15)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}><AlertCircle size={24} color="var(--err)" /></div>
+                    <h3 style={{ color: "var(--t1)", fontSize: 17, fontWeight: 700, marginBottom: 8 }}>{confirmDel._emptyAll ? "Empty Bin?" : confirmDel._permanent ? "Delete Forever?" : "Move to Bin?"}</h3>
+                    <p style={{ color: "var(--t3)", fontSize: 13, marginBottom: 20, lineHeight: 1.5 }}>
+                        {confirmDel._emptyAll
+                            ? `Permanently delete all ${recycleBinItems.length} item${recycleBinItems.length !== 1 ? "s" : ""} in the bin? This cannot be undone.`
+                            : confirmDel._permanent
+                                ? <><strong style={{ color: "var(--t1)" }}>{confirmDel.brand} {confirmDel.model}</strong><br />This will permanently delete this device. This cannot be undone.</>
+                                : <><strong style={{ color: "var(--t1)" }}>{confirmDel.brand} {confirmDel.model}</strong>{confirmDel.imei ? <><br /><span style={{ fontFamily: "'Space Mono',monospace", fontSize: 11 }}>IMEI: {confirmDel.imei}</span></> : ""}<br />You can restore it later from the Bin.</>}
+                    </p>
+                    <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+                        <button className="bg" style={{ padding: "10px 20px" }} onClick={() => setConfirmDel(null)}>Cancel</button>
+                        <button className="bd" style={{ padding: "10px 20px" }} onClick={async () => {
+                            if (confirmDel._emptyAll) { for (const it of recycleBinItems) await permDelInv(it.id); }
+                            else if (confirmDel._permanent) { await permDelInv(confirmDel.id); }
+                            else { await delInv(confirmDel.id); sDi(null); }
+                            setConfirmDel(null);
+                        }}>{confirmDel._emptyAll ? "Empty All" : confirmDel._permanent ? "Delete Forever" : "Delete"}</button>
+                    </div>
+                </div></div>}
 
                 {scs && <IMEIS onScan={handleScan} onClose={() => setScs(false)} getCameraStream={getCameraStream} releaseCameraLater={releaseCameraLater} />}
                 {lb && <LB photos={lb.photos} si={lb.si} onClose={() => sLb(null)} />}
