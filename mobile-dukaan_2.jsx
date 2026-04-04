@@ -1463,7 +1463,7 @@ function LB({ photos, si = 0, onClose }) {
 }
 
 // ═══ IMEI Scanner ═══
-function IMEIS({ onScan, onClose }) {
+function IMEIS({ onScan, onClose, getCameraStream, releaseCameraLater }) {
     const vr = useRef(null), sr = useRef(null), rr = useRef(null), xr = useRef(null), cr = useRef(null), ar = useRef(null), br = useRef(false), busy = useRef(false);
     const [sc, setSc] = useState(false);
     const [er, setEr] = useState("");
@@ -1507,23 +1507,16 @@ function IMEIS({ onScan, onClose }) {
             try { cr.current.stop(); } catch { }
             cr.current = null;
         }
-        if (sr.current) {
-            sr.current.getTracks().forEach(t => t.stop());
-            sr.current = null;
-        }
         if (vr.current?.srcObject) vr.current.srcObject = null;
+        sr.current = null;
+        if (releaseCameraLater) releaseCameraLater();
         setSc(false);
-    }, [clearTimers]);
+    }, [clearTimers, releaseCameraLater]);
 
     const startPreviewStream = useCallback(async () => {
         if (!navigator.mediaDevices?.getUserMedia) throw new Error("This browser does not support live camera scanning. Use manual entry.");
-        const stream = await navigator.mediaDevices.getUserMedia({
-            video: {
-                facingMode: { ideal: "environment" },
-                width: { ideal: 1280 },
-                height: { ideal: 720 },
-                frameRate: { ideal: 24, min: 15 },
-            },
+        const stream = getCameraStream ? await getCameraStream() : await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: { ideal: "environment" }, width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } },
             audio: false,
         });
         sr.current = stream;
@@ -1531,7 +1524,7 @@ function IMEIS({ onScan, onClose }) {
         await vr.current.play();
         setSc(true);
         return stream;
-    }, []);
+    }, [getCameraStream]);
 
     const focusCamera = useCallback(() => {
         const stream = sr.current || vr.current?.srcObject;
@@ -1569,6 +1562,23 @@ function IMEIS({ onScan, onClose }) {
         return true;
     }, [onScan, playBeep, stop]);
 
+    const handleMultiDetected = useCallback((items, source) => {
+        const valid = items
+            .map(it => ({ imei: extractScanImei(it.rawValue || ""), y: it.cornerPoints?.[0]?.y ?? it.boundingBox?.y ?? 0 }))
+            .filter(it => hasImei(it.imei));
+        if (!valid.length) return false;
+        valid.sort((a, b) => a.y - b.y);
+        const unique = [...new Set(valid.map(v => v.imei))];
+        playBeep();
+        stop();
+        if (unique.length >= 2) {
+            onScan(unique[0], unique[1]);
+        } else {
+            onScan(unique[0]);
+        }
+        return true;
+    }, [onScan, playBeep, stop]);
+
     const startZXing = useCallback(async () => {
         if (!vr.current) throw new Error("Camera preview is not ready.");
         const [{ BrowserMultiFormatReader }, { BarcodeFormat, DecodeHintType, NotFoundException, ChecksumException, FormatException }] = await Promise.all([
@@ -1584,8 +1594,8 @@ function IMEIS({ onScan, onClose }) {
             BarcodeFormat.UPC_A,
         ]);
         const reader = new BrowserMultiFormatReader(hints, {
-            delayBetweenScanAttempts: 120,
-            delayBetweenScanSuccess: 300,
+            delayBetweenScanAttempts: 60,
+            delayBetweenScanSuccess: 100,
             tryPlayVideoTimeout: 3000,
         });
         setEng("Compatibility scanner");
@@ -1594,8 +1604,8 @@ function IMEIS({ onScan, onClose }) {
             audio: false,
             video: {
                 facingMode: { ideal: "environment" },
-                width: { ideal: 1280 },
-                height: { ideal: 720 },
+                width: { ideal: 640 },
+                height: { ideal: 480 },
             },
         }, vr.current, (result, error, controlsRef) => {
             cr.current = controlsRef;
@@ -1630,11 +1640,14 @@ function IMEIS({ onScan, onClose }) {
         let lastScan = 0;
         const loop = (ts) => {
             if (!vr.current || !sr.current) return;
-            if (ts - lastScan < 150 || busy.current) { rr.current = requestAnimationFrame(loop); return; }
+            if (ts - lastScan < 80 || busy.current) { rr.current = requestAnimationFrame(loop); return; }
             lastScan = ts;
             busy.current = true;
             detector.detect(vr.current).then(found => {
                 busy.current = false;
+                if (found && found.length >= 2) {
+                    if (handleMultiDetected(found, "Fast scanner")) return;
+                }
                 for (const item of found || []) {
                     if (handleDetected(item?.rawValue || "", "Fast scanner")) return;
                 }
@@ -1654,9 +1667,9 @@ function IMEIS({ onScan, onClose }) {
             } catch (error) {
                 setEr(error instanceof Error ? error.message : "Scanner fallback failed. Type the IMEI manually.");
             }
-        }, 4000);
+        }, 8000);
         return true;
-    }, [focusCamera, handleDetected, startPreviewStream, startZXing, stop]);
+    }, [focusCamera, handleDetected, handleMultiDetected, startPreviewStream, startZXing, stop]);
 
     useEffect(() => {
         let cancelled = false;
@@ -1811,6 +1824,32 @@ export default function App() {
     const fmRef = useRef(null);
     const invRef = useRef(null);
     const scsRef = useRef(false);
+    const camStream = useRef(null);
+    const camIdleTimer = useRef(null);
+    const getCameraStream = useCallback(async () => {
+        if (camIdleTimer.current) { clearTimeout(camIdleTimer.current); camIdleTimer.current = null; }
+        if (camStream.current) {
+            const tracks = camStream.current.getVideoTracks();
+            if (tracks.length && tracks[0].readyState === "live") return camStream.current;
+            camStream.current = null;
+        }
+        const stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: { ideal: "environment" }, width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } },
+            audio: false,
+        });
+        camStream.current = stream;
+        return stream;
+    }, []);
+    const releaseCameraLater = useCallback(() => {
+        if (camIdleTimer.current) clearTimeout(camIdleTimer.current);
+        camIdleTimer.current = setTimeout(() => {
+            if (camStream.current) {
+                camStream.current.getTracks().forEach(t => t.stop());
+                camStream.current = null;
+            }
+            camIdleTimer.current = null;
+        }, 30000);
+    }, []);
 
     const ef = useMemo(() => createEmptyForm(shopCfg), [shopCfg]);
     const [fm, sFm] = useState(ef);
@@ -2293,7 +2332,7 @@ export default function App() {
         }
     };
 
-    const handleScan = (imei) => {
+    const handleScan = (imei, imei2) => {
         setScs(false); const ex = findDeviceByImei(inv, imei);
         if (st === "sell") {
             const live = liveDeviceByImei(imei);
@@ -2307,7 +2346,8 @@ export default function App() {
             return;
         }
         if (ex) { sEi(ex); sFm(toForm(ex)); notify("IMEI found — editing", "warning"); }
-        else { sFm(toForm({}, { imei })); }
+        else { sFm(toForm({}, { imei, ...(imei2 ? { imei2 } : {}) })); }
+        if (imei2) notify("Both IMEIs scanned", "success");
         sSf(false); sPg(st === "buy" || st === "buy2" ? "buy" : "add");
     };
 
@@ -3296,7 +3336,7 @@ export default function App() {
 
                 </div>
 
-                {scs && <IMEIS onScan={handleScan} onClose={() => setScs(false)} />}
+                {scs && <IMEIS onScan={handleScan} onClose={() => setScs(false)} getCameraStream={getCameraStream} releaseCameraLater={releaseCameraLater} />}
                 {lb && <LB photos={lb.photos} si={lb.si} onClose={() => sLb(null)} />}
             </div></>
     );

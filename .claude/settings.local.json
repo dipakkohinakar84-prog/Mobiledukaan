@@ -13,7 +13,10 @@
       "Bash(node -e \"const fs=require\\(''fs''\\);const d=fs.readFileSync\\(''C:\\\\Users\\\\rct\\\\Desktop\\\\Mobnage\\\\public\\\\pd-icon.png''\\);const b=d.toString\\(''base64''\\);console.log\\(''size:'',d.length,''b64len:'',b.length\\)\")",
       "Bash(npx vite:*)",
       "Bash(npm install:*)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(node node_modules/.bin/vite build)",
+      "Bash(node -e \"require\\(''child_process''\\).execSync\\(''npx vite build'', {stdio:''inherit'', cwd:''C:/Users/rct/Desktop/Mobnage''}\\)\")",
+      "Bash(node -e \"console.log\\(''hello''\\)\")"
     ]
   }
 }
