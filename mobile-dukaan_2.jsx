@@ -1289,7 +1289,7 @@ function CamCap({ onCapture, onClose }) {
 }
 
 // ═══ Photo Uploader ═══
-function PhotoUp({ photos = [], onChange, max = 6 }) {
+function PhotoUp({ photos = [], onChange, max = 6, onCameraNeeded }) {
     const fr = useRef(null);
     const [cam, setCam] = useState(false);
     const addFile = async (e) => {
@@ -1321,7 +1321,7 @@ function PhotoUp({ photos = [], onChange, max = 6 }) {
         <div>
             <div className="pg">
                 {photos.map((src, i) => (<div key={normalizePhotoRef(src, i).id} className="pt"><img src={getPhotoPreview(src)} alt="" /><div className="ptd" onClick={e => { e.stopPropagation(); void rm(i); }}><X size={12} color="#fff" /></div></div>))}
-                {photos.length < max && <><div className="pa" onClick={() => setCam(true)}><Camera size={20} /><span>Camera</span></div><div className="pa" onClick={() => fr.current?.click()}><Upload size={20} /><span>Gallery</span></div></>}
+                {photos.length < max && <><div className="pa" onClick={() => { if (onCameraNeeded) onCameraNeeded(); setCam(true); }}><Camera size={20} /><span>Camera</span></div><div className="pa" onClick={() => fr.current?.click()}><Upload size={20} /><span>Gallery</span></div></>}
             </div>
             <input ref={fr} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={addFile} />
             {cam && <CamCap onCapture={cap} onClose={() => setCam(false)} />}
@@ -1581,7 +1581,7 @@ function IMEIS({ onScan, onClose, getCameraStream, releaseCameraLater }) {
 
     const startZXing = useCallback(async () => {
         if (!vr.current) throw new Error("Camera preview is not ready.");
-        const [{ BrowserMultiFormatReader }, { BarcodeFormat, DecodeHintType, NotFoundException, ChecksumException, FormatException }] = await Promise.all([
+        const [{ BrowserMultiFormatReader }, { BarcodeFormat, DecodeHintType }] = await Promise.all([
             import("@zxing/browser"),
             import("@zxing/library"),
         ]);
@@ -1593,34 +1593,40 @@ function IMEIS({ onScan, onClose, getCameraStream, releaseCameraLater }) {
             BarcodeFormat.EAN_8,
             BarcodeFormat.UPC_A,
         ]);
-        const reader = new BrowserMultiFormatReader(hints, {
-            delayBetweenScanAttempts: 60,
-            delayBetweenScanSuccess: 100,
-            tryPlayVideoTimeout: 3000,
-        });
+        hints.set(DecodeHintType.TRY_HARDER, true);
+        const reader = new BrowserMultiFormatReader(hints);
+        await startPreviewStream();
         setEng("Compatibility scanner");
         setHt("Searching IMEI barcode. Align only the IMEI barcode inside the scan band.");
-        const controls = await reader.decodeFromConstraints({
-            audio: false,
-            video: {
-                facingMode: { ideal: "environment" },
-                width: { ideal: 640 },
-                height: { ideal: 480 },
-            },
-        }, vr.current, (result, error, controlsRef) => {
-            cr.current = controlsRef;
-            if (result) {
-                handleDetected(result.getText(), "Scanner");
-                return;
-            }
-            if (error && !(error instanceof NotFoundException) && !(error instanceof ChecksumException) && !(error instanceof FormatException)) {
-                setEr("Scanner is running, but barcode decoding is unstable. Try better light or move closer.");
-            }
-        });
-        cr.current = controls;
         setSc(true);
         focusCamera();
-    }, [focusCamera, handleDetected]);
+        const cropCanvas = document.createElement("canvas");
+        const cropCtx = cropCanvas.getContext("2d");
+        let lastScan = 0;
+        const loop = (ts) => {
+            if (!vr.current || !sr.current) return;
+            if (ts - lastScan < 100 || busy.current) { rr.current = requestAnimationFrame(loop); return; }
+            lastScan = ts;
+            busy.current = true;
+            try {
+                const v = vr.current;
+                const vw = v.videoWidth || 640;
+                const vh = v.videoHeight || 480;
+                const sx = Math.floor(vw * 0.05);
+                const sy = Math.floor(vh * 0.28);
+                const sw = Math.floor(vw * 0.90);
+                const sh = Math.floor(vh * 0.44);
+                cropCanvas.width = sw;
+                cropCanvas.height = sh;
+                cropCtx.drawImage(v, sx, sy, sw, sh, 0, 0, sw, sh);
+                const result = reader.decodeFromCanvas(cropCanvas);
+                busy.current = false;
+                if (result && handleDetected(result.getText(), "Scanner")) return;
+            } catch { busy.current = false; }
+            if (vr.current && sr.current) rr.current = requestAnimationFrame(loop);
+        };
+        rr.current = requestAnimationFrame(loop);
+    }, [focusCamera, handleDetected, startPreviewStream]);
 
     const startNative = useCallback(async () => {
         if (!vr.current || typeof window === "undefined" || !("BarcodeDetector" in window)) return false;
@@ -1849,6 +1855,10 @@ export default function App() {
             }
             camIdleTimer.current = null;
         }, 30000);
+    }, []);
+    const releaseCameraNow = useCallback(() => {
+        if (camIdleTimer.current) { clearTimeout(camIdleTimer.current); camIdleTimer.current = null; }
+        if (camStream.current) { camStream.current.getTracks().forEach(t => t.stop()); camStream.current = null; }
     }, []);
 
     const ef = useMemo(() => createEmptyForm(shopCfg), [shopCfg]);
@@ -2346,7 +2356,7 @@ export default function App() {
             return;
         }
         if (ex) { sEi(ex); sFm(toForm(ex)); notify("IMEI found — editing", "warning"); }
-        else { sFm(toForm({}, { imei, ...(imei2 ? { imei2 } : {}) })); }
+        else { uf("imei", imei); if (imei2) uf("imei2", imei2); }
         if (imei2) notify("Both IMEIs scanned", "success");
         sSf(false); sPg(st === "buy" || st === "buy2" ? "buy" : "add");
     };
@@ -2887,7 +2897,7 @@ export default function App() {
                     {pg === "add" && <div className="fi" style={{ maxWidth: 760 }}>
                         <div style={{ marginBottom: 28 }}><h1 style={{ color: "var(--t1)", fontSize: 28, fontWeight: 700, display: "flex", alignItems: "center", gap: 10 }}><Plus size={28} style={{ color: "var(--a)" }} /> {ei ? "Edit Mobile" : "Add Mobile"}</h1><p style={{ color: "var(--t3)", fontSize: 14, marginTop: 4 }}>{ei ? "Update the selected stock item and save it back to stock." : "Fast stock entry for new phones before selling."}</p></div>
                         <div className="gc" style={{ border: "1px solid rgba(0,212,255,.2)" }}>
-                            <F l="Device Photos" ic={Images}><PhotoUp photos={fm.photos || []} onChange={p => uf("photos", p)} /></F>
+                            <F l="Device Photos" ic={Images}><PhotoUp photos={fm.photos || []} onChange={p => uf("photos", p)} onCameraNeeded={releaseCameraNow} /></F>
                             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12 }}>
                                 <F l="IMEI 1" ic={Hash}><div style={{ display: "flex", gap: 8 }}><input className="gi" value={fm.imei} onChange={e => uf("imei", e.target.value)} placeholder="15-digit IMEI" style={{ fontFamily: "'Space Mono',monospace" }} /><button className="bg" onClick={() => openSc("add")} style={{ padding: 10 }}><Camera size={16} /></button></div></F>
                                 <F l="IMEI 2 (Optional)" ic={Hash}><div style={{ display: "flex", gap: 8 }}><input className="gi" value={fm.imei2} onChange={e => uf("imei2", e.target.value)} placeholder="Optional second IMEI" style={{ fontFamily: "'Space Mono',monospace" }} /><button className="bg" onClick={() => openSc("add2")} style={{ padding: 10 }}><Camera size={16} /></button></div></F>
@@ -3074,7 +3084,7 @@ export default function App() {
                     {pg === "buy" && <div className="fi" style={{ maxWidth: 700 }}>
                         <div style={{ marginBottom: 28 }}><h1 style={{ color: "var(--t1)", fontSize: 28, fontWeight: 700, display: "flex", alignItems: "center", gap: 10 }}><ArrowDownCircle size={28} style={{ color: "var(--a2)" }} /> Purchase Entry</h1></div>
                         <div className="gc" style={{ border: "1px solid rgba(139,92,246,.2)" }}>
-                            <F l="Device Photos" ic={Images}><PhotoUp photos={fm.photos || []} onChange={p => uf("photos", p)} /></F>
+                            <F l="Device Photos" ic={Images}><PhotoUp photos={fm.photos || []} onChange={p => uf("photos", p)} onCameraNeeded={releaseCameraNow} /></F>
                             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12 }}>
                                 <F l="IMEI 1" ic={Hash}><div style={{ display: "flex", gap: 8 }}><input className="gi" value={fm.imei} onChange={e => uf("imei", e.target.value)} placeholder="IMEI" style={{ fontFamily: "'Space Mono',monospace" }} /><button className="bg" onClick={() => openSc("buy")}><Camera size={16} /></button></div></F>
                                 <F l="IMEI 2 (Optional)" ic={Hash}><div style={{ display: "flex", gap: 8 }}><input className="gi" value={fm.imei2} onChange={e => uf("imei2", e.target.value)} placeholder="Optional second IMEI" style={{ fontFamily: "'Space Mono',monospace" }} /><button className="bg" onClick={() => openSc("buy2")}><Camera size={16} /></button></div></F>
