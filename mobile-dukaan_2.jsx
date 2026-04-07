@@ -2260,6 +2260,7 @@ export default function App() {
         setAuthReady(true);
     }, [activeSyncUrl, applyShopSession]);
     useEffect(() => {
+        if (showAdminPanel) return;
         let cancelled = false;
         (async () => {
             try {
@@ -2268,7 +2269,7 @@ export default function App() {
             } catch { }
         })();
         return () => { cancelled = true; };
-    }, []);
+    }, [showAdminPanel]);
     useEffect(() => {
         if (!showAdminPanel || adminToken) return;
         let cancelled = false;
@@ -2499,7 +2500,7 @@ export default function App() {
     }, []);
 
     const loadPocketBaseData = useCallback(async (silent = false) => {
-        if (!shopSession?.pbAuth?.token) return;
+        if (showAdminPanel || !shopSession?.pbAuth?.token) return;
         if (!silent) setSyncBusy(true);
         try {
             const bundle = await pocketbaseLoadShopBundle(shopSession.pbAuth);
@@ -2522,7 +2523,7 @@ export default function App() {
         } finally {
             if (!silent) setSyncBusy(false);
         }
-    }, [markSyncConnected, notify, ol, shopSession?.pbAuth, updateSyncMeta]);
+    }, [markSyncConnected, notify, ol, shopSession?.pbAuth, showAdminPanel, updateSyncMeta]);
     useEffect(() => { loadPocketBaseDataRef.current = loadPocketBaseData; }, [loadPocketBaseData]);
     const uploadPendingPhotosForItem = useCallback(async (itemId, photos) => {
         const nextPhotos = [];
@@ -2549,11 +2550,11 @@ export default function App() {
         return { photos: nextPhotos, failures };
     }, [shopSession?.pbAuth]);
     useEffect(() => {
-        if (!storageReady || !shopSession?.pbAuth?.token) return;
+        if (showAdminPanel || !storageReady || !shopSession?.pbAuth?.token) return;
         void loadPocketBaseDataRef.current?.(true);
-    }, [shopSession?.pbAuth?.token, shopSession?.pbAuth?.record?.shop, storageReady]);
+    }, [shopSession?.pbAuth?.token, shopSession?.pbAuth?.record?.shop, showAdminPanel, storageReady]);
     useEffect(() => {
-        if (!storageReady || !shopSession?.pbAuth?.token || !shopSession?.pbAuth?.record?.shop || !syncCfg.autoSync) return;
+        if (showAdminPanel || !storageReady || !shopSession?.pbAuth?.token || !shopSession?.pbAuth?.record?.shop || !syncCfg.autoSync) return;
         let cancelled = false;
         let cleanup = () => {};
         const auth = shopSession.pbAuth;
@@ -2573,7 +2574,7 @@ export default function App() {
             try { cleanup(); } catch {}
             unsubscribeFromShopData();
         };
-    }, [storageReady, syncCfg.autoSync, shopSession?.pbAuth?.token, shopSession?.pbAuth?.record?.shop]);
+    }, [storageReady, syncCfg.autoSync, shopSession?.pbAuth?.token, shopSession?.pbAuth?.record?.shop, showAdminPanel]);
     const saveShopProfile = async () => {
         if (!shopSession?.pbAuth?.token || !shopSession?.pbAuth?.record?.shop) {
             notify('Login required before saving shop profile.', 'error');
