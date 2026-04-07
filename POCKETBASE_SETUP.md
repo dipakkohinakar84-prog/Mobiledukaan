@@ -29,11 +29,12 @@ Recommended collections:
 2. `shop_users` (auth)
 - enable username auth
 - unique identity fields:
-  - `username`
+  - `username` (store the 10-digit mobile number here)
   - `email`
 - fields:
   - `shop` (relation -> `shops`, max 1)
   - `active` (bool)
+  - `trialEndsAt` (date, required for app trial expiry)
 
 3. `inventory`
 - fields:
@@ -107,10 +108,116 @@ Recommended collections:
   - `file` (file, max 1)
   - `uploadedAt` (text)
 
-Suggested rules for first setup
-- keep all API rules blank while testing
+6. `app_settings`
+- fields:
+  - `trialDays` (number)
+- create one record and set the trial duration there
+- allow public read access for this collection so the signup screen can read the current trial length
+
+Suggested secure rules
+- do not leave all API rules blank in production
+- tenant isolation must be enforced by PocketBase rules, not only by client-side filters
+- minimum recommended starting point:
+
+`shop_users` (auth)
+- list rule: `id = @request.auth.id`
+- view rule: `id = @request.auth.id`
+- update rule: `id = @request.auth.id`
+- create rule:
+  - allow signup only if you want self-registration
+  - otherwise disable public create and use admin-only provisioning
+- delete rule: admin only
+
+`shops`
+- list rule: `id = @request.auth.shop`
+- view rule: `id = @request.auth.shop`
+- update rule: `id = @request.auth.shop`
+- create rule:
+  - open only if self-signup needs to create the shop record
+  - otherwise admin only
+
+`inventory`
+- list rule: `shop = @request.auth.shop`
+- view rule: `shop = @request.auth.shop`
+- create rule: `shop = @request.auth.shop`
+- update rule: `shop = @request.auth.shop`
+- delete rule: `shop = @request.auth.shop`
+
+`transactions`
+- list rule: `shop = @request.auth.shop`
+- view rule: `shop = @request.auth.shop`
+- create rule: `shop = @request.auth.shop`
+- update rule: `shop = @request.auth.shop`
+- delete rule: `shop = @request.auth.shop`
+
+`photos`
+- list rule: `shop = @request.auth.shop`
+- view rule: `shop = @request.auth.shop`
+- create rule: `shop = @request.auth.shop`
+- update rule: `shop = @request.auth.shop`
+- delete rule: `shop = @request.auth.shop`
+
+`app_settings`
+- list rule: `true`
+- view rule: `true`
+- create/update/delete: admin only
+
+Signup and password reset requirements
+- allow auth collection signup for `shop_users`
+- keep `username` unique because the app signs in with mobile number
+- require a real `email` because reset password is sent by PocketBase email
+- keep `active` and `trialEndsAt` trustworthy; do not let normal users change these fields
+- configure PocketBase SMTP settings before using reset password:
+  - sender name
+  - sender email
+  - SMTP host
+  - SMTP port
+  - SMTP username
+  - SMTP password
+
+Current app auth behavior
+- sign in uses `mobile number + password`
+- sign up creates both the `shops` record and the linked `shop_users` auth record
+- new accounts get the `app_settings.trialDays` duration, with a 7-day fallback if the settings record is missing
+- reset password sends a PocketBase email to the registered address
+- expired trials are blocked by the app on sign in and when restoring saved sessions
+
+Admin dashboard
+- `/777admin` now talks to a small backend admin API instead of authenticating as `_superusers` directly in the browser
+- the backend admin API should run on the same trusted host/network as PocketBase
+- required admin API env:
+  - `POCKETBASE_URL=https://db.example.com` or local/private PocketBase URL
+  - `ADMIN_API_PORT=8787` (optional)
+  - `ADMIN_API_COOKIE_SECURE=true` in production
+- after login it can:
+  - view all users
+  - see expired and ending-soon trials
+  - extend one user by quick buttons
+  - set a user's exact trial end date
+  - activate or deactivate a user
+  - resend reset password email for a user
+  - edit shop name, phone, and email
+  - update default signup trial days
 
 Notes
 - The app loads inventory, transactions, shop profile, and photos directly from PocketBase collections.
 - Changes are written directly to PocketBase and realtime subscriptions re-fetch updated collections.
 - For `Buy` entries with `Used` or `Refurbished` condition, seller verification fields should be filled for compliance and safety.
+- Security recommendation: move `/777admin` actions behind a trusted backend/API before production scale, because exposing superuser login in the browser is a high-risk design.
+
+Admin API deployment notes
+- run `npm run admin-api` on the trusted server
+- put the admin API behind Nginx and expose it only as same-origin `/admin-api`
+- keep the PocketBase service private on `127.0.0.1:8090`
+- example Nginx location block for the app origin:
+
+```nginx
+location /admin-api/ {
+    proxy_pass http://127.0.0.1:8787/admin-api/;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+```

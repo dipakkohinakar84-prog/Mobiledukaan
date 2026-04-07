@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, CartesianGrid, Legend, AreaChart, Area } from "recharts";
 import { loadAppState, loadSyncState, saveAppState, saveSyncState, savePhotoBlob, loadPhotoBlob, deletePhotoBlob } from "./app-storage.js";
-import { getPocketBaseUrl, pocketbaseAdminLogin, pocketbaseCreateTransaction, pocketbaseDeleteInventory, pocketbaseListShops, pocketbaseLoadShopBundle, pocketbaseSaveShop, pocketbaseShopLogin, pocketbaseUpdateShopProfile, pocketbaseUploadPhoto, pocketbaseUpsertInventory, subscribeToShopData, unsubscribeFromShopData } from "./pocketbase-client.js";
+import { getPocketBaseUrl, pocketbaseAdminExtendUserTrial, pocketbaseAdminLoadDashboard, pocketbaseAdminLogin, pocketbaseAdminLogout, pocketbaseAdminSendPasswordReset, pocketbaseAdminSession, pocketbaseAdminUpdateSettings, pocketbaseAdminUpdateShop, pocketbaseAdminUpdateUser, pocketbaseCreateTransaction, pocketbaseDeleteInventory, pocketbaseGetTrialDays, pocketbaseIsTrialExpired, pocketbaseListShops, pocketbaseLoadShopBundle, pocketbaseRegisterShopUser, pocketbaseRequestPasswordReset, pocketbaseSaveShop, pocketbaseShopLogin, pocketbaseUpdateShopProfile, pocketbaseUploadPhoto, pocketbaseUpsertInventory, subscribeToShopData, unsubscribeFromShopData } from "./pocketbase-client.js";
 
 const genId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const fmtDate = (d) => new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
@@ -64,6 +64,7 @@ const LEGACY_APP_NAME = "Mobile Dukaan";
 const LEGACY_APP_NAME_2 = "Phone Dukaan";
 const APP_WORDMARK_SRC = "/phonedukaan-wordmark.svg";
 const APP_WORDMARK_FALLBACK = "/pd-icon.png";
+const DEFAULT_TRIAL_DAYS = 7;
 
 // ── LICENSE ACTIVATION ──────────────────────────────────────────────────────
 const LICENSE_KEY_LS = "phonedukaan_license_v1";
@@ -102,6 +103,10 @@ const DEFAULT_SHOP_PROFILE = {
 const STORAGE_PRESETS = ["32GB", "64GB", "128GB", "256GB", "512GB", "1TB"];
 const CUSTOM_STORAGE = "__custom__";
 const cleanImei = (v = "") => String(v || "").replace(/\D/g, "").slice(0, 15);
+const cleanMobileNumber = (v = "") => {
+    const digits = String(v || "").replace(/\D/g, "");
+    return digits.length > 10 ? digits.slice(-10) : digits;
+};
 const extractScanImei = (raw = "") => {
     const text = String(raw || "");
     const match = text.match(/\d{15}/);
@@ -1774,13 +1779,27 @@ export default function App() {
     const [loginPassword, setLoginPassword] = useState("");
     const [loginError, setLoginError] = useState("");
     const [loginBusy, setLoginBusy] = useState(false);
+    const [authMode, setAuthMode] = useState("sign-in");
+    const [signupForm, setSignupForm] = useState({ shopName: "", mobileNumber: "", email: "", password: "", confirmPassword: "" });
+    const [signupError, setSignupError] = useState("");
+    const [signupBusy, setSignupBusy] = useState(false);
+    const [trialDays, setTrialDays] = useState(DEFAULT_TRIAL_DAYS);
+    const [resetEmail, setResetEmail] = useState("");
+    const [resetError, setResetError] = useState("");
+    const [resetBusy, setResetBusy] = useState(false);
     const [showAdminPanel, setShowAdminPanel] = useState(typeof window !== "undefined" && window.location.pathname === ADMIN_PANEL_PATH);
     const [adminLoginId, setAdminLoginId] = useState("");
     const [adminPassword, setAdminPassword] = useState("");
     const [adminToken, setAdminToken] = useState("");
     const [adminError, setAdminError] = useState("");
     const [adminBusy, setAdminBusy] = useState(false);
+    const [adminTab, setAdminTab] = useState("overview");
+    const [adminUsers, setAdminUsers] = useState([]);
     const [adminShops, setAdminShops] = useState([]);
+    const [adminSearch, setAdminSearch] = useState("");
+    const [adminStatusFilter, setAdminStatusFilter] = useState("all");
+    const [adminSettings, setAdminSettings] = useState({ id: "", trialDays: DEFAULT_TRIAL_DAYS });
+    const [adminActionId, setAdminActionId] = useState("");
     const [adminForm, setAdminForm] = useState({ shopId: "", shopName: "", loginId: "", password: "", syncKey: "" });
     const [pg, sPg] = useState("dashboard");
     const [inv, sInv] = useState(seed.current.inv);
@@ -1896,8 +1915,33 @@ export default function App() {
         if (notifyTimeoutRef.current) clearTimeout(notifyTimeoutRef.current);
         notifyTimeoutRef.current = setTimeout(() => sNt(null), 3000);
     }, []);
+    const switchAuthMode = useCallback((mode) => {
+        setAuthMode(mode);
+        setLoginError("");
+        setSignupError("");
+        setResetError("");
+    }, []);
+    const adminAuth = useMemo(() => {
+        try { return adminToken ? JSON.parse(adminToken) : null; } catch { return null; }
+    }, [adminToken]);
     const applyShopSession = useCallback((session) => {
         if (!session) return;
+        if (session?.pbAuth?.record?.active === false) {
+            window.localStorage.removeItem(AUTH_SESSION_KEY);
+            setShopSession(null);
+            setLoginError("Your account is inactive. Contact support to continue.");
+            setAuthMode("sign-in");
+            setSyncCfg(current => normalizeSyncCfg({ ...current, connected: false, scriptUrl: activeSyncUrl, lastStatus: "Account inactive" }));
+            return;
+        }
+        if (pocketbaseIsTrialExpired(session?.trialEndsAt || session?.pbAuth?.record?.trialEndsAt)) {
+            window.localStorage.removeItem(AUTH_SESSION_KEY);
+            setShopSession(null);
+            setLoginError("Your trial has expired. Contact support to extend access.");
+            setAuthMode("sign-in");
+            setSyncCfg(current => normalizeSyncCfg({ ...current, connected: false, scriptUrl: activeSyncUrl, lastStatus: "Trial expired" }));
+            return;
+        }
         const hasManagedSync = Boolean(String(session.shopId || "").trim() && session.pbAuth?.token && session.pbAuth?.record);
         if (!hasManagedSync) {
             setShopSession(null);
@@ -1915,24 +1959,77 @@ export default function App() {
         }));
     }, [activeSyncUrl, syncTargetLabel]);
     const fetchAdminShops = useCallback(async (token) => {
-        const data = await pocketbaseListShops(token);
-        setAdminShops(data || []);
+        const data = await pocketbaseAdminLoadDashboard(token);
+        setAdminUsers((data?.users || []).map((user) => ({
+            ...user,
+            trialDraft: String(user.trialEndsAt || "").slice(0, 10),
+            emailDraft: user.email || "",
+            mobileDraft: user.mobileNumber || "",
+        })));
+        setAdminShops((data?.shops || []).map((shop) => ({
+            ...shop,
+            shopNameDraft: shop.shopName || "",
+            emailDraft: shop.email || "",
+            phoneDraft: shop.phone || "",
+        })));
+        const resolvedTrialDays = Number(data?.settings?.trialDays || DEFAULT_TRIAL_DAYS) || DEFAULT_TRIAL_DAYS;
+        setAdminSettings({ id: data?.settings?.id || "", trialDays: resolvedTrialDays });
+        setTrialDays(resolvedTrialDays);
     }, []);
     const handleShopLogin = async () => {
-        if (!loginId.trim() || !loginPassword.trim()) { setLoginError("Enter shop ID and password."); return; }
+        if (!loginId.trim() || !loginPassword.trim()) { setLoginError("Enter mobile number and password."); return; }
         setLoginBusy(true); setLoginError("");
         try {
             const data = await pocketbaseShopLogin(loginId, loginPassword);
-            const session = { loginId, shopId: data.shop.shopId, shopName: data.shop.shopName, scriptUrl: activeSyncUrl, syncKey: '', pbAuth: { token: data.token, record: data.record } };
+            const session = { loginId: data.record?.username || cleanMobileNumber(loginId), shopId: data.shop.shopId, shopName: data.shop.shopName, scriptUrl: activeSyncUrl, syncKey: '', trialEndsAt: data.trialEndsAt || '', pbAuth: { token: data.token, record: data.record } };
             window.localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(session));
             applyShopSession(session);
             setAuthReady(true);
+            setLoginId(data.record?.username || cleanMobileNumber(loginId));
             setLoginPassword("");
             notify(`Welcome ${data.shop?.shopName || data.shop?.shopId || ''}`.trim(), "success");
         } catch (e) {
             setLoginError(e?.message || "Login failed.");
         } finally {
             setLoginBusy(false);
+        }
+    };
+    const handleShopSignup = async () => {
+        const mobileNumber = cleanMobileNumber(signupForm.mobileNumber);
+        if (!signupForm.shopName.trim()) { setSignupError("Enter your shop name."); return; }
+        if (mobileNumber.length !== 10) { setSignupError("Enter a valid 10-digit mobile number."); return; }
+        if (!String(signupForm.email || "").trim()) { setSignupError("Enter your email address."); return; }
+        if (!signupForm.password) { setSignupError("Enter a password."); return; }
+        if (signupForm.password !== signupForm.confirmPassword) { setSignupError("Passwords do not match."); return; }
+        setSignupBusy(true); setSignupError("");
+        try {
+            const data = await pocketbaseRegisterShopUser({ ...signupForm, mobileNumber, trialDays });
+            const session = { loginId: data.record?.username || mobileNumber, shopId: data.shop.shopId, shopName: data.shop.shopName, scriptUrl: activeSyncUrl, syncKey: '', trialEndsAt: data.trialEndsAt || '', pbAuth: { token: data.token, record: data.record } };
+            window.localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(session));
+            applyShopSession(session);
+            setAuthReady(true);
+            setLoginId(data.record?.username || mobileNumber);
+            setLoginPassword("");
+            setSignupForm({ shopName: "", mobileNumber: "", email: "", password: "", confirmPassword: "" });
+            notify(`Account created. Trial active for ${trialDays} days.`, "success");
+        } catch (e) {
+            setSignupError(e?.message || "Unable to create account.");
+        } finally {
+            setSignupBusy(false);
+        }
+    };
+    const handlePasswordReset = async () => {
+        if (!String(resetEmail || "").trim()) { setResetError("Enter your email address."); return; }
+        setResetBusy(true); setResetError("");
+        try {
+            await pocketbaseRequestPasswordReset(resetEmail);
+            notify("Password reset email sent. Check your inbox.", "success");
+            setResetEmail("");
+            setAuthMode("sign-in");
+        } catch (e) {
+            setResetError(e?.message || "Unable to send reset email.");
+        } finally {
+            setResetBusy(false);
         }
     };
     const handleAdminLogin = async () => {
@@ -1942,6 +2039,7 @@ export default function App() {
             const data = await pocketbaseAdminLogin(adminLoginId, adminPassword);
             setAdminToken(JSON.stringify(data));
             await fetchAdminShops(data);
+            setAdminTab("overview");
         } catch (e) {
             setAdminError(e?.message || "Admin login failed.");
         } finally {
@@ -1966,6 +2064,96 @@ export default function App() {
         } finally {
             setAdminBusy(false);
         }
+    };
+    const saveAdminUser = async (userId) => {
+        if (!adminAuth) { setAdminError("Admin login required."); return; }
+        const target = adminUsers.find(user => user.id === userId);
+        if (!target) return;
+        setAdminActionId(userId); setAdminError("");
+        try {
+            await pocketbaseAdminUpdateUser(adminAuth, userId, { mobileNumber: target.mobileDraft, email: target.emailDraft, trialEndsAt: target.trialDraft ? `${target.trialDraft}T23:59:59.000Z` : null, active: target.active });
+            await fetchAdminShops(adminAuth);
+            notify(`Saved ${target.shopName || target.mobileNumber}`, "success");
+        } catch (e) {
+            setAdminError(e?.message || "Unable to save user.");
+        } finally {
+            setAdminActionId("");
+        }
+    };
+    const extendAdminUserTrial = async (userId, days) => {
+        if (!adminAuth) { setAdminError("Admin login required."); return; }
+        setAdminActionId(userId); setAdminError("");
+        try {
+            await pocketbaseAdminExtendUserTrial(adminAuth, userId, days);
+            await fetchAdminShops(adminAuth);
+            notify(`Trial extended by ${days} days`, "success");
+        } catch (e) {
+            setAdminError(e?.message || "Unable to extend trial.");
+        } finally {
+            setAdminActionId("");
+        }
+    };
+    const toggleAdminUserActive = async (userId, active) => {
+        if (!adminAuth) { setAdminError("Admin login required."); return; }
+        setAdminActionId(userId); setAdminError("");
+        try {
+            await pocketbaseAdminUpdateUser(adminAuth, userId, { active });
+            await fetchAdminShops(adminAuth);
+            notify(active ? "User activated" : "User deactivated", "success");
+        } catch (e) {
+            setAdminError(e?.message || "Unable to update user.");
+        } finally {
+            setAdminActionId("");
+        }
+    };
+    const sendAdminPasswordReset = async (user) => {
+        if (!adminAuth) { setAdminError("Admin login required."); return; }
+        setAdminActionId(user.id); setAdminError("");
+        try {
+            await pocketbaseAdminSendPasswordReset(adminAuth, user.emailDraft || user.email);
+            notify(`Reset email sent to ${user.emailDraft || user.email}`, "success");
+        } catch (e) {
+            setAdminError(e?.message || "Unable to send reset email.");
+        } finally {
+            setAdminActionId("");
+        }
+    };
+    const saveAdminShopDetails = async (shopId) => {
+        if (!adminAuth) { setAdminError("Admin login required."); return; }
+        const target = adminShops.find(shop => shop.id === shopId);
+        if (!target) return;
+        setAdminActionId(shopId); setAdminError("");
+        try {
+            await pocketbaseAdminUpdateShop(adminAuth, shopId, { shopName: target.shopNameDraft, email: target.emailDraft, phone: target.phoneDraft });
+            await fetchAdminShops(adminAuth);
+            notify(`Saved ${target.shopNameDraft || target.shopName}`, "success");
+        } catch (e) {
+            setAdminError(e?.message || "Unable to save shop.");
+        } finally {
+            setAdminActionId("");
+        }
+    };
+    const saveAdminSettings = async () => {
+        if (!adminAuth) { setAdminError("Admin login required."); return; }
+        setAdminActionId("settings"); setAdminError("");
+        try {
+            await pocketbaseAdminUpdateSettings(adminAuth, { trialDays: adminSettings.trialDays });
+            await fetchAdminShops(adminAuth);
+            notify("Default trial days updated", "success");
+        } catch (e) {
+            setAdminError(e?.message || "Unable to update settings.");
+        } finally {
+            setAdminActionId("");
+        }
+    };
+    const handleAdminLogout = async () => {
+        try { if (adminAuth?.csrfToken) await pocketbaseAdminLogout(adminAuth); } catch { }
+        setAdminToken("");
+        setAdminUsers([]);
+        setAdminShops([]);
+        setAdminError("");
+        setAdminActionId("");
+        closeAdminPanel();
     };
     const logoutShop = () => {
         unsubscribeFromShopData();
@@ -2052,8 +2240,14 @@ export default function App() {
             const stored = window.localStorage.getItem(AUTH_SESSION_KEY);
             if (stored) {
                 const parsed = JSON.parse(stored);
-                if (!parsed?.shopId || !parsed?.pbAuth?.token) {
+                if (!parsed?.shopId || !parsed?.pbAuth?.token || parsed?.pbAuth?.record?.active === false || pocketbaseIsTrialExpired(parsed?.trialEndsAt || parsed?.pbAuth?.record?.trialEndsAt)) {
                     window.localStorage.removeItem(AUTH_SESSION_KEY);
+                    if (parsed?.pbAuth?.record?.active === false) {
+                        setLoginError("Your account is inactive. Contact support to continue.");
+                    }
+                    if (parsed?.shopId && pocketbaseIsTrialExpired(parsed?.trialEndsAt || parsed?.pbAuth?.record?.trialEndsAt)) {
+                        setLoginError("Your trial has expired. Contact support to extend access.");
+                    }
                     setSyncCfg(current => normalizeSyncCfg({ ...current, connected: false, scriptUrl: activeSyncUrl, lastStatus: "Login required" }));
                 } else {
                     applyShopSession(parsed);
@@ -2062,6 +2256,59 @@ export default function App() {
         } catch { }
         setAuthReady(true);
     }, [activeSyncUrl, applyShopSession]);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            try {
+                const configuredTrialDays = await pocketbaseGetTrialDays();
+                if (!cancelled && Number(configuredTrialDays) > 0) setTrialDays(Number(configuredTrialDays));
+            } catch { }
+        })();
+        return () => { cancelled = true; };
+    }, []);
+    useEffect(() => {
+        if (!showAdminPanel || adminToken) return;
+        let cancelled = false;
+        (async () => {
+            try {
+                const session = await pocketbaseAdminSession();
+                if (cancelled) return;
+                setAdminToken(JSON.stringify(session));
+                await fetchAdminShops(session);
+                setAdminTab("overview");
+            } catch { }
+        })();
+        return () => { cancelled = true; };
+    }, [adminToken, fetchAdminShops, showAdminPanel]);
+    const adminUsersFiltered = useMemo(() => {
+        const query = adminSearch.trim().toLowerCase();
+        return adminUsers.filter((user) => {
+            const expiresAt = Date.parse(String(user.trialEndsAt || ""));
+            const daysLeft = Number.isFinite(expiresAt) ? Math.ceil((expiresAt - Date.now()) / 86400000) : null;
+            const matchesQuery = !query || [user.shopName, user.shopId, user.mobileNumber, user.email].some(value => String(value || "").toLowerCase().includes(query));
+            const matchesStatus = adminStatusFilter === "all"
+                || (adminStatusFilter === "active" && user.active)
+                || (adminStatusFilter === "inactive" && !user.active)
+                || (adminStatusFilter === "expired" && pocketbaseIsTrialExpired(user.trialEndsAt))
+                || (adminStatusFilter === "endingSoon" && !pocketbaseIsTrialExpired(user.trialEndsAt) && daysLeft != null && daysLeft <= 7);
+            return matchesQuery && matchesStatus;
+        });
+    }, [adminSearch, adminStatusFilter, adminUsers]);
+    const adminTrialUsers = useMemo(() => adminUsers.filter((user) => {
+        const expiresAt = Date.parse(String(user.trialEndsAt || ""));
+        const daysLeft = Number.isFinite(expiresAt) ? Math.ceil((expiresAt - Date.now()) / 86400000) : null;
+        return pocketbaseIsTrialExpired(user.trialEndsAt) || (daysLeft != null && daysLeft <= 7);
+    }).sort((a, b) => String(a.trialEndsAt || "").localeCompare(String(b.trialEndsAt || ""))), [adminUsers]);
+    const adminStats = useMemo(() => ({
+        totalUsers: adminUsers.length,
+        activeUsers: adminUsers.filter(user => user.active).length,
+        expiredUsers: adminUsers.filter(user => pocketbaseIsTrialExpired(user.trialEndsAt)).length,
+        endingSoonUsers: adminUsers.filter((user) => {
+            const expiresAt = Date.parse(String(user.trialEndsAt || ""));
+            const daysLeft = Number.isFinite(expiresAt) ? Math.ceil((expiresAt - Date.now()) / 86400000) : null;
+            return !pocketbaseIsTrialExpired(user.trialEndsAt) && daysLeft != null && daysLeft <= 7;
+        }).length,
+    }), [adminUsers]);
     useEffect(() => {
         if (syncCfg.scriptUrl === activeSyncUrl) return;
         setSyncCfg(current => normalizeSyncCfg({ ...current, scriptUrl: activeSyncUrl }));
@@ -2802,6 +3049,16 @@ export default function App() {
     };
 
     const nav = [{ id: "dashboard", ic: Home, l: "Dashboard" }, { id: "add", ic: Plus, l: "Add" }, { id: "buy", ic: ArrowDownCircle, l: "Buy" }, { id: "sell", ic: ArrowUpCircle, l: "Sell" }, { id: "transactions", ic: FileText, l: "Invoices" }, { id: "reports", ic: BarChart3, l: "Reports" }, { id: "inventory", ic: Package, l: "Stock" }, { id: "recycle", ic: Trash, l: "Bin" }, { id: "settings", ic: Settings, l: "Settings" }];
+    const adminTabs = [{ id: "overview", label: "Overview" }, { id: "users", label: "Users" }, { id: "trials", label: "Trials" }, { id: "shops", label: "Shops" }, { id: "settings", label: "Settings" }];
+    const getTrialMeta = (trialEndsAt) => {
+        const expiresAt = Date.parse(String(trialEndsAt || ""));
+        if (!Number.isFinite(expiresAt)) return { label: "No trial date", tone: "var(--warn)" };
+        const daysLeft = Math.ceil((expiresAt - Date.now()) / 86400000);
+        if (daysLeft < 0) return { label: `Expired ${Math.abs(daysLeft)}d ago`, tone: "var(--err)" };
+        if (daysLeft === 0) return { label: "Expires today", tone: "var(--warn)" };
+        if (daysLeft <= 7) return { label: `${daysLeft} days left`, tone: "var(--warn)" };
+        return { label: `${daysLeft} days left`, tone: "var(--ok)" };
+    };
 
     const condBadge = (c) => c === "New" ? "bn" : c === "Refurbished" ? "br" : "bu";
     const statBadge = (s) => s === "In Stock" ? "bi" : s === "Sold" ? "bso" : "bre";
@@ -2821,25 +3078,52 @@ export default function App() {
                                 <span style={{ color: "#fff" }}>Phone</span>
                                 <span style={{ background: "linear-gradient(90deg,#00D4FF,#8B5CF6)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>Dukaan</span>
                             </div>
-                            <div style={{ color: "var(--t3)", fontSize: 11, marginTop: 3 }}>{showAdminPanel ? "Admin Panel" : "Shop Login"}</div>
+                            <div style={{ color: "var(--t3)", fontSize: 11, marginTop: 3 }}>{showAdminPanel ? "Admin Panel" : authMode === "sign-up" ? "Create Account" : authMode === "reset" ? "Reset Password" : "Shop Login"}</div>
                         </div>
                     </div>
                     <div style={{ textAlign: "center" }}>
                         <Lock size={24} style={{ color: "var(--a)", marginBottom: 10 }} />
-                        <h2 style={{ color: "var(--t1)", fontSize: 20, fontWeight: 700, marginBottom: 8 }}>{showAdminPanel ? "PhoneDukaan Admin" : "Login to PhoneDukaan"}</h2>
+                        <h2 style={{ color: "var(--t1)", fontSize: 20, fontWeight: 700, marginBottom: 8 }}>{showAdminPanel ? "PhoneDukaan Admin" : authMode === "sign-up" ? "Create your account" : authMode === "reset" ? "Reset your password" : "Login to PhoneDukaan"}</h2>
                         <p style={{ color: "var(--t3)", fontSize: 13, lineHeight: 1.7 }}>
                             {showAdminPanel
                                 ? "Create shop logins once. Shop users only need their ID and password."
-                                : "Login with the shop ID and password created in your PhoneDukaan admin panel."}
+                                : authMode === "sign-up"
+                                    ? `New accounts get ${trialDays} days of access. Use your mobile number to sign in later.`
+                                    : authMode === "reset"
+                                        ? "Enter the email used for signup and we will send a PocketBase reset link."
+                                        : "Login with your registered mobile number and password."}
                         </p>
                     </div>
                     {!showAdminPanel ? <>
-                        <input className="gi lic-input" placeholder="Shop Login ID" value={loginId} autoComplete="off" spellCheck={false} onChange={e => { setLoginId(e.target.value); setLoginError(""); }} />
-                        <input className="gi lic-input" type="password" placeholder="Password" value={loginPassword} autoComplete="current-password" onChange={e => { setLoginPassword(e.target.value); setLoginError(""); }} onKeyDown={e => e.key === "Enter" && !loginBusy && handleShopLogin()} />
-                        {loginError && <div style={{ color: "var(--err)", fontSize: 13, textAlign: "center", background: "rgba(248,113,113,.08)", border: "1px solid rgba(248,113,113,.2)", borderRadius: "var(--rs)", padding: "10px 14px", display: "flex", alignItems: "center", gap: 6, justifyContent: "center" }}><AlertCircle size={14} /> {loginError}</div>}
-                        <button className="bp" onClick={handleShopLogin} disabled={loginBusy} style={{ justifyContent: "center", opacity: loginBusy ? 0.7 : 1 }}>
-                            {loginBusy ? "Signing in…" : "Login"}
-                        </button>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8, width: "100%" }}>
+                            <button className={authMode === "sign-in" ? "bp" : "bg"} onClick={() => switchAuthMode("sign-in")} style={{ justifyContent: "center" }}>Sign in</button>
+                            <button className={authMode === "sign-up" ? "bp" : "bg"} onClick={() => switchAuthMode("sign-up")} style={{ justifyContent: "center" }}>Sign up</button>
+                            <button className={authMode === "reset" ? "bp" : "bg"} onClick={() => switchAuthMode("reset")} style={{ justifyContent: "center" }}>Reset</button>
+                        </div>
+                        {authMode === "sign-in" ? <>
+                            <input className="gi lic-input" placeholder="Mobile Number" value={loginId} autoComplete="tel" inputMode="numeric" spellCheck={false} onChange={e => { setLoginId(cleanMobileNumber(e.target.value)); setLoginError(""); }} />
+                            <input className="gi lic-input" type="password" placeholder="Password" value={loginPassword} autoComplete="current-password" onChange={e => { setLoginPassword(e.target.value); setLoginError(""); }} onKeyDown={e => e.key === "Enter" && !loginBusy && handleShopLogin()} />
+                            {loginError && <div style={{ color: "var(--err)", fontSize: 13, textAlign: "center", background: "rgba(248,113,113,.08)", border: "1px solid rgba(248,113,113,.2)", borderRadius: "var(--rs)", padding: "10px 14px", display: "flex", alignItems: "center", gap: 6, justifyContent: "center" }}><AlertCircle size={14} /> {loginError}</div>}
+                            <button className="bp" onClick={handleShopLogin} disabled={loginBusy} style={{ justifyContent: "center", opacity: loginBusy ? 0.7 : 1 }}>
+                                {loginBusy ? "Signing in…" : "Login"}
+                            </button>
+                        </> : authMode === "sign-up" ? <>
+                            <input className="gi lic-input" placeholder="Shop Name" value={signupForm.shopName} autoComplete="organization" onChange={e => { setSignupForm(f => ({ ...f, shopName: e.target.value })); setSignupError(""); }} />
+                            <input className="gi lic-input" placeholder="Mobile Number" value={signupForm.mobileNumber} autoComplete="tel" inputMode="numeric" onChange={e => { const mobileNumber = cleanMobileNumber(e.target.value); setSignupForm(f => ({ ...f, mobileNumber })); setSignupError(""); }} />
+                            <input className="gi lic-input" type="email" placeholder="Email" value={signupForm.email} autoComplete="email" onChange={e => { setSignupForm(f => ({ ...f, email: e.target.value })); setSignupError(""); }} />
+                            <input className="gi lic-input" type="password" placeholder="Password" value={signupForm.password} autoComplete="new-password" onChange={e => { setSignupForm(f => ({ ...f, password: e.target.value })); setSignupError(""); }} />
+                            <input className="gi lic-input" type="password" placeholder="Confirm Password" value={signupForm.confirmPassword} autoComplete="new-password" onChange={e => { setSignupForm(f => ({ ...f, confirmPassword: e.target.value })); setSignupError(""); }} onKeyDown={e => e.key === "Enter" && !signupBusy && handleShopSignup()} />
+                            {signupError && <div style={{ color: "var(--err)", fontSize: 13, textAlign: "center", background: "rgba(248,113,113,.08)", border: "1px solid rgba(248,113,113,.2)", borderRadius: "var(--rs)", padding: "10px 14px", display: "flex", alignItems: "center", gap: 6, justifyContent: "center" }}><AlertCircle size={14} /> {signupError}</div>}
+                            <button className="bp" onClick={handleShopSignup} disabled={signupBusy} style={{ justifyContent: "center", opacity: signupBusy ? 0.7 : 1 }}>
+                                {signupBusy ? "Creating account…" : "Create account"}
+                            </button>
+                        </> : <>
+                            <input className="gi lic-input" type="email" placeholder="Registered Email" value={resetEmail} autoComplete="email" onChange={e => { setResetEmail(e.target.value); setResetError(""); }} onKeyDown={e => e.key === "Enter" && !resetBusy && handlePasswordReset()} />
+                            {resetError && <div style={{ color: "var(--err)", fontSize: 13, textAlign: "center", background: "rgba(248,113,113,.08)", border: "1px solid rgba(248,113,113,.2)", borderRadius: "var(--rs)", padding: "10px 14px", display: "flex", alignItems: "center", gap: 6, justifyContent: "center" }}><AlertCircle size={14} /> {resetError}</div>}
+                            <button className="bp" onClick={handlePasswordReset} disabled={resetBusy} style={{ justifyContent: "center", opacity: resetBusy ? 0.7 : 1 }}>
+                                {resetBusy ? "Sending reset email…" : "Send reset email"}
+                            </button>
+                        </>}
                     </> : !adminToken ? <>
                         <input className="gi lic-input" placeholder="Admin ID" value={adminLoginId} autoComplete="off" onChange={e => { setAdminLoginId(e.target.value); setAdminError(""); }} />
                         <input className="gi lic-input" type="password" placeholder="Admin Password" value={adminPassword} autoComplete="current-password" onChange={e => { setAdminPassword(e.target.value); setAdminError(""); }} onKeyDown={e => e.key === "Enter" && !adminBusy && handleAdminLogin()} />
@@ -2849,22 +3133,117 @@ export default function App() {
                         </button>
                         <button className="bg" onClick={closeAdminPanel} style={{ justifyContent: "center" }}>Back to Shop Login</button>
                     </> : <>
-                        <div style={{ display: "grid", gap: 10, width: "100%" }}>
-                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                                <input className="gi" value={adminForm.shopName} onChange={e => setAdminForm(f => ({ ...f, shopName: e.target.value }))} placeholder="Shop Name" />
-                                <input className="gi" value={adminForm.shopId} onChange={e => setAdminForm(f => ({ ...f, shopId: e.target.value }))} placeholder="Shop ID" />
-                                <input className="gi" value={adminForm.loginId} onChange={e => setAdminForm(f => ({ ...f, loginId: e.target.value }))} placeholder="Shop Login ID" />
-                                <input className="gi" type="password" value={adminForm.password} onChange={e => setAdminForm(f => ({ ...f, password: e.target.value }))} placeholder="Shop Password" />
+                        <div style={{ display: "grid", gap: 12, width: "100%", maxHeight: "75vh", overflowY: "auto", paddingRight: 4 }}>
+                            <div className="gc" style={{ padding: 12, display: "grid", gap: 10 }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                                    <div>
+                                        <div style={{ color: "var(--t1)", fontWeight: 700, fontSize: 16 }}>Admin Dashboard</div>
+                                        <div style={{ color: "var(--t3)", fontSize: 12, marginTop: 4 }}>Manage users, trials, shops, and default signup settings.</div>
+                                    </div>
+                                    <button className="bg" onClick={handleAdminLogout} style={{ justifyContent: "center" }}>Close Admin</button>
+                                </div>
+                                {adminError && <div style={{ color: "var(--err)", fontSize: 13, textAlign: "center", background: "rgba(248,113,113,.08)", border: "1px solid rgba(248,113,113,.2)", borderRadius: "var(--rs)", padding: "10px 14px", display: "flex", alignItems: "center", gap: 6, justifyContent: "center" }}><AlertCircle size={14} /> {adminError}</div>}
+                                <div style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", gap: 8 }}>
+                                    {adminTabs.map(tab => <button key={tab.id} className={adminTab === tab.id ? "bp" : "bg"} onClick={() => setAdminTab(tab.id)} style={{ justifyContent: "center", padding: "10px 8px", fontSize: 12 }}>{tab.label}</button>)}
+                                </div>
                             </div>
-                            <input className="gi" value={adminForm.syncKey} onChange={e => setAdminForm(f => ({ ...f, syncKey: e.target.value }))} placeholder="Sync Key (Optional)" />
-                            {adminError && <div style={{ color: "var(--err)", fontSize: 13, textAlign: "center", background: "rgba(248,113,113,.08)", border: "1px solid rgba(248,113,113,.2)", borderRadius: "var(--rs)", padding: "10px 14px", display: "flex", alignItems: "center", gap: 6, justifyContent: "center" }}><AlertCircle size={14} /> {adminError}</div>}
-                            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                                <button className="bp" onClick={saveAdminShop} disabled={adminBusy} style={{ justifyContent: "center" }}>{adminBusy ? "Saving…" : "Save Shop Login"}</button>
-                                <button className="bg" onClick={() => { setAdminToken(""); setAdminShops([]); closeAdminPanel(); }} style={{ justifyContent: "center" }}>Close Admin Panel</button>
-                            </div>
-                            <div style={{ display: "grid", gap: 8, maxHeight: 220, overflowY: "auto" }}>
-                                {adminShops.map(shop => <div key={shop.shopId} className="gc" style={{ padding: 12 }}><div style={{ color: "var(--t1)", fontWeight: 700 }}>{shop.shopName || shop.shopId}</div><div style={{ color: "var(--t3)", fontSize: 12, marginTop: 4 }}>{shop.shopId} · {shop.loginId}</div><div style={{ color: "var(--t3)", fontSize: 12, marginTop: 2 }}>Cloud access enabled</div></div>)}
-                            </div>
+
+                            {adminTab === "overview" && <div style={{ display: "grid", gap: 10 }}>
+                                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10 }}>
+                                    {[{ label: "Total Users", value: adminStats.totalUsers }, { label: "Active", value: adminStats.activeUsers }, { label: "Expired", value: adminStats.expiredUsers }, { label: "Ending Soon", value: adminStats.endingSoonUsers }].map(card => <div key={card.label} className="gc" style={{ padding: 14 }}><div style={{ color: "var(--t3)", fontSize: 12 }}>{card.label}</div><div style={{ color: "var(--t1)", fontSize: 24, fontWeight: 800, marginTop: 6 }}>{card.value}</div></div>)}
+                                </div>
+                                <div className="gc" style={{ padding: 14, display: "grid", gap: 10 }}>
+                                    <div style={{ color: "var(--t1)", fontWeight: 700 }}>Create Shop Login</div>
+                                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10 }}>
+                                        <input className="gi" value={adminForm.shopName} onChange={e => setAdminForm(f => ({ ...f, shopName: e.target.value }))} placeholder="Shop Name" />
+                                        <input className="gi" value={adminForm.shopId} onChange={e => setAdminForm(f => ({ ...f, shopId: e.target.value }))} placeholder="Shop ID" />
+                                        <input className="gi" value={adminForm.loginId} onChange={e => setAdminForm(f => ({ ...f, loginId: cleanMobileNumber(e.target.value) }))} placeholder="Mobile Number" />
+                                        <input className="gi" type="password" value={adminForm.password} onChange={e => setAdminForm(f => ({ ...f, password: e.target.value }))} placeholder="Password" />
+                                    </div>
+                                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                                        <button className="bp" onClick={saveAdminShop} disabled={adminBusy} style={{ justifyContent: "center" }}>{adminBusy ? "Saving…" : "Save Shop Login"}</button>
+                                        <button className="bg" onClick={() => setAdminForm({ shopId: "", shopName: "", loginId: "", password: "", syncKey: "" })} style={{ justifyContent: "center" }}>Clear</button>
+                                    </div>
+                                </div>
+                                <div className="gc" style={{ padding: 14, display: "grid", gap: 8 }}>
+                                    <div style={{ color: "var(--t1)", fontWeight: 700 }}>Recently created shops</div>
+                                    {adminShops.slice(0, 5).map(shop => <div key={shop.id} style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", padding: "10px 0", borderBottom: "1px solid rgba(255,255,255,.06)" }}><div><div style={{ color: "var(--t1)", fontWeight: 600 }}>{shop.shopName}</div><div style={{ color: "var(--t3)", fontSize: 12, marginTop: 4 }}>{shop.loginId || "No mobile"} · {shop.email || "No email"}</div></div><div style={{ color: getTrialMeta(shop.trialEndsAt).tone, fontSize: 12, fontWeight: 700 }}>{getTrialMeta(shop.trialEndsAt).label}</div></div>)}
+                                </div>
+                            </div>}
+
+                            {adminTab === "users" && <>
+                                <div className="gc" style={{ padding: 12, display: "grid", gap: 10 }}>
+                                    <input className="gi" value={adminSearch} onChange={e => setAdminSearch(e.target.value)} placeholder="Search shop, mobile, email" />
+                                    <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 8 }}>
+                                        {[{ id: "all", label: "All" }, { id: "active", label: "Active" }, { id: "endingSoon", label: "Soon" }, { id: "expired", label: "Expired" }].map(filter => <button key={filter.id} className={adminStatusFilter === filter.id ? "bp" : "bg"} onClick={() => setAdminStatusFilter(filter.id)} style={{ justifyContent: "center", padding: "10px 8px", fontSize: 12 }}>{filter.label}</button>)}
+                                    </div>
+                                </div>
+                                <div style={{ display: "grid", gap: 10 }}>
+                                    {adminUsersFiltered.map(user => <div key={user.id} className="gc" style={{ padding: 14, display: "grid", gap: 10 }}>
+                                        <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start", flexWrap: "wrap" }}>
+                                            <div>
+                                                <div style={{ color: "var(--t1)", fontWeight: 700 }}>{user.shopName || user.shopId || user.mobileNumber}</div>
+                                                <div style={{ color: "var(--t3)", fontSize: 12, marginTop: 4 }}>{user.shopId || "No shop ID"} · {user.createdAt ? fmtDate(user.createdAt) : "New user"}</div>
+                                            </div>
+                                            <div style={{ padding: "6px 10px", borderRadius: 999, background: "rgba(255,255,255,.05)", color: getTrialMeta(user.trialEndsAt).tone, fontSize: 12, fontWeight: 700 }}>{getTrialMeta(user.trialEndsAt).label}</div>
+                                        </div>
+                                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
+                                            <input className="gi" value={user.mobileDraft} onChange={e => setAdminUsers(list => list.map(entry => entry.id === user.id ? { ...entry, mobileDraft: cleanMobileNumber(e.target.value) } : entry))} placeholder="Mobile" />
+                                            <input className="gi" type="email" value={user.emailDraft} onChange={e => setAdminUsers(list => list.map(entry => entry.id === user.id ? { ...entry, emailDraft: e.target.value } : entry))} placeholder="Email" />
+                                            <input className="gi" type="date" value={user.trialDraft} onChange={e => setAdminUsers(list => list.map(entry => entry.id === user.id ? { ...entry, trialDraft: e.target.value } : entry))} />
+                                        </div>
+                                        <label className="gi" style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}><input type="checkbox" checked={user.active} onChange={e => setAdminUsers(list => list.map(entry => entry.id === user.id ? { ...entry, active: e.target.checked } : entry))} /><span>{user.active ? "User is active" : "User is inactive"}</span></label>
+                                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                                            {[7, 15, 30].map(days => <button key={days} className="bg" onClick={() => void extendAdminUserTrial(user.id, days)} disabled={adminActionId === user.id} style={{ justifyContent: "center" }}>+{days}d</button>)}
+                                            <button className="bp" onClick={() => void saveAdminUser(user.id)} disabled={adminActionId === user.id} style={{ justifyContent: "center" }}>{adminActionId === user.id ? "Saving…" : "Save user"}</button>
+                                            <button className="bg" onClick={() => void sendAdminPasswordReset(user)} disabled={adminActionId === user.id} style={{ justifyContent: "center" }}>Reset email</button>
+                                            <button className="bg" onClick={() => void toggleAdminUserActive(user.id, !user.active)} disabled={adminActionId === user.id} style={{ justifyContent: "center" }}>{user.active ? "Deactivate" : "Activate"}</button>
+                                        </div>
+                                    </div>)}
+                                    {!adminUsersFiltered.length && <div className="gc" style={{ padding: 14, color: "var(--t3)", textAlign: "center" }}>No users match this filter.</div>}
+                                </div>
+                            </>}
+
+                            {adminTab === "trials" && <div style={{ display: "grid", gap: 10 }}>
+                                {adminTrialUsers.map(user => <div key={user.id} className="gc" style={{ padding: 14, display: "grid", gap: 10 }}>
+                                    <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                                        <div><div style={{ color: "var(--t1)", fontWeight: 700 }}>{user.shopName || user.mobileNumber}</div><div style={{ color: "var(--t3)", fontSize: 12, marginTop: 4 }}>{user.mobileNumber} · {user.email}</div></div>
+                                        <div style={{ color: getTrialMeta(user.trialEndsAt).tone, fontWeight: 700 }}>{getTrialMeta(user.trialEndsAt).label}</div>
+                                    </div>
+                                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                                        {[7, 15, 30].map(days => <button key={days} className="bp" onClick={() => void extendAdminUserTrial(user.id, days)} disabled={adminActionId === user.id} style={{ justifyContent: "center" }}>Extend {days}d</button>)}
+                                        <button className="bg" onClick={() => { setAdminTab("users"); setAdminSearch(user.mobileNumber || user.email || user.shopName || ""); }} style={{ justifyContent: "center" }}>Open user</button>
+                                    </div>
+                                </div>)}
+                                {!adminTrialUsers.length && <div className="gc" style={{ padding: 14, color: "var(--t3)", textAlign: "center" }}>No expired or ending-soon users.</div>}
+                            </div>}
+
+                            {adminTab === "shops" && <div style={{ display: "grid", gap: 10 }}>
+                                {adminShops.map(shop => <div key={shop.id} className="gc" style={{ padding: 14, display: "grid", gap: 10 }}>
+                                    <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start", flexWrap: "wrap" }}>
+                                        <div><div style={{ color: "var(--t1)", fontWeight: 700 }}>{shop.shopName}</div><div style={{ color: "var(--t3)", fontSize: 12, marginTop: 4 }}>{shop.shopId} · {shop.loginId || "No mobile"}</div></div>
+                                        <div style={{ color: getTrialMeta(shop.trialEndsAt).tone, fontWeight: 700, fontSize: 12 }}>{getTrialMeta(shop.trialEndsAt).label}</div>
+                                    </div>
+                                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
+                                        <input className="gi" value={shop.shopNameDraft} onChange={e => setAdminShops(list => list.map(entry => entry.id === shop.id ? { ...entry, shopNameDraft: e.target.value } : entry))} placeholder="Shop name" />
+                                        <input className="gi" value={shop.phoneDraft} onChange={e => setAdminShops(list => list.map(entry => entry.id === shop.id ? { ...entry, phoneDraft: e.target.value } : entry))} placeholder="Phone" />
+                                        <input className="gi" type="email" value={shop.emailDraft} onChange={e => setAdminShops(list => list.map(entry => entry.id === shop.id ? { ...entry, emailDraft: e.target.value } : entry))} placeholder="Email" />
+                                    </div>
+                                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                                        <button className="bp" onClick={() => void saveAdminShopDetails(shop.id)} disabled={adminActionId === shop.id} style={{ justifyContent: "center" }}>{adminActionId === shop.id ? "Saving…" : "Save shop"}</button>
+                                        {shop.userId ? <button className="bg" onClick={() => { setAdminTab("users"); setAdminSearch(shop.loginId || shop.email || shop.shopName || ""); }} style={{ justifyContent: "center" }}>Open user</button> : null}
+                                    </div>
+                                </div>)}
+                            </div>}
+
+                            {adminTab === "settings" && <div className="gc" style={{ padding: 14, display: "grid", gap: 12 }}>
+                                <div>
+                                    <div style={{ color: "var(--t1)", fontWeight: 700 }}>Default trial days</div>
+                                    <div style={{ color: "var(--t3)", fontSize: 12, marginTop: 4 }}>Used for new user signups. Existing users keep their own trial end date until you change them.</div>
+                                </div>
+                                <input className="gi" type="number" min="1" value={adminSettings.trialDays} onChange={e => setAdminSettings(current => ({ ...current, trialDays: e.target.value }))} placeholder="7" />
+                                <button className="bp" onClick={() => void saveAdminSettings()} disabled={adminActionId === "settings"} style={{ justifyContent: "center" }}>{adminActionId === "settings" ? "Saving…" : "Save settings"}</button>
+                            </div>}
                         </div>
                     </>}
                 </div>
@@ -3347,7 +3726,7 @@ export default function App() {
                                         <input ref={logoInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleLogoPick} />
                                     </div>
                                     <div style={{ color: "var(--t3)", fontSize: 12, lineHeight: 1.6 }}>This uploaded shop logo is used on invoice PDFs only. The app itself uses the separate {APP_NAME} brand logo.</div>
-                                    <div className="action-row"><button className="bp" onClick={() => void saveShopProfile()} disabled={profileSaveBusy}>{profileSaveBusy ? "Saving..." : "Save Shop Profile"}</button>{shopProfileDirty ? <span style={{ color: "var(--warn)", fontSize: 12, alignSelf: "center" }}>Unsaved changes</span> : null}</div>
+                                    <div className="action-row"><button className="bp" onClick={() => void saveShopProfile()} disabled={profileSaveBusy}>{profileSaveBusy ? "Saving..." : "Save Shop Profile"}</button><button className="bg" onClick={logoutShop}><LogOut size={16} /> Sign out</button>{shopProfileDirty ? <span style={{ color: "var(--warn)", fontSize: 12, alignSelf: "center" }}>Unsaved changes</span> : null}</div>
                                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12 }}>
                                         <F l="Shop Name" ic={Smartphone}><input className="gi" value={shopCfg.shopName} onChange={e => setShopField("shopName", e.target.value)} placeholder="PhoneDukaan" /></F>
                                         <F l="Legal Name" ic={FileText}><input className="gi" value={shopCfg.legalName} onChange={e => setShopField("legalName", e.target.value)} placeholder="Business legal name" /></F>

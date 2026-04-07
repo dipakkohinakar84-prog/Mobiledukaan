@@ -3,15 +3,21 @@
 # Nginx + SSL Setup for PocketBase
 # Run AFTER deploy-pocketbase.sh
 # Requires: a domain pointing to your VPS IP
-# Usage: sudo bash deploy-nginx-ssl.sh yourdomain.com
+# Usage: sudo bash deploy-nginx-ssl.sh yourdomain.com admin@example.com
 # ============================================
 
 set -e
 
 DOMAIN="${1}"
+CERTBOT_EMAIL="${2}"
 
 if [ -z "$DOMAIN" ]; then
-    echo "Usage: sudo bash deploy-nginx-ssl.sh yourdomain.com"
+    echo "Usage: sudo bash deploy-nginx-ssl.sh yourdomain.com admin@example.com"
+    exit 1
+fi
+
+if [ -z "$CERTBOT_EMAIL" ]; then
+    echo "A Certbot email is required for renewal and expiry alerts."
     exit 1
 fi
 
@@ -39,6 +45,7 @@ server {
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_set_header X-Forwarded-Host \$host;
 
         # SSE / Realtime support
         proxy_buffering off;
@@ -46,6 +53,10 @@ server {
         proxy_read_timeout 86400s;
         proxy_send_timeout 86400s;
     }
+
+    add_header X-Frame-Options SAMEORIGIN;
+    add_header X-Content-Type-Options nosniff;
+    add_header Referrer-Policy strict-origin-when-cross-origin;
 }
 EOF
 
@@ -58,7 +69,7 @@ echo "Nginx configured"
 
 # --- 3. Get SSL certificate ---
 echo "[3/4] Getting SSL certificate..."
-certbot --nginx -d "${DOMAIN}" --non-interactive --agree-tos --register-unsafely-without-email
+certbot --nginx -d "${DOMAIN}" --non-interactive --agree-tos --email "${CERTBOT_EMAIL}"
 
 echo "SSL certificate installed"
 

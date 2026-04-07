@@ -9,10 +9,14 @@ const pbUrl = String(
 const COLLECTIONS = {
   shops: 'shops',
   shopUsers: 'shop_users',
+  appSettings: 'app_settings',
   inventory: 'inventory',
   transactions: 'transactions',
   photos: 'photos',
 }
+
+const DEFAULT_TRIAL_DAYS = 7
+const ADMIN_API_BASE = '/admin-api'
 
 function ensureUrl() {
   if (!pbUrl) throw new Error('VITE_POCKETBASE_URL is not configured.')
@@ -27,9 +31,113 @@ function createClient(auth) {
   return pb
 }
 
+async function adminApiRequest(path, { method = 'GET', body, csrfToken } = {}) {
+  const response = await fetch(`${ADMIN_API_BASE}${path}`, {
+    method,
+    credentials: 'same-origin',
+    headers: {
+      Accept: 'application/json',
+      ...(body ? { 'Content-Type': 'application/json' } : {}),
+      ...(csrfToken ? { 'X-Admin-CSRF': csrfToken } : {}),
+    },
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  })
+
+  const payload = await response.json().catch(() => ({}))
+  if (!response.ok) throw new Error(payload?.message || 'Admin request failed.')
+  return payload?.data ?? payload
+}
+
 function buildShopUserEmail(loginId, shopId) {
   const safe = String(shopId || loginId || 'shop').toLowerCase().replace(/[^a-z0-9_-]/g, '-') || 'shop'
   return `${safe}@users.phonedukaan.local`
+}
+
+function normalizeMobileNumber(value = '') {
+  const digits = String(value || '').replace(/\D/g, '')
+  return digits.length > 10 ? digits.slice(-10) : digits
+}
+
+function normalizeEmail(value = '') {
+  return String(value || '').trim().toLowerCase()
+}
+
+function normalizeShopId(value = '') {
+  return String(value || '').trim().replace(/[^a-zA-Z0-9_-]/g, '-')
+}
+
+function buildShopSlug(shopName = '', mobileNumber = '') {
+  const base = String(shopName || mobileNumber || 'shop')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 40)
+  return normalizeShopId(base || `shop-${normalizeMobileNumber(mobileNumber) || Date.now()}`)
+}
+
+function computeTrialEndsAt(trialDays = DEFAULT_TRIAL_DAYS) {
+  const expiresAt = new Date()
+  expiresAt.setDate(expiresAt.getDate() + Math.max(1, Number(trialDays || DEFAULT_TRIAL_DAYS)))
+  return expiresAt.toISOString()
+}
+
+async function resolveTrialDays(pb) {
+  try {
+    const result = await pb.collection(COLLECTIONS.appSettings).getList(1, 1, { sort: '-created' })
+    const configuredValue = Number(result?.items?.[0]?.trialDays || 0)
+    return configuredValue > 0 ? configuredValue : DEFAULT_TRIAL_DAYS
+  } catch {
+    return DEFAULT_TRIAL_DAYS
+  }
+}
+
+function isTrialExpired(trialEndsAt) {
+  if (!trialEndsAt) return false
+  const expiresAt = Date.parse(String(trialEndsAt))
+  return Number.isFinite(expiresAt) && expiresAt < Date.now()
+}
+
+function ensureTrialActive(record) {
+  if (record?.active === false) {
+    throw new Error('Your account is inactive. Contact support to continue.')
+  }
+  const trialEndsAt = String(record?.trialEndsAt || '')
+  if (isTrialExpired(trialEndsAt)) {
+    throw new Error('Your trial has expired. Contact support to extend access.')
+  }
+  return trialEndsAt
+}
+
+async function createUniqueShop(pb, shopPayload) {
+  const baseShopId = normalizeShopId(shopPayload.shopId)
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const suffix = attempt === 0 ? '' : `-${attempt + 1}`
+    try {
+      return await pb.collection(COLLECTIONS.shops).create({
+        ...shopPayload,
+        shopId: `${baseShopId}${suffix}`,
+      })
+    } catch (error) {
+      const message = String(error?.message || '')
+      const duplicateShopId = message.toLowerCase().includes('shopid') || message.toLowerCase().includes('already exists')
+      if (!duplicateShopId || attempt === 4) throw error
+    }
+  }
+  throw new Error('Unable to create shop at the moment.')
+}
+
+function authRecordToShopSession(record, shop, token) {
+  return {
+    token,
+    record,
+    trialEndsAt: String(record?.trialEndsAt || ''),
+    shop: {
+      id: shop.id,
+      shopId: shop.shopId || shop.id,
+      shopName: shop.name || shop.shopId || shop.id,
+    },
+  }
 }
 
 function shopFilter(shopRecordId) {
@@ -54,70 +162,145 @@ export function getPocketBaseUrl() {
   return ensureUrl()
 }
 
-export async function pocketbaseAdminLogin(loginId, password) {
+export async function pocketbaseGetTrialDays() {
   const pb = createClient()
-  const auth = await pb.collection('_superusers').authWithPassword(String(loginId || '').trim(), String(password || '').trim())
-  return { token: auth.token, record: auth.record }
+  return resolveTrialDays(pb)
+}
+
+export async function pocketbaseAdminLogin(loginId, password) {
+  return adminApiRequest('/login', {
+    method: 'POST',
+    body: { loginId: String(loginId || '').trim(), password: String(password || '').trim() },
+  })
+}
+
+export async function pocketbaseAdminSession() {
+  return adminApiRequest('/session')
+}
+
+export async function pocketbaseAdminLogout(adminAuth) {
+  return adminApiRequest('/logout', { method: 'POST', csrfToken: adminAuth?.csrfToken })
 }
 
 export async function pocketbaseListShops(adminAuth) {
-  const pb = createClient(adminAuth)
-  const [shops, users] = await Promise.all([
-    pb.collection(COLLECTIONS.shops).getFullList({ sort: '-created' }),
-    pb.collection(COLLECTIONS.shopUsers).getFullList({ sort: '-created' }),
-  ])
-  const usersByShop = new Map()
-  users.forEach((user) => { if (user.shop) usersByShop.set(String(user.shop), user) })
-  return shops.map((shop) => ({
-    shopId: shop.shopId || shop.id,
-    shopName: shop.name || shop.shopId || shop.id,
-    loginId: usersByShop.get(String(shop.id))?.username || '',
-    updatedAt: shop.updated || shop.created || '',
-  }))
+  const dashboard = await pocketbaseAdminLoadDashboard(adminAuth)
+  return dashboard?.shops || []
+}
+
+export async function pocketbaseAdminLoadDashboard(adminAuth) {
+  return adminApiRequest('/dashboard')
+}
+
+export async function pocketbaseAdminUpdateUser(adminAuth, userId, patch) {
+  return adminApiRequest(`/users/${encodeURIComponent(userId)}`, {
+    method: 'PATCH',
+    csrfToken: adminAuth?.csrfToken,
+    body: patch,
+  })
+}
+
+export async function pocketbaseAdminExtendUserTrial(adminAuth, userId, days) {
+  return adminApiRequest(`/users/${encodeURIComponent(userId)}/extend-trial`, {
+    method: 'POST',
+    csrfToken: adminAuth?.csrfToken,
+    body: { days },
+  })
+}
+
+export async function pocketbaseAdminUpdateShop(adminAuth, shopId, patch) {
+  return adminApiRequest(`/shops/${encodeURIComponent(shopId)}`, {
+    method: 'PATCH',
+    csrfToken: adminAuth?.csrfToken,
+    body: patch,
+  })
+}
+
+export async function pocketbaseAdminUpdateSettings(adminAuth, patch) {
+  return adminApiRequest('/settings', {
+    method: 'PUT',
+    csrfToken: adminAuth?.csrfToken,
+    body: patch,
+  })
+}
+
+export async function pocketbaseAdminSendPasswordReset(adminAuth, email) {
+  return adminApiRequest('/password-reset', {
+    method: 'POST',
+    csrfToken: adminAuth?.csrfToken,
+    body: { email },
+  })
 }
 
 export async function pocketbaseSaveShop(adminAuth, form) {
-  const pb = createClient(adminAuth)
-  const normalizedShopId = String(form.shopId || '').trim().replace(/[^a-zA-Z0-9_-]/g, '-')
-  const loginId = String(form.loginId || '').trim()
-  const password = String(form.password || '').trim()
-  if (!normalizedShopId || !loginId || !password) throw new Error('Shop ID, login ID, and password are required.')
-
-  let shop = null
-  try { shop = await pb.collection(COLLECTIONS.shops).getFirstListItem(`shopId="${normalizedShopId.replace(/"/g, '\\"')}"`) } catch (e) { if (e?.status !== 404) throw e }
-  const shopPayload = { shopId: normalizedShopId, name: String(form.shopName || normalizedShopId).trim() || normalizedShopId }
-  shop = shop ? await pb.collection(COLLECTIONS.shops).update(shop.id, shopPayload) : await pb.collection(COLLECTIONS.shops).create(shopPayload)
-
-  let user = null
-  try { user = await pb.collection(COLLECTIONS.shopUsers).getFirstListItem(`username="${loginId.replace(/"/g, '\\"')}"`) } catch (e) { if (e?.status !== 404) throw e }
-  const userPayload = {
-    username: loginId,
-    email: buildShopUserEmail(loginId, normalizedShopId),
-    emailVisibility: false,
-    password,
-    passwordConfirm: password,
-    shop: shop.id,
-    active: true,
-  }
-  user = user ? await pb.collection(COLLECTIONS.shopUsers).update(user.id, userPayload) : await pb.collection(COLLECTIONS.shopUsers).create(userPayload)
-
-  return { ok: true, shop: { shopId: normalizedShopId, shopName: shop.name, loginId: user.username } }
+  return adminApiRequest('/shops', {
+    method: 'POST',
+    csrfToken: adminAuth?.csrfToken,
+    body: form,
+  })
 }
 
 export async function pocketbaseShopLogin(loginId, password) {
   const pb = createClient()
-  const auth = await pb.collection(COLLECTIONS.shopUsers).authWithPassword(String(loginId || '').trim(), String(password || '').trim())
+  const normalizedLoginId = normalizeMobileNumber(loginId) || String(loginId || '').trim()
+  const auth = await pb.collection(COLLECTIONS.shopUsers).authWithPassword(normalizedLoginId, String(password || '').trim())
+  ensureTrialActive(auth.record)
   const shop = auth.record?.shop ? await pb.collection(COLLECTIONS.shops).getOne(auth.record.shop) : null
   if (!shop) throw new Error('Shop is not linked in PocketBase.')
-  return {
-    token: auth.token,
-    record: auth.record,
-    shop: {
-      id: shop.id,
-      shopId: shop.shopId || shop.id,
-      shopName: shop.name || shop.shopId || shop.id,
-    },
+  return authRecordToShopSession(auth.record, shop, auth.token)
+}
+
+export async function pocketbaseRegisterShopUser(form) {
+  const pb = createClient()
+  const shopName = String(form.shopName || '').trim()
+  const mobileNumber = normalizeMobileNumber(form.mobileNumber)
+  const email = normalizeEmail(form.email)
+  const password = String(form.password || '').trim()
+  const normalizedShopId = normalizeShopId(form.shopId) || buildShopSlug(shopName, mobileNumber)
+  const trialDays = await resolveTrialDays(pb)
+  const trialEndsAt = computeTrialEndsAt(trialDays)
+
+  if (!shopName) throw new Error('Shop name is required.')
+  if (mobileNumber.length !== 10) throw new Error('Enter a valid 10-digit mobile number.')
+  if (!email) throw new Error('Email is required.')
+  if (!password) throw new Error('Password is required.')
+
+  const shop = await createUniqueShop(pb, {
+    shopId: normalizedShopId,
+    name: shopName,
+    phone: mobileNumber,
+    email,
+  })
+
+  try {
+    const user = await pb.collection(COLLECTIONS.shopUsers).create({
+      username: mobileNumber,
+      email,
+      emailVisibility: false,
+      password,
+      passwordConfirm: password,
+      shop: shop.id,
+      active: true,
+      trialEndsAt,
+    })
+
+    const auth = await pb.collection(COLLECTIONS.shopUsers).authWithPassword(mobileNumber, password)
+    return authRecordToShopSession(auth.record || user, shop, auth.token)
+  } catch (error) {
+    try { await pb.collection(COLLECTIONS.shops).delete(shop.id) } catch {}
+    throw error
   }
+}
+
+export async function pocketbaseRequestPasswordReset(email) {
+  const pb = createClient()
+  const normalizedEmail = normalizeEmail(email)
+  if (!normalizedEmail) throw new Error('Email is required.')
+  await pb.collection(COLLECTIONS.shopUsers).requestPasswordReset(normalizedEmail)
+  return { ok: true }
+}
+
+export function pocketbaseIsTrialExpired(trialEndsAt) {
+  return isTrialExpired(trialEndsAt)
 }
 
 export async function pocketbaseLoadShopBundle(shopAuth) {
