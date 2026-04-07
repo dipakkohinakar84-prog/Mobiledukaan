@@ -1220,6 +1220,7 @@ body,#root{font-family:'Outfit',sans-serif}
 @media(max-width:768px){.hcard{min-height:164px!important}.hcard-photo{width:108px!important;min-width:108px!important}.hcard-details{padding:11px 12px!important}.hcard-title{font-size:13px!important}.hcard-imei{font-size:10px!important}.hcard-price{padding:6px 8px!important;gap:6px!important;margin-bottom:10px!important}.action-row>*{width:100%;justify-content:center}.gi,.gs{font-size:16px!important}.stock-header{align-items:flex-start;margin-bottom:16px}.stock-hero-actions{width:100%;display:grid;grid-template-columns:1fr 1fr;gap:8px}.stock-hero-actions .bp{padding:11px 14px;font-size:13px;min-height:46px;justify-content:center}.stock-filter-card{margin-bottom:14px;padding:12px!important}.stock-tools{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:start}.stock-search{min-width:0}.stock-search .gi{padding:11px 14px 11px 34px}.stock-controls-row{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-start}.stock-controls-row .gs{flex:1 1 132px;min-width:0;padding:10px 11px;font-size:14px!important}.stock-view-toggle{flex:0 0 auto}.stock-view-toggle .bg{padding:8px 9px;min-width:38px}.hcard-ab,.hcard-actions .bg,.hcard-actions .bd{padding:8px!important;min-width:34px!important;min-height:34px!important}}
 @media(max-width:560px){.gc{padding:16px!important}.mth{padding-inline:12px!important}.mc{padding-inline:12px!important}.stock-tools{grid-template-columns:1fr}.stock-controls-row{display:grid;grid-template-columns:1fr 1fr auto;gap:8px}.stock-controls-row .gs{flex:initial;min-width:0}.stock-view-toggle{justify-self:end}.stock-header h1{font-size:24px!important}.stock-header p{font-size:13px!important}.stock-hero-actions .bp{min-height:42px;padding:10px 12px;font-size:12.5px}.hcard{flex-direction:row!important;align-items:stretch!important}.hcard-photo{width:112px!important;min-width:112px!important;height:auto!important;min-height:190px!important;border-right:1px solid rgba(255,255,255,.06)!important;border-bottom:none!important}.hcard-details{padding:12px!important}.hcard-price{gap:8px!important}.mfd::after{left:8px;right:8px}.hcard-ab,.hcard-actions .bg,.hcard-actions .bd{padding:9px!important;min-width:38px!important;min-height:38px!important}}
 @media(max-width:430px){.stock-controls-row{grid-template-columns:1fr 1fr auto}.stock-controls-row .gs{padding:9px 8px;font-size:13px!important}.stock-view-toggle .bg{padding:8px;min-width:34px}.hcard{flex-direction:row!important}.hcard-photo{width:96px!important;min-width:96px!important;min-height:176px!important}.hcard-details{padding:11px!important}.hcard-ab{padding:10px!important;min-width:40px!important;min-height:40px!important}}
+@media(max-height:760px){.co{padding-top:calc(10px + env(safe-area-inset-top,0px));padding-bottom:calc(12px + env(safe-area-inset-bottom,0px))}.cc{gap:10px}.cv{max-height:min(48vh,48dvh)}}
 @media(min-width:1025px){.mn,.mth,.mfd{display:none!important}}
 .so{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.92);display:flex;flex-direction:column;align-items:center;justify-content:center}
 .sf{width:280px;height:160px;border:2px solid var(--a);border-radius:12px;position:relative;overflow:hidden;box-shadow:0 0 40px rgba(0,212,255,.2)}
@@ -1239,8 +1240,9 @@ body,#root{font-family:'Outfit',sans-serif}
 .li{max-width:90vw;max-height:75vh;border-radius:12px;object-fit:contain;box-shadow:0 12px 60px rgba(0,0,0,.6)}
 .ln{position:absolute;top:50%;transform:translateY(-50%);width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;cursor:pointer;color:#fff;transition:all .2s}
 .ln:hover{background:rgba(255,255,255,.15)}
-.co{position:fixed;inset:0;z-index:150;background:rgba(0,0,0,.95);display:flex;flex-direction:column;align-items:center;justify-content:center}
-.cv{width:320px;max-width:90vw;aspect-ratio:3/4;border-radius:16px;overflow:hidden;border:2px solid rgba(255,255,255,.15);position:relative;box-shadow:0 0 60px rgba(0,212,255,.1)}
+.co{position:fixed;inset:0;z-index:150;background:rgba(0,0,0,.95);display:flex;align-items:center;justify-content:center;padding:calc(12px + env(safe-area-inset-top,0px)) 16px calc(20px + env(safe-area-inset-bottom,0px));min-height:100vh;min-height:100dvh;overflow:hidden}
+.cc{width:min(360px,100%);height:100%;max-height:calc(100vh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 32px);max-height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 32px);display:grid;grid-template-rows:auto minmax(0,1fr) auto auto;align-items:center;justify-items:center;gap:12px}
+.cv{width:min(320px,100%);max-width:100%;aspect-ratio:3/4;max-height:min(56vh,56dvh);border-radius:16px;overflow:hidden;border:2px solid rgba(255,255,255,.15);position:relative;box-shadow:0 0 60px rgba(0,212,255,.1)}
 .cv video{width:100%;height:100%;object-fit:cover}
 .cs{width:64px;height:64px;border-radius:50%;border:3px solid #fff;background:rgba(255,255,255,.15);cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center}
 .cs:hover{background:rgba(255,255,255,.3);transform:scale(1.05)}.cs:active{transform:scale(.95);background:rgba(255,255,255,.5)}
@@ -1283,15 +1285,17 @@ function CamCap({ onCapture, onClose }) {
     };
     return (
         <div className="co fi">
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: 320, maxWidth: "90vw", marginBottom: 16 }}>
-                <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#fff", display: "flex", alignItems: "center", gap: 6, fontSize: 14, fontFamily: "'Outfit'" }}><X size={20} /> Close</button>
-                <span style={{ color: "var(--t2)", fontSize: 14, fontWeight: 600 }}>Take Photo</span>
-                <button onClick={flip} style={{ background: "none", border: "none", cursor: "pointer", color: "#fff" }}><RotateCcw size={20} /></button>
+            <div className="cc">
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
+                    <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#fff", display: "flex", alignItems: "center", gap: 6, fontSize: 14, fontFamily: "'Outfit'" }}><X size={20} /> Close</button>
+                    <span style={{ color: "var(--t2)", fontSize: 14, fontWeight: 600 }}>Take Photo</span>
+                    <button onClick={flip} style={{ background: "none", border: "none", cursor: "pointer", color: "#fff" }}><RotateCcw size={20} /></button>
+                </div>
+                <div className="cv"><video ref={vr} playsInline muted style={{ transform: fm === "user" ? "scaleX(-1)" : "none" }} />{fl && <div style={{ position: "absolute", inset: 0, background: "#fff", opacity: .7 }} />}</div>
+                <canvas ref={cr} style={{ display: "none" }} />
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%" }}><div className="cs" onClick={snap}><Aperture size={28} color="#fff" /></div></div>
+                <p style={{ color: "var(--t3)", fontSize: 12, textAlign: "center" }}>Tap to capture device photo</p>
             </div>
-            <div className="cv"><video ref={vr} playsInline muted style={{ transform: fm === "user" ? "scaleX(-1)" : "none" }} />{fl && <div style={{ position: "absolute", inset: 0, background: "#fff", opacity: .7 }} />}</div>
-            <canvas ref={cr} style={{ display: "none" }} />
-            <div style={{ display: "flex", alignItems: "center", gap: 24, marginTop: 24 }}><div className="cs" onClick={snap}><Aperture size={28} color="#fff" /></div></div>
-            <p style={{ color: "var(--t3)", fontSize: 12, marginTop: 12 }}>Tap to capture device photo</p>
         </div>
     );
 }
