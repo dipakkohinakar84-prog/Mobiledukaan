@@ -6,6 +6,12 @@ const pbUrl = String(
   || ''
 ).trim()
 
+const adminApiUrl = String(
+  (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_ADMIN_API_URL)
+  || (typeof process !== 'undefined' && process.env && process.env.VITE_ADMIN_API_URL)
+  || ''
+).trim()
+
 const COLLECTIONS = {
   shops: 'shops',
   shopUsers: 'shop_users',
@@ -16,7 +22,7 @@ const COLLECTIONS = {
 }
 
 const DEFAULT_TRIAL_DAYS = 7
-const ADMIN_API_BASE = '/admin-api'
+const ADMIN_API_BASE = adminApiUrl ? `${adminApiUrl.replace(/\/$/, '')}/admin-api` : '/admin-api'
 
 function ensureUrl() {
   if (!pbUrl) throw new Error('VITE_POCKETBASE_URL is not configured.')
@@ -31,14 +37,13 @@ function createClient(auth) {
   return pb
 }
 
-async function adminApiRequest(path, { method = 'GET', body, csrfToken } = {}) {
+async function adminApiRequest(path, { method = 'GET', body, adminAuth } = {}) {
   const response = await fetch(`${ADMIN_API_BASE}${path}`, {
     method,
-    credentials: 'same-origin',
     headers: {
       Accept: 'application/json',
       ...(body ? { 'Content-Type': 'application/json' } : {}),
-      ...(csrfToken ? { 'X-Admin-CSRF': csrfToken } : {}),
+      ...(adminAuth?.sessionToken ? { Authorization: `Bearer ${adminAuth.sessionToken}` } : {}),
     },
     ...(body ? { body: JSON.stringify(body) } : {}),
   })
@@ -174,12 +179,12 @@ export async function pocketbaseAdminLogin(loginId, password) {
   })
 }
 
-export async function pocketbaseAdminSession() {
-  return adminApiRequest('/session')
+export async function pocketbaseAdminSession(adminAuth) {
+  return adminApiRequest('/session', { adminAuth })
 }
 
 export async function pocketbaseAdminLogout(adminAuth) {
-  return adminApiRequest('/logout', { method: 'POST', csrfToken: adminAuth?.csrfToken })
+  return adminApiRequest('/logout', { method: 'POST', adminAuth })
 }
 
 export async function pocketbaseListShops(adminAuth) {
@@ -188,13 +193,13 @@ export async function pocketbaseListShops(adminAuth) {
 }
 
 export async function pocketbaseAdminLoadDashboard(adminAuth) {
-  return adminApiRequest('/dashboard')
+  return adminApiRequest('/dashboard', { adminAuth })
 }
 
 export async function pocketbaseAdminUpdateUser(adminAuth, userId, patch) {
   return adminApiRequest(`/users/${encodeURIComponent(userId)}`, {
     method: 'PATCH',
-    csrfToken: adminAuth?.csrfToken,
+    adminAuth,
     body: patch,
   })
 }
@@ -202,7 +207,7 @@ export async function pocketbaseAdminUpdateUser(adminAuth, userId, patch) {
 export async function pocketbaseAdminExtendUserTrial(adminAuth, userId, days) {
   return adminApiRequest(`/users/${encodeURIComponent(userId)}/extend-trial`, {
     method: 'POST',
-    csrfToken: adminAuth?.csrfToken,
+    adminAuth,
     body: { days },
   })
 }
@@ -210,7 +215,7 @@ export async function pocketbaseAdminExtendUserTrial(adminAuth, userId, days) {
 export async function pocketbaseAdminUpdateShop(adminAuth, shopId, patch) {
   return adminApiRequest(`/shops/${encodeURIComponent(shopId)}`, {
     method: 'PATCH',
-    csrfToken: adminAuth?.csrfToken,
+    adminAuth,
     body: patch,
   })
 }
@@ -218,7 +223,7 @@ export async function pocketbaseAdminUpdateShop(adminAuth, shopId, patch) {
 export async function pocketbaseAdminUpdateSettings(adminAuth, patch) {
   return adminApiRequest('/settings', {
     method: 'PUT',
-    csrfToken: adminAuth?.csrfToken,
+    adminAuth,
     body: patch,
   })
 }
@@ -226,7 +231,7 @@ export async function pocketbaseAdminUpdateSettings(adminAuth, patch) {
 export async function pocketbaseAdminSendPasswordReset(adminAuth, email) {
   return adminApiRequest('/password-reset', {
     method: 'POST',
-    csrfToken: adminAuth?.csrfToken,
+    adminAuth,
     body: { email },
   })
 }
@@ -234,7 +239,7 @@ export async function pocketbaseAdminSendPasswordReset(adminAuth, email) {
 export async function pocketbaseSaveShop(adminAuth, form) {
   return adminApiRequest('/shops', {
     method: 'POST',
-    csrfToken: adminAuth?.csrfToken,
+    adminAuth,
     body: form,
   })
 }

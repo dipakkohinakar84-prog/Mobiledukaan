@@ -4,9 +4,11 @@ import PocketBase, { BaseAuthStore } from 'pocketbase'
 
 const PORT = Number(process.env.ADMIN_API_PORT || 8787)
 const PB_URL = String(process.env.POCKETBASE_URL || process.env.VITE_POCKETBASE_URL || '').trim()
-const COOKIE_NAME = 'pd_admin_session'
-const COOKIE_SECURE = String(process.env.ADMIN_API_COOKIE_SECURE || (process.env.NODE_ENV === 'development' ? 'false' : 'true')).toLowerCase() !== 'false'
-const SESSION_TTL_MS = 12 * 60 * 60 * 1000
+const SESSION_TTL_MS = 60 * 60 * 1000
+const ALLOWED_ORIGINS = String(process.env.ADMIN_API_ALLOWED_ORIGINS || 'https://phonedukaan.kohnex.com')
+  .split(',')
+  .map(value => value.trim())
+  .filter(Boolean)
 const sessions = new Map()
 
 if (!PB_URL) {
@@ -53,43 +55,24 @@ async function resolveTrialDays(pb) {
   }
 }
 
-function parseCookies(cookieHeader = '') {
-  return String(cookieHeader || '')
-    .split(';')
-    .map(part => part.trim())
-    .filter(Boolean)
-    .reduce((acc, part) => {
-      const index = part.indexOf('=')
-      if (index === -1) return acc
-      acc[part.slice(0, index)] = decodeURIComponent(part.slice(index + 1))
-      return acc
-    }, {})
-}
-
-function setCookie(res, value, maxAgeSeconds = Math.floor(SESSION_TTL_MS / 1000)) {
-  const parts = [
-    `${COOKIE_NAME}=${encodeURIComponent(value)}`,
-    'Path=/',
-    'HttpOnly',
-    'SameSite=Strict',
-    `Max-Age=${maxAgeSeconds}`,
-  ]
-  if (COOKIE_SECURE) parts.push('Secure')
-  res.setHeader('Set-Cookie', parts.join('; '))
-}
-
-function clearCookie(res) {
-  const parts = [`${COOKIE_NAME}=`, 'Path=/', 'HttpOnly', 'SameSite=Strict', 'Max-Age=0']
-  if (COOKIE_SECURE) parts.push('Secure')
-  res.setHeader('Set-Cookie', parts.join('; '))
-}
-
-function sendJson(res, statusCode, payload) {
+function sendJson(res, statusCode, payload, extraHeaders = {}) {
   res.writeHead(statusCode, {
     'Content-Type': 'application/json; charset=utf-8',
     'Cache-Control': 'no-store',
+    ...extraHeaders,
   })
   res.end(JSON.stringify(payload))
+}
+
+function corsHeaders(req) {
+  const origin = String(req.headers.origin || '')
+  if (!origin || !ALLOWED_ORIGINS.includes(origin)) return {}
+  return {
+    'Access-Control-Allow-Origin': origin,
+    Vary: 'Origin',
+    'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  }
 }
 
 async function readJsonBody(req) {
@@ -115,42 +98,40 @@ async function readJsonBody(req) {
 }
 
 function createSession(auth) {
-  const sessionId = crypto.randomBytes(32).toString('hex')
-  const csrfToken = crypto.randomBytes(24).toString('hex')
-  sessions.set(sessionId, {
+  const sessionToken = crypto.randomBytes(32).toString('hex')
+  const expiresAt = Date.now() + SESSION_TTL_MS
+  sessions.set(sessionToken, {
     token: auth.token,
     record: auth.record,
-    csrfToken,
-    expiresAt: Date.now() + SESSION_TTL_MS,
+    expiresAt,
   })
-  return { sessionId, csrfToken }
+  return { sessionToken, expiresAt }
 }
 
-function getSession(req) {
-  const cookies = parseCookies(req.headers.cookie || '')
-  const sessionId = cookies[COOKIE_NAME]
-  if (!sessionId) return null
-  const session = sessions.get(sessionId)
-  if (!session) return null
+function getBearerToken(req) {
+  const header = String(req.headers.authorization || '')
+  const match = header.match(/^Bearer\s+(.+)$/i)
+  return match?.[1] || ''
+}
+
+function requireSession(req, res) {
+  const sessionToken = getBearerToken(req)
+  if (!sessionToken) {
+    sendJson(res, 401, { message: 'Admin session required.' }, corsHeaders(req))
+    return null
+  }
+  const session = sessions.get(sessionToken)
+  if (!session) {
+    sendJson(res, 401, { message: 'Invalid or expired admin session.' }, corsHeaders(req))
+    return null
+  }
   if (session.expiresAt < Date.now()) {
-    sessions.delete(sessionId)
+    sessions.delete(sessionToken)
+    sendJson(res, 401, { message: 'Admin session expired. Please log in again.' }, corsHeaders(req))
     return null
   }
   session.expiresAt = Date.now() + SESSION_TTL_MS
-  return { sessionId, session }
-}
-
-function requireSession(req, res, { requireCsrf = false } = {}) {
-  const wrapped = getSession(req)
-  if (!wrapped) {
-    sendJson(res, 401, { message: 'Admin session required.' })
-    return null
-  }
-  if (requireCsrf && req.headers['x-admin-csrf'] !== wrapped.session.csrfToken) {
-    sendJson(res, 403, { message: 'Invalid admin CSRF token.' })
-    return null
-  }
-  return wrapped
+  return { sessionToken, session }
 }
 
 function mapDashboard(shops, users, settingsRecord, trialDays) {
@@ -237,10 +218,17 @@ async function saveAdminShop(pb, form) {
 }
 
 const server = http.createServer(async (req, res) => {
-  const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`)
+  const headers = corsHeaders(req)
 
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204, headers)
+    res.end()
+    return
+  }
+
+  const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`)
   if (!url.pathname.startsWith('/admin-api/')) {
-    sendJson(res, 404, { message: 'Not found.' })
+    sendJson(res, 404, { message: 'Not found.' }, headers)
     return
   }
 
@@ -250,47 +238,41 @@ const server = http.createServer(async (req, res) => {
       const loginId = String(body.loginId || '').trim()
       const password = String(body.password || '').trim()
       if (!loginId || !password) {
-        sendJson(res, 400, { message: 'Admin ID and password are required.' })
+        sendJson(res, 400, { message: 'Admin ID and password are required.' }, headers)
         return
       }
       const pb = createPocketBase()
       const auth = await pb.collection('_superusers').authWithPassword(loginId, password)
       const session = createSession(auth)
-      setCookie(res, session.sessionId)
-      sendJson(res, 200, { data: { authenticated: true, csrfToken: session.csrfToken } })
+      sendJson(res, 200, { data: { authenticated: true, sessionToken: session.sessionToken, expiresAt: session.expiresAt } }, headers)
       return
     }
 
+    const wrapped = requireSession(req, res)
+    if (!wrapped) return
+    const pb = createPocketBase({ token: wrapped.session.token, record: wrapped.session.record })
+
     if (req.method === 'GET' && url.pathname === '/admin-api/session') {
-      const wrapped = requireSession(req, res)
-      if (!wrapped) return
-      sendJson(res, 200, { data: { authenticated: true, csrfToken: wrapped.session.csrfToken } })
+      sendJson(res, 200, { data: { authenticated: true, sessionToken: wrapped.sessionToken, expiresAt: wrapped.session.expiresAt } }, headers)
       return
     }
 
     if (req.method === 'POST' && url.pathname === '/admin-api/logout') {
-      const wrapped = requireSession(req, res, { requireCsrf: true })
-      if (!wrapped) return
-      sessions.delete(wrapped.sessionId)
-      clearCookie(res)
-      sendJson(res, 200, { data: { ok: true } })
+      sessions.delete(wrapped.sessionToken)
+      sendJson(res, 200, { data: { ok: true } }, headers)
       return
     }
 
-    const wrapped = requireSession(req, res, { requireCsrf: req.method !== 'GET' })
-    if (!wrapped) return
-    const pb = createPocketBase({ token: wrapped.session.token, record: wrapped.session.record })
-
     if (req.method === 'GET' && url.pathname === '/admin-api/dashboard') {
       const dashboard = await loadDashboard(pb)
-      sendJson(res, 200, { data: dashboard })
+      sendJson(res, 200, { data: dashboard }, headers)
       return
     }
 
     if (req.method === 'POST' && url.pathname === '/admin-api/shops') {
       const body = await readJsonBody(req)
       const result = await saveAdminShop(pb, body)
-      sendJson(res, 200, { data: result })
+      sendJson(res, 200, { data: result }, headers)
       return
     }
 
@@ -308,7 +290,7 @@ const server = http.createServer(async (req, res) => {
       if (body.trialEndsAt !== undefined) payload.trialEndsAt = body.trialEndsAt || null
       if (!Object.keys(payload).length) throw new Error('No changes to save.')
       const record = await pb.collection('shop_users').update(decodeURIComponent(userMatch[1]), payload)
-      sendJson(res, 200, { data: record })
+      sendJson(res, 200, { data: record }, headers)
       return
     }
 
@@ -322,7 +304,7 @@ const server = http.createServer(async (req, res) => {
       const anchor = Number.isFinite(baseDate) && baseDate > Date.now() ? new Date(baseDate) : new Date()
       anchor.setDate(anchor.getDate() + days)
       const record = await pb.collection('shop_users').update(userId, { trialEndsAt: anchor.toISOString() })
-      sendJson(res, 200, { data: record })
+      sendJson(res, 200, { data: record }, headers)
       return
     }
 
@@ -335,7 +317,7 @@ const server = http.createServer(async (req, res) => {
       if (body.email !== undefined) payload.email = normalizeEmail(body.email)
       if (!Object.keys(payload).length) throw new Error('No changes to save.')
       const record = await pb.collection('shops').update(decodeURIComponent(shopMatch[1]), payload)
-      sendJson(res, 200, { data: record })
+      sendJson(res, 200, { data: record }, headers)
       return
     }
 
@@ -347,7 +329,7 @@ const server = http.createServer(async (req, res) => {
       const record = current?.items?.[0]?.id
         ? await pb.collection('app_settings').update(current.items[0].id, payload)
         : await pb.collection('app_settings').create(payload)
-      sendJson(res, 200, { data: record })
+      sendJson(res, 200, { data: record }, headers)
       return
     }
 
@@ -356,18 +338,19 @@ const server = http.createServer(async (req, res) => {
       const email = normalizeEmail(body.email)
       if (!email) throw new Error('Email is required.')
       await pb.collection('shop_users').requestPasswordReset(email)
-      sendJson(res, 200, { data: { ok: true } })
+      sendJson(res, 200, { data: { ok: true } }, headers)
       return
     }
 
-    sendJson(res, 404, { message: 'Not found.' })
+    sendJson(res, 404, { message: 'Not found.' }, headers)
   } catch (error) {
     const status = Number(error?.status || error?.response?.status || 400)
     const message = String(error?.response?.message || error?.message || 'Admin API request failed.')
-    sendJson(res, status >= 400 && status < 600 ? status : 500, { message })
+    sendJson(res, status >= 400 && status < 600 ? status : 500, { message }, headers)
   }
 })
 
 server.listen(PORT, () => {
   console.log(`Admin API listening on http://127.0.0.1:${PORT}`)
+  console.log(`Allowed admin origins: ${ALLOWED_ORIGINS.join(', ') || 'none'}`)
 })

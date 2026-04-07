@@ -57,6 +57,7 @@ const DEMO_TX = [
 const STORE_KEY = "mobile-dukaan_v2";
 const SYNC_KEY = "mobile-dukaan_sync_v1";
 const AUTH_SESSION_KEY = "phonedukaan_shop_auth_v1";
+const ADMIN_AUTH_SESSION_KEY = "phonedukaan_admin_auth_v1";
 const ADMIN_PANEL_PATH = "/777admin";
 const BILL_TYPES = ["GST", "NON GST"];
 const APP_NAME = "PhoneDukaan";
@@ -2038,6 +2039,7 @@ export default function App() {
         try {
             const data = await pocketbaseAdminLogin(adminLoginId, adminPassword);
             setAdminToken(JSON.stringify(data));
+            if (typeof window !== "undefined" && window.sessionStorage) window.sessionStorage.setItem(ADMIN_AUTH_SESSION_KEY, JSON.stringify(data));
             await fetchAdminShops(data);
             setAdminTab("overview");
         } catch (e) {
@@ -2147,7 +2149,8 @@ export default function App() {
         }
     };
     const handleAdminLogout = async () => {
-        try { if (adminAuth?.csrfToken) await pocketbaseAdminLogout(adminAuth); } catch { }
+        try { if (adminAuth?.sessionToken) await pocketbaseAdminLogout(adminAuth); } catch { }
+        if (typeof window !== "undefined" && window.sessionStorage) window.sessionStorage.removeItem(ADMIN_AUTH_SESSION_KEY);
         setAdminToken("");
         setAdminUsers([]);
         setAdminShops([]);
@@ -2271,12 +2274,18 @@ export default function App() {
         let cancelled = false;
         (async () => {
             try {
-                const session = await pocketbaseAdminSession();
+                const stored = typeof window !== "undefined" && window.sessionStorage ? window.sessionStorage.getItem(ADMIN_AUTH_SESSION_KEY) : "";
+                if (!stored) return;
+                const parsed = JSON.parse(stored);
+                const session = await pocketbaseAdminSession(parsed);
                 if (cancelled) return;
                 setAdminToken(JSON.stringify(session));
+                if (typeof window !== "undefined" && window.sessionStorage) window.sessionStorage.setItem(ADMIN_AUTH_SESSION_KEY, JSON.stringify(session));
                 await fetchAdminShops(session);
                 setAdminTab("overview");
-            } catch { }
+            } catch {
+                if (typeof window !== "undefined" && window.sessionStorage) window.sessionStorage.removeItem(ADMIN_AUTH_SESSION_KEY);
+            }
         })();
         return () => { cancelled = true; };
     }, [adminToken, fetchAdminShops, showAdminPanel]);

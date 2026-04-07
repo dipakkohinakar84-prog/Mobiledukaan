@@ -186,9 +186,10 @@ Admin dashboard
 - `/777admin` now talks to a small backend admin API instead of authenticating as `_superusers` directly in the browser
 - the backend admin API should run on the same trusted host/network as PocketBase
 - required admin API env:
+  - `VITE_ADMIN_API_URL=https://adminapi.example.com`
   - `POCKETBASE_URL=https://db.example.com` or local/private PocketBase URL
   - `ADMIN_API_PORT=8787` (optional)
-  - `ADMIN_API_COOKIE_SECURE=true` in production
+  - `ADMIN_API_ALLOWED_ORIGINS=https://phonedukaan.example.com,https://your-site.netlify.app`
 - after login it can:
   - view all users
   - see expired and ending-soon trials
@@ -207,17 +208,24 @@ Notes
 
 Admin API deployment notes
 - run `npm run admin-api` on the trusted server
-- put the admin API behind Nginx and expose it only as same-origin `/admin-api`
+- for Netlify + VPS, expose the admin API on its own subdomain such as `adminapi.example.com`
+- the frontend should call it using `VITE_ADMIN_API_URL`
+- the admin API uses bearer-token sessions, not browser cookies
 - keep the PocketBase service private on `127.0.0.1:8090`
-- example Nginx location block for the app origin:
+- example Nginx server block for `adminapi.example.com`:
 
 ```nginx
-location /admin-api/ {
-    proxy_pass http://127.0.0.1:8787/admin-api/;
-    proxy_http_version 1.1;
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
+server {
+    listen 80;
+    server_name adminapi.example.com;
+
+    location / {
+        proxy_pass http://127.0.0.1:8787;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
 }
 ```
