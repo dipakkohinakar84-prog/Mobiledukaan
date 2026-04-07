@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { createPortal } from "react-dom";
 import {
     Smartphone, Plus, ShoppingCart, TrendingUp, BarChart3, Settings,
     Camera, X, Search, Filter, Edit2, Trash2, Package, IndianRupee,
@@ -1283,8 +1284,9 @@ function CamCap({ onCapture, onClose }) {
         const v = vr.current, c = cr.current; c.width = v.videoWidth; c.height = v.videoHeight; const x = c.getContext("2d");
         if (fm === "user") { x.translate(c.width, 0); x.scale(-1, 1); } x.drawImage(v, 0, 0); onCapture(c.toDataURL("image/jpeg", .85));
     };
-    return (
-        <div className="co fi">
+    if (typeof document === "undefined") return null;
+    return createPortal(
+        <div className="co">
             <div className="cc">
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
                     <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#fff", display: "flex", alignItems: "center", gap: 6, fontSize: 14, fontFamily: "'Outfit'" }}><X size={20} /> Close</button>
@@ -1296,7 +1298,8 @@ function CamCap({ onCapture, onClose }) {
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%" }}><div className="cs" onClick={snap}><Aperture size={28} color="#fff" /></div></div>
                 <p style={{ color: "var(--t3)", fontSize: 12, textAlign: "center" }}>Tap to capture device photo</p>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 }
 
