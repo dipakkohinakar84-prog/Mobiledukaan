@@ -29,6 +29,8 @@ const REPORT_BILL_FILTERS = ["All Bills", "GST", "Regular"];
 const REPORT_VIEWS = ["Transactions", "Customer Ledger", "Supplier Summary"];
 const REPORT_DUE_FILTERS = ["All Status", "Due Only", "Paid Only"];
 const PHOTO_PREVIEW_MAX = 900;
+const STOCK_PAGE_SIZE = 18;
+const REPORT_PAGE_SIZE = 24;
 
 const BRAND_GRADIENTS = {
     Samsung: "linear-gradient(135deg, #1428a0, #0b79d0)", Apple: "linear-gradient(135deg, #1d1d1f, #555)",
@@ -1828,9 +1830,15 @@ export default function App() {
     const [reportBrandFilter, setReportBrandFilter] = useState("All Brands");
     const [reportItemQuery, setReportItemQuery] = useState("");
     const [reportDueFilter, setReportDueFilter] = useState("All Status");
+    const [reportVisibleCount, setReportVisibleCount] = useState(REPORT_PAGE_SIZE);
     const [fc, sFc] = useState("All");
     const [fs, sFs] = useState("All");
     const [ei, sEi] = useState(null);
+    const [bulkAdd, setBulkAdd] = useState(false);
+    const [bulkImeis, setBulkImeis] = useState([]);
+    const [bulkManualImei, setBulkManualImei] = useState("");
+    const [bulkSaveBusy, setBulkSaveBusy] = useState(false);
+    const [stockVisibleCount, setStockVisibleCount] = useState(STOCK_PAGE_SIZE);
     const [sf, sSf] = useState(false);
     const [nt, sNt] = useState(null);
     const [vm, sVm] = useState("grid");
@@ -1850,6 +1858,8 @@ export default function App() {
     const [installed, setInstalled] = useState(typeof window !== "undefined" && (window.matchMedia?.("(display-mode: standalone)")?.matches || window.navigator.standalone));
     const [swReady, setSwReady] = useState(false);
     const [swUpdate, setSwUpdate] = useState(false);
+    const stockLoadMoreRef = useRef(null);
+    const reportLoadMoreRef = useRef(null);
     const lastRemoteCheckAtRef = useRef(0);
     const loadPocketBaseDataRef = useRef(null);
     const lastSavedShopProfileSignatureRef = useRef('');
@@ -2174,7 +2184,13 @@ export default function App() {
         notify("Logged out.", "success");
     };
     const openSc = (t) => { sSt(t); setScs(true); };
-    const resetForm = () => { sEi(null); sFm(createEmptyForm(shopCfg)); };
+    const resetForm = () => {
+        sEi(null);
+        setBulkAdd(false);
+        setBulkImeis([]);
+        setBulkManualImei("");
+        sFm(createEmptyForm(shopCfg));
+    };
     const goPage = (page, { skipHistory = false } = {}) => {
         sDi(null); sSf(false);
         if (page === "add") resetForm();
@@ -2185,7 +2201,7 @@ export default function App() {
             return page;
         });
     };
-    const editFromStock = (item) => { sEi(item); sFm(toForm(item)); sSf(false); sDi(null); sPg(prev => { if (typeof window !== "undefined" && prev !== "add") window.history.pushState({ page: prev }, "", window.location.pathname); return "add"; }); };
+    const editFromStock = (item) => { setBulkAdd(false); setBulkImeis([]); setBulkManualImei(""); sEi(item); sFm(toForm(item)); sSf(false); sDi(null); sPg(prev => { if (typeof window !== "undefined" && prev !== "add") window.history.pushState({ page: prev }, "", window.location.pathname); return "add"; }); };
     const setSyncField = (k, v) => setSyncCfg(p => normalizeSyncCfg({ ...p, [k]: v, ...(k === "scriptUrl" || k === "shopId" || k === "syncKey" ? { connected: false } : {}) }));
     const setShopField = (k, v) => {
         setShopProfileDirty(true);
@@ -2244,6 +2260,36 @@ export default function App() {
         if (k === "gstRate") next.gstRate = String(v).replace(/[^\d.]/g, "");
         return next;
     });
+    const addBulkImei = useCallback((rawImei) => {
+        const imei = cleanImei(rawImei);
+        if (!hasImei(imei)) {
+            notify("IMEI must be 15 digits.", "error");
+            return false;
+        }
+        const existing = findDeviceByImei(inv, imei);
+        if (existing) {
+            notify(`Skipped duplicate IMEI on ${existing.brand} ${existing.model}.`, "warning");
+            return false;
+        }
+        let added = false;
+        setBulkImeis(current => {
+            if (current.includes(imei)) return current;
+            added = true;
+            return [imei, ...current];
+        });
+        if (!added) {
+            notify("This IMEI is already in the current bulk list.", "warning");
+            return false;
+        }
+        notify("IMEI added to bulk list", "success");
+        return true;
+    }, [inv, notify]);
+    const removeBulkImei = useCallback((imei) => {
+        setBulkImeis(current => current.filter(value => value !== imei));
+    }, []);
+    const submitBulkManualImei = useCallback(() => {
+        if (addBulkImei(bulkManualImei)) setBulkManualImei("");
+    }, [addBulkImei, bulkManualImei]);
     const toForm = (item, extras = {}) => ({ ...ef, ...item, ...extras, buyPrice: String(item.buyPrice ?? extras.buyPrice ?? ""), sellPrice: String(item.sellPrice ?? extras.sellPrice ?? ""), qty: String(item.qty ?? extras.qty ?? 1), amount: String(item.amount ?? extras.amount ?? ""), paidAmount: String(item.paidAmount ?? extras.paidAmount ?? item.sellPrice ?? item.amount ?? ""), dueAmount: String(item.dueAmount ?? extras.dueAmount ?? 0) });
     useEffect(() => {
         try {
@@ -2624,6 +2670,10 @@ export default function App() {
             if (ex) notify("This IMEI already exists in stock history.", "warning");
             return;
         }
+        if (st === "bulk-add") {
+            addBulkImei(imei);
+            return;
+        }
         if (ex) { sEi(ex); sFm(toForm(ex)); notify("IMEI found — editing", "warning"); }
         else { uf("imei", imei); if (imei2) uf("imei2", imei2); }
         if (imei2) notify("Both IMEIs scanned", "success");
@@ -2647,6 +2697,10 @@ export default function App() {
             return;
         }
         if (curPg === "add" || curPg === "buy") {
+            if (curPg === "add" && bulkAdd && !ei) {
+                addBulkImei(imei);
+                return;
+            }
             if (hasImei(cleanImei(curFm.imei)) && cleanImei(curFm.imei) !== imei) {
                 uf("imei2", imei);
                 const ex = findDeviceByImei(curInv, imei);
@@ -2714,6 +2768,43 @@ export default function App() {
         } catch (e) {
             notify(e?.message || "Unable to save stock.", "error");
             updateSyncMeta(current => ({ ...current, syncState: ol ? 'error' : 'offline', syncError: e?.message || 'Unable to save stock.' }));
+        }
+    };
+    const saveBulkInv = async () => {
+        if (ei) { notify("Bulk add is only for new stock entries.", "error"); return; }
+        if (!fm.model || !fm.brand) { notify("Brand and model are required!", "error"); return; }
+        if (!(+fm.sellPrice > 0)) { notify("Sell price is required.", "error"); return; }
+        if (!bulkImeis.length) { notify("Scan at least one IMEI first.", "error"); return; }
+        setBulkSaveBusy(true);
+        try {
+            const addedDate = new Date().toISOString().slice(0, 10);
+            const sharedPhotos = (fm.photos || []).map(normalizePhotoRef);
+            const savedItems = [];
+            const savedTxs = [];
+            let pendingPhotoFailures = 0;
+            for (const imei of bulkImeis) {
+                const item = normalizeInv({ id: genId(), imei, imei2: "", brand: fm.brand, model: fm.model, color: fm.color, ram: fm.ram, storage: fm.storage, batteryHealth: fm.batteryHealth, condition: fm.condition, buyPrice: +fm.buyPrice, sellPrice: +fm.sellPrice, status: "In Stock", qty: 1, addedDate, supplier: fm.supplier, photos: sharedPhotos, sellerName: "", sellerPhone: "", sellerAadhaarNumber: "", purchaseDate: "", sellerAgreementAccepted: false, sellerIdPhotoData: "", sellerPhotoData: "", sellerSignatureData: "", warrantyType: fm.warrantyType, warrantyMonths: fm.warrantyMonths });
+                const savedRecord = await pocketbaseUpsertInventory(shopSession?.pbAuth, item);
+                const savedItemBase = normalizeInv({ ...item, id: savedRecord.id });
+                const uploadedPhotos = await uploadPendingPhotosForItem(savedRecord.id, savedItemBase.photos || []);
+                pendingPhotoFailures += uploadedPhotos.failures.length;
+                const savedItem = { ...savedItemBase, photos: uploadedPhotos.photos };
+                savedItems.push(savedItem);
+                const addTx = normalizeTx({ id: genId(), type: "Add", stockItemId: savedItem.id, imei: savedItem.imei, imei2: "", brand: savedItem.brand, model: savedItem.model, color: savedItem.color, ram: savedItem.ram, storage: savedItem.storage, batteryHealth: savedItem.batteryHealth, condition: savedItem.condition, customerName: fm.supplier, phone: fm.phone, amount: +fm.buyPrice, paidAmount: 0, dueAmount: 0, paymentMode: "", date: savedItem.addedDate, dateTime: `${savedItem.addedDate}T12:00:00`, notes: fm.notes });
+                const savedTx = await pocketbaseCreateTransaction(shopSession?.pbAuth, addTx);
+                savedTxs.push(normalizeTx({ ...addTx, id: savedTx.id, stockItemId: savedItem.id }));
+            }
+            sInv(current => [...savedItems, ...current]);
+            sTx(current => [...savedTxs, ...current]);
+            notify(`Added ${savedItems.length} devices to stock${pendingPhotoFailures ? ". Some photos are still local." : ""}`);
+            markSyncConnected({ lastStatus: "Saved" });
+            updateSyncMeta(current => ({ ...current, pendingSync: !!pendingPhotoFailures, syncState: pendingPhotoFailures ? 'saved-local' : 'synced', syncError: '' }));
+            resetForm();
+        } catch (e) {
+            notify(e?.message || "Unable to save bulk stock.", "error");
+            updateSyncMeta(current => ({ ...current, syncState: ol ? 'error' : 'offline', syncError: e?.message || 'Unable to save bulk stock.' }));
+        } finally {
+            setBulkSaveBusy(false);
         }
     };
     const delInv = async (id) => {
@@ -2828,6 +2919,23 @@ export default function App() {
         const ms = !sq || [i.imei, i.imei2, i.brand, i.model, i.color, i.ram, i.storage, i.supplier].some(f => (f || "").toLowerCase().includes(sq.toLowerCase()));
         return ms && (fc === "All" || i.condition === fc) && (fs === "All" || i.status === fs);
     }), [inv, sq, fc, fs]);
+    const visibleFi = useMemo(() => fi.slice(0, stockVisibleCount), [fi, stockVisibleCount]);
+    const hasMoreStock = visibleFi.length < fi.length;
+    useEffect(() => {
+        setStockVisibleCount(STOCK_PAGE_SIZE);
+    }, [pg, sq, fc, fs]);
+    useEffect(() => {
+        if (typeof window === "undefined" || pg !== "inventory" || !hasMoreStock) return;
+        const target = stockLoadMoreRef.current;
+        if (!target) return;
+        const observer = new IntersectionObserver((entries) => {
+            if (entries.some(entry => entry.isIntersecting)) {
+                setStockVisibleCount(count => Math.min(count + STOCK_PAGE_SIZE, fi.length));
+            }
+        }, { rootMargin: "320px 0px" });
+        observer.observe(target);
+        return () => observer.disconnect();
+    }, [fi.length, hasMoreStock, pg, visibleFi.length]);
     const recycleBinItems = useMemo(() => inv.filter(i => i.status === "Deleted"), [inv]);
     const latestSell = useMemo(() => tx.find(t => t.type === "Sell") || null, [tx]);
     const latestInvoices = useMemo(() => tx.filter(t => t.type === "Sell").slice(0, 3), [tx]);
@@ -2840,6 +2948,8 @@ export default function App() {
     }, [iq, tx]);
     const salePreview = useMemo(() => calcInvoiceTotals(fm.amount || 0, fm.billType, fm.gstRate), [fm.amount, fm.billType, fm.gstRate]);
     const reportRange = useMemo(() => getReportRange(reportPreset, reportFrom, reportTo), [reportPreset, reportFrom, reportTo]);
+    const reportPartyQueryLower = reportPartyQuery.trim().toLowerCase();
+    const reportItemQueryLower = reportItemQuery.trim().toLowerCase();
     const reportEntries = useMemo(() => {
         const trackedAddIds = new Set(tx.filter(t => t.type === "Add" && t.stockItemId).map(t => t.stockItemId));
         const trackedAddImeis = new Set(tx.filter(t => t.type === "Add" || t.type === "Buy").flatMap(t => [t.imei, t.imei2]).filter(Boolean));
@@ -2900,12 +3010,10 @@ export default function App() {
             if (effectiveDueFilter === "Due Only" && !(row.dueAmount > 0)) return false;
             if (effectiveDueFilter === "Paid Only" && row.dueAmount > 0) return false;
         }
-        const partyQuery = reportPartyQuery.trim().toLowerCase();
-        const itemQuery = reportItemQuery.trim().toLowerCase();
-        if (partyQuery && ![row.party, row.phone].some(v => String(v || "").toLowerCase().includes(partyQuery))) return false;
-        if (itemQuery && ![row.item, row.invoiceNo, row.imei, row.imei2, row.extra].some(v => String(v || "").toLowerCase().includes(itemQuery))) return false;
+        if (reportPartyQueryLower && ![row.party, row.phone].some(v => String(v || "").toLowerCase().includes(reportPartyQueryLower))) return false;
+        if (reportItemQueryLower && ![row.item, row.invoiceNo, row.imei, row.imei2, row.extra].some(v => String(v || "").toLowerCase().includes(reportItemQueryLower))) return false;
         return true;
-    }), [reportEntries, reportRange.from, reportRange.to, reportType, reportView, reportBillFilter, reportPaymentFilter, reportBrandFilter, reportDueFilter, reportPartyQuery, reportItemQuery]);
+    }), [reportEntries, reportRange.from, reportRange.to, reportType, reportView, reportBillFilter, reportPaymentFilter, reportBrandFilter, reportDueFilter, reportPartyQueryLower, reportItemQueryLower]);
     const reportSummary = useMemo(() => {
         const buyAddRows = reportRows.filter(row => row.type === "Buy" || row.type === "Add");
         const sellRows = reportRows.filter(row => row.type === "Sell");
@@ -2972,6 +3080,8 @@ export default function App() {
         return Array.from(groups.values()).sort((a, b) => String(b.lastDateTime).localeCompare(String(a.lastDateTime)));
     }, [reportRows]);
     const activeReportRows = reportView === "Customer Ledger" ? customerLedgerRows : reportView === "Supplier Summary" ? supplierSummaryRows : reportRows;
+    const visibleReportRows = useMemo(() => activeReportRows.slice(0, reportVisibleCount), [activeReportRows, reportVisibleCount]);
+    const hasMoreReportRows = visibleReportRows.length < activeReportRows.length;
     const activeReportSummary = reportView === "Transactions" ? reportSummary : {
         records: activeReportRows.length,
         buyAddTotal: reportView === "Supplier Summary" ? activeReportRows.reduce((s, row) => s + (row.amount || 0), 0) : 0,
@@ -2979,6 +3089,21 @@ export default function App() {
         dueTotal: reportView === "Customer Ledger" ? activeReportRows.reduce((s, row) => s + (row.dueAmount || 0), 0) : 0,
         profit: reportView === "Customer Ledger" ? activeReportRows.reduce((s, row) => s + (row.profit || 0), 0) : 0,
     };
+    useEffect(() => {
+        setReportVisibleCount(REPORT_PAGE_SIZE);
+    }, [pg, reportView, reportType, reportPreset, reportFrom, reportTo, reportBillFilter, reportPaymentFilter, reportBrandFilter, reportDueFilter, reportPartyQueryLower, reportItemQueryLower]);
+    useEffect(() => {
+        if (typeof window === "undefined" || pg !== "reports" || !hasMoreReportRows) return;
+        const target = reportLoadMoreRef.current;
+        if (!target) return;
+        const observer = new IntersectionObserver((entries) => {
+            if (entries.some(entry => entry.isIntersecting)) {
+                setReportVisibleCount(count => Math.min(count + REPORT_PAGE_SIZE, activeReportRows.length));
+            }
+        }, { rootMargin: "320px 0px" });
+        observer.observe(target);
+        return () => observer.disconnect();
+    }, [activeReportRows.length, hasMoreReportRows, pg, visibleReportRows.length]);
 
     const bcd = Object.entries(stats.bc).map(([name, value]) => ({ name, value }));
     const ccd = Object.entries(stats.cc).map(([name, value]) => ({ name, value }));
@@ -3326,12 +3451,16 @@ export default function App() {
 
                     {/* ═══ ADD ═══ */}
                     {pg === "add" && <div className="fi" style={{ maxWidth: 760 }}>
-                        <div style={{ marginBottom: 28 }}><h1 style={{ color: "var(--t1)", fontSize: 28, fontWeight: 700, display: "flex", alignItems: "center", gap: 10 }}><Plus size={28} style={{ color: "var(--a)" }} /> {ei ? "Edit Mobile" : "Add Mobile"}</h1><p style={{ color: "var(--t3)", fontSize: 14, marginTop: 4 }}>{ei ? "Update the selected stock item and save it back to stock." : "Fast stock entry for new phones before selling."}</p></div>
+                        <div style={{ marginBottom: 28 }}><h1 style={{ color: "var(--t1)", fontSize: 28, fontWeight: 700, display: "flex", alignItems: "center", gap: 10 }}><Plus size={28} style={{ color: "var(--a)" }} /> {ei ? "Edit Mobile" : bulkAdd ? "Bulk Add Mobiles" : "Add Mobile"}</h1><p style={{ color: "var(--t3)", fontSize: 14, marginTop: 4 }}>{ei ? "Update the selected stock item and save it back to stock." : bulkAdd ? "Fill shared device details once, then scan each IMEI to build a bulk stock list." : "Fast stock entry for new phones before selling."}</p></div>
                         <div className="gc" style={{ border: "1px solid rgba(0,212,255,.2)" }}>
-                            <F l="Device Photos" ic={Images}><PhotoUp photos={fm.photos || []} onChange={p => uf("photos", p)} onCameraNeeded={releaseCameraNow} /></F>
+                            {!ei && <div className="action-row" style={{ marginTop: 0, marginBottom: 16 }}>
+                                <button className={bulkAdd ? "bp" : "bg"} onClick={() => { setBulkAdd(v => !v); setBulkImeis([]); setBulkManualImei(""); uf("imei", ""); uf("imei2", ""); }} style={{ justifyContent: "center" }}><Layers size={16} /> {bulkAdd ? "Switch to Single Add" : "Bulk Add"}</button>
+                                {bulkAdd && <div style={{ color: "var(--t3)", fontSize: 12, display: "flex", alignItems: "center" }}>Bulk add saves one stock record per scanned IMEI.</div>}
+                            </div>}
+                            <F l={bulkAdd ? "Shared Device Photos" : "Device Photos"} ic={Images}><PhotoUp photos={fm.photos || []} onChange={p => uf("photos", p)} onCameraNeeded={releaseCameraNow} /></F>
                             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12 }}>
-                                <F l="IMEI 1" ic={Hash}><div style={{ display: "flex", gap: 8 }}><input className="gi" value={fm.imei} onChange={e => uf("imei", e.target.value)} placeholder="15-digit IMEI" style={{ fontFamily: "'Space Mono',monospace" }} /><button className="bg" onClick={() => openSc("add")} style={{ padding: 10 }}><Camera size={16} /></button></div></F>
-                                <F l="IMEI 2 (Optional)" ic={Hash}><div style={{ display: "flex", gap: 8 }}><input className="gi" value={fm.imei2} onChange={e => uf("imei2", e.target.value)} placeholder="Optional second IMEI" style={{ fontFamily: "'Space Mono',monospace" }} /><button className="bg" onClick={() => openSc("add2")} style={{ padding: 10 }}><Camera size={16} /></button></div></F>
+                                {!bulkAdd && <F l="IMEI 1" ic={Hash}><div style={{ display: "flex", gap: 8 }}><input className="gi" value={fm.imei} onChange={e => uf("imei", e.target.value)} placeholder="15-digit IMEI" style={{ fontFamily: "'Space Mono',monospace" }} /><button className="bg" onClick={() => openSc("add")} style={{ padding: 10 }}><Camera size={16} /></button></div></F>}
+                                {!bulkAdd && <F l="IMEI 2 (Optional)" ic={Hash}><div style={{ display: "flex", gap: 8 }}><input className="gi" value={fm.imei2} onChange={e => uf("imei2", e.target.value)} placeholder="Optional second IMEI" style={{ fontFamily: "'Space Mono',monospace" }} /><button className="bg" onClick={() => openSc("add2")} style={{ padding: 10 }}><Camera size={16} /></button></div></F>}
                                 <F l="Brand" ic={Tag}><select className="gs" value={fm.brand} onChange={e => uf("brand", e.target.value)}>{BRANDS.map(b => <option key={b}>{b}</option>)}</select></F>
                                 <F l="Model" ic={Smartphone}><input className="gi" value={fm.model} onChange={e => uf("model", e.target.value)} placeholder="e.g. Galaxy S24 Ultra" /></F>
                                 <F l="Color" ic={Palette}><input className="gi" value={fm.color} onChange={e => uf("color", e.target.value)} placeholder="e.g. Black" /></F>
@@ -3346,14 +3475,40 @@ export default function App() {
                                 <F l="Serialized Stock" ic={Package}><div className="gi" style={{ display: "flex", alignItems: "center", minHeight: 48 }}>Each mobile saves as qty 1. Use Buy when you want to record supplier purchase details too.</div></F>
                                 <F l="Supplier (Optional)" ic={User}><input className="gi" value={fm.supplier} onChange={e => uf("supplier", e.target.value)} placeholder="Supplier" /></F>
                             </div>
-                            <div className="action-row"><button className="bp" onClick={saveInv}><CheckCircle size={16} /> {ei ? "Save Changes" : "Add to Stock"}</button><button className="bg" onClick={() => ei ? goPage("inventory") : resetForm()}>{ei ? "Back to Stock" : "Clear Form"}</button></div>
+                            {bulkAdd && !ei && <div className="gc" style={{ marginTop: 16, padding: 16, border: "1px solid rgba(255,255,255,.08)", background: "rgba(255,255,255,.03)" }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
+                                    <div>
+                                        <div style={{ color: "var(--t1)", fontSize: 15, fontWeight: 700 }}>Bulk IMEI Queue</div>
+                                        <div style={{ color: "var(--t3)", fontSize: 12, marginTop: 4 }}>{bulkImeis.length} device{bulkImeis.length !== 1 ? "s" : ""} ready. Shared photos will be copied to every saved device. IMEI 2 stays disabled in bulk mode.</div>
+                                    </div>
+                                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                                        <button className="bg" onClick={() => openSc("bulk-add")}><ScanLine size={15} /> Scan IMEI</button>
+                                        <button className="bg" onClick={() => setBulkImeis([])} disabled={!bulkImeis.length}><Trash2 size={15} /> Clear List</button>
+                                    </div>
+                                </div>
+                                <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+                                    <input className="gi" value={bulkManualImei} onChange={e => setBulkManualImei(cleanImei(e.target.value))} onKeyDown={e => e.key === "Enter" && submitBulkManualImei()} placeholder="Type or paste 15-digit IMEI" style={{ fontFamily: "'Space Mono',monospace", flex: 1 }} />
+                                    <button className="bp" onClick={submitBulkManualImei} style={{ whiteSpace: "nowrap" }}><CheckCircle size={16} /> Add IMEI</button>
+                                </div>
+                                <div style={{ display: "grid", gap: 8, maxHeight: 260, overflowY: "auto" }}>
+                                    {bulkImeis.length === 0 && <div style={{ color: "var(--t3)", fontSize: 13, padding: "10px 4px" }}>Scan each handset IMEI to build the bulk stock list.</div>}
+                                    {bulkImeis.map((imei, index) => <div key={imei} className="tr" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, padding: "10px 12px", borderRadius: 12, border: "1px solid rgba(255,255,255,.06)", background: "rgba(255,255,255,.03)" }}>
+                                        <div style={{ minWidth: 0 }}>
+                                            <div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", letterSpacing: .8 }}>Device {bulkImeis.length - index}</div>
+                                            <div style={{ color: "var(--t1)", fontSize: 14, fontFamily: "'Space Mono',monospace", marginTop: 3 }}>{imei}</div>
+                                        </div>
+                                        <button className="bg" onClick={() => removeBulkImei(imei)} style={{ padding: "8px 10px" }}><Trash2 size={14} /> Remove</button>
+                                    </div>)}
+                                </div>
+                            </div>}
+                            <div className="action-row"><button className="bp" onClick={bulkAdd && !ei ? saveBulkInv : saveInv} disabled={bulkSaveBusy}><CheckCircle size={16} /> {bulkAdd && !ei ? (bulkSaveBusy ? "Saving Bulk Stock..." : `Add ${bulkImeis.length || ""} to Stock`) : ei ? "Save Changes" : "Add to Stock"}</button><button className="bg" onClick={() => ei ? goPage("inventory") : resetForm()}>{ei ? "Back to Stock" : "Clear Form"}</button></div>
                         </div>
                     </div>}
 
                     {/* ═══ INVENTORY ═══ */}
                     {pg === "inventory" && !di && <div className="fi">
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12, marginBottom: 24 }}>
-                            <div><h1 style={{ color: "var(--t1)", fontSize: 28, fontWeight: 700 }}>Stock</h1><p style={{ color: "var(--t3)", fontSize: 14, marginTop: 4 }}>{fi.length} devices</p></div>
+                            <div><h1 style={{ color: "var(--t1)", fontSize: 28, fontWeight: 700 }}>Stock</h1><p style={{ color: "var(--t3)", fontSize: 14, marginTop: 4 }}>{fi.length} devices{fi.length > visibleFi.length ? ` · showing ${visibleFi.length}` : ""}</p></div>
                             <div style={{ display: "flex", gap: 8 }}><button className="bp" onClick={() => openSc("add")}><Camera size={16} /> Scan</button><button className="bp" onClick={() => goPage("add")}><Plus size={16} /> Add Mobile</button></div>
                         </div>
                         <div className="gc stock-filter-card">
@@ -3369,12 +3524,12 @@ export default function App() {
 
                         {/* Grid — Horizontal Cards */}
                         {vm === "grid" ? <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(min(420px,100%),1fr))", gap: 14 }}>
-                            {fi.map(it => <div key={it.id} className="gc hcard" style={{ padding: 0, overflow: "hidden", display: "flex", flexDirection: "row", minHeight: 210, borderLeft: `3px solid ${it.status === "In Stock" ? "var(--a)" : "rgba(255,255,255,.12)"}` }}>
+                            {visibleFi.map(it => <div key={it.id} className="gc hcard" style={{ padding: 0, overflow: "hidden", display: "flex", flexDirection: "row", minHeight: 210, borderLeft: `3px solid ${it.status === "In Stock" ? "var(--a)" : "rgba(255,255,255,.12)"}` }}>
                                 {/* LEFT — Portrait Photo */}
                                 <div className="hcard-photo" style={{ width: 160, minWidth: 160, flexShrink: 0, position: "relative", cursor: "pointer", overflow: "hidden", borderRight: "1px solid rgba(255,255,255,.06)" }}
                                     onClick={() => { if (it.photos?.length) sLb({ photos: it.photos, si: 0 }); else sDi(it); }}>
                                     {it.photos?.length > 0 ? <>
-                                        <img src={getPhotoPreview(it.photos[0])} alt={it.model} style={{ width: "100%", height: "100%", objectFit: "cover", transition: "transform .4s" }}
+                                        <img src={getPhotoPreview(it.photos[0])} alt={it.model} loading="lazy" decoding="async" style={{ width: "100%", height: "100%", objectFit: "cover", transition: "transform .4s" }}
                                             onMouseOver={e => e.currentTarget.style.transform = "scale(1.06)"} onMouseOut={e => e.currentTarget.style.transform = "scale(1)"} />
                                         {it.photos.length > 1 && <div className="ipc"><Images size={12} /> {it.photos.length}</div>}
                                     </> : <div style={{ width: "100%", height: "100%", background: BRAND_GRADIENTS[it.brand] || BRAND_GRADIENTS.Other, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, position: "relative", overflow: "hidden" }}>
@@ -3440,9 +3595,9 @@ export default function App() {
                                     <thead><tr style={{ borderBottom: "1px solid rgba(255,255,255,.08)" }}>
                                         {["Photo", "IMEIs", "Device", "Cond.", "Specs", "Buy", "Sell", "Status", ""].map(h => <th key={h} style={{ padding: "12px 14px", color: "var(--t3)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1, textAlign: "left" }}>{h}</th>)}
                                     </tr></thead>
-                                    <tbody>{fi.map(it => <tr key={it.id} className="tr" style={{ borderBottom: "1px solid rgba(255,255,255,.03)" }}>
+                                    <tbody>{visibleFi.map(it => <tr key={it.id} className="tr" style={{ borderBottom: "1px solid rgba(255,255,255,.03)" }}>
                                         <td style={{ padding: "8px 14px" }}><div style={{ width: 44, height: 44, borderRadius: 8, overflow: "hidden", cursor: "pointer", border: "1px solid var(--gbo)" }} onClick={() => it.photos?.length ? sLb({ photos: it.photos, si: 0 }) : null}>
-                                            {it.photos?.length > 0 ? <img src={getPhotoPreview(it.photos[0])} style={{ width: "100%", height: "100%", objectFit: "cover" }} alt="" /> : <div style={{ width: "100%", height: "100%", background: BRAND_GRADIENTS[it.brand] || BRAND_GRADIENTS.Other, display: "flex", alignItems: "center", justifyContent: "center" }}><Smartphone size={18} style={{ opacity: .4, color: "#fff" }} /></div>}
+                                            {it.photos?.length > 0 ? <img src={getPhotoPreview(it.photos[0])} loading="lazy" decoding="async" style={{ width: "100%", height: "100%", objectFit: "cover" }} alt="" /> : <div style={{ width: "100%", height: "100%", background: BRAND_GRADIENTS[it.brand] || BRAND_GRADIENTS.Other, display: "flex", alignItems: "center", justifyContent: "center" }}><Smartphone size={18} style={{ opacity: .4, color: "#fff" }} /></div>}
                                         </div></td>
                                         <td style={{ padding: "12px 14px", fontFamily: "'Space Mono',monospace", fontSize: 11, color: "var(--t2)" }}><div>{it.imei}</div>{it.imei2 && <div style={{ color: "var(--t3)", fontSize: 10, marginTop: 3 }}>{it.imei2}</div>}</td>
                                         <td style={{ padding: "12px 14px" }}><div style={{ color: "var(--t1)", fontSize: 13, fontWeight: 500 }}>{it.brand} {it.model}</div><div style={{ color: "var(--t3)", fontSize: 11 }}>{it.color}</div></td>
@@ -3455,6 +3610,7 @@ export default function App() {
                                     </tr>)}</tbody>
                                 </table>
                             </div>}
+                        {hasMoreStock && <div ref={stockLoadMoreRef} style={{ height: 1, marginTop: 16 }} />}
                         {fi.length === 0 && <div className="gc" style={{ textAlign: "center", padding: 48 }}><Package size={40} style={{ color: "var(--t3)", marginBottom: 12 }} /><p style={{ color: "var(--t2)", fontSize: 15 }}>No devices found</p></div>}
                     </div>}
 
@@ -3714,13 +3870,15 @@ export default function App() {
                             <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 14 }}><h3 style={{ color: "var(--t1)", fontSize: 15, fontWeight: 600 }}>Report Preview</h3><div style={{ color: "var(--t3)", fontSize: 13 }}>{reportView} · {reportType} · {reportRange.label}{reportType !== "Buy" && reportType !== "Add" && reportBillFilter !== "All Bills" && reportView === "Transactions" ? ` · ${reportBillFilter}` : ""}{reportDueFilter !== "All Status" ? ` · ${reportDueFilter}` : ""}{reportPaymentFilter !== "All Payments" ? ` · ${reportPaymentFilter}` : ""}{reportBrandFilter !== "All Brands" ? ` · ${reportBrandFilter}` : ""}{reportPartyQuery.trim() ? ` · ${reportPartyQuery.trim()}` : ""}{reportItemQuery.trim() ? ` · ${reportItemQuery.trim()}` : ""}</div></div>
                             <div style={{ display: "grid", gap: 12 }}>
                                 {activeReportRows.length === 0 && <div style={{ color: "var(--t2)", fontSize: 14 }}>No records found for this range.</div>}
-                                {activeReportRows.map(row => <div key={row.id} className="tr" style={{ display: "grid", gap: 6, padding: "12px 10px", borderRadius: 12, border: "1px solid rgba(255,255,255,.05)", background: "rgba(255,255,255,.03)" }}>
+                                {activeReportRows.length > visibleReportRows.length && <div style={{ color: "var(--t3)", fontSize: 12 }}>Showing {visibleReportRows.length} of {activeReportRows.length} records</div>}
+                                {visibleReportRows.map(row => <div key={row.id} className="tr" style={{ display: "grid", gap: 6, padding: "12px 10px", borderRadius: 12, border: "1px solid rgba(255,255,255,.05)", background: "rgba(255,255,255,.03)" }}>
                                     <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}><div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}><span className={`ba ${row.type === "Sell" ? "bi" : row.type === "Buy" ? "br" : "bu"}`}>{row.type}</span>{row.billType === "GST" && <span className="ba br">GST</span>}{row.invoiceNo && <span style={{ color: "var(--t3)", fontSize: 12 }}>{row.invoiceNo}</span>}</div><div style={{ color: "var(--ok)", fontWeight: 700 }}>{fmtCurrency(row.amount || 0)}</div></div>
                                     <div style={{ color: "var(--t1)", fontSize: 15, fontWeight: 600 }}>{row.item || row.label}</div>
                                     <div style={{ color: "var(--t2)", fontSize: 13 }}>{row.party || "-"}{row.phone ? ` · ${row.phone}` : ""}{row.paymentMode ? ` · ${row.paymentMode}` : ""}</div>
                                     <div style={{ color: "var(--t3)", fontSize: 12 }}>{fmtDateTime(row.lastDateTime || row.dateTime)}{row.extra ? ` · ${row.extra}` : ""}{reportView !== "Transactions" ? ` · ${row.records} records` : ""}</div>
                                     <div style={{ color: "var(--t3)", fontSize: 12, fontFamily: "'Space Mono',monospace" }}>{reportView === "Transactions" ? (row.imei ? `IMEI 1: ${row.imei}${row.imei2 ? ` · IMEI 2: ${row.imei2}` : ""}` : "No IMEI") : `Due ${fmtCurrency(row.dueAmount || 0)}${reportView === "Customer Ledger" ? ` · Profit ${fmtCurrency(row.profit || 0)}` : ""}`}</div>
                                 </div>)}
+                                {hasMoreReportRows && <div ref={reportLoadMoreRef} style={{ height: 1 }} />}
                             </div>
                         </div>
                     </div>}
