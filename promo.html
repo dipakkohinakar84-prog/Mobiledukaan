@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1920, height=1080">
+<title>PhoneDukaan — Product Video</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  width: 1920px;
+  height: 1080px;
+  background: #0a0a1a;
+  font-family: 'Space Grotesk', sans-serif;
+  color: #fff;
+  overflow: hidden;
+  position: relative;
+  cursor: none;
+}
+
+.bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+}
+
+.orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(120px);
+  opacity: 0.18;
+  animation: drift 10s ease-in-out infinite alternate;
+}
+
+.orb-1 { width: 700px; height: 700px; background: #8b5cf6; top: -250px; left: -200px; animation-delay: 0s; }
+.orb-2 { width: 600px; height: 600px; background: #00d4ff; bottom: -200px; right: -150px; animation-delay: -5s; }
+.orb-3 { width: 450px; height: 450px; background: #8b5cf6; bottom: 50px; left: 35%; animation-delay: -3s; opacity: 0.09; }
+
+@keyframes drift {
+  from { transform: translate(0,0) scale(1); }
+  to { transform: translate(50px, 35px) scale(1.12); }
+}
+
+.scene {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.7s ease;
+  pointer-events: none;
+}
+
+.scene.active { opacity: 1; }
+
+.grad {
+  background: linear-gradient(90deg, #00d4ff, #8b5cf6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(36px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.82); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-14px); }
+}
+
+@keyframes scan {
+  0%   { top: 0; opacity: 1; }
+  95%  { opacity: 1; }
+  100% { top: calc(100% - 2px); opacity: 0; }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.5; transform: scale(0.9); }
+}
+
+@keyframes slideLeft {
+  from { opacity: 0; transform: translateX(-60px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes slideRight {
+  from { opacity: 0; transform: translateX(60px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* ─── SCENE 1: Logo ─── */
+.s1-wrap {
+  display: flex; flex-direction: column; align-items: center; gap: 28px;
+  animation: scaleIn 1s ease both;
+}
+.s1-icon {
+  width: 130px; height: 130px; border-radius: 30px;
+  box-shadow: 0 0 80px rgba(0,212,255,0.35);
+  animation: scaleIn 0.9s ease both;
+}
+.s1-name {
+  font-size: 84px; font-weight: 700; letter-spacing: -2px;
+  animation: fadeUp 0.8s 0.4s ease both;
+}
+.s1-sub {
+  font-size: 20px; color: rgba(255,255,255,0.4); letter-spacing: 6px;
+  text-transform: uppercase; animation: fadeUp 0.7s 0.9s ease both;
+}
+
+/* ─── SCENE 2: Tagline ─── */
+.s2-wrap { text-align: center; }
+.s2-eyebrow {
+  font-size: 18px; color: rgba(255,255,255,0.35); letter-spacing: 7px;
+  text-transform: uppercase; animation: fadeUp 0.6s ease both; margin-bottom: 28px;
+}
+.s2-main { font-size: 96px; font-weight: 700; line-height: 1.08; letter-spacing: -3px; }
+.s2-l1 { display: block; animation: fadeUp 0.75s 0.2s ease both; }
+.s2-l2 { display: block; animation: fadeUp 0.75s 0.55s ease both; }
+
+/* ─── SCENE 3: Problem ─── */
+.s3-wrap { text-align: center; max-width: 1100px; }
+.s3-emoji { font-size: 90px; animation: fadeUp 0.6s ease both; margin-bottom: 36px; }
+.s3-q1 { font-size: 54px; font-weight: 600; animation: fadeUp 0.7s 0.25s ease both; margin-bottom: 18px; }
+.s3-q2 { font-size: 42px; font-weight: 400; color: rgba(255,255,255,0.5); animation: fadeUp 0.7s 0.55s ease both; margin-bottom: 14px; }
+.s3-q3 { font-size: 36px; font-weight: 400; color: rgba(255,255,255,0.32); animation: fadeUp 0.7s 0.85s ease both; }
+.s3-ans { margin-top: 52px; font-size: 46px; font-weight: 700; animation: fadeUp 0.8s 1.4s ease both; }
+
+/* ─── PHONE MOCKUP ─── */
+.phone-wrap {
+  animation: scaleIn 0.9s 0.3s ease both, float 4s 1.3s ease-in-out infinite;
+  flex-shrink: 0;
+}
+.phone {
+  width: 290px; height: 600px;
+  background: #0d1b2a;
+  border-radius: 44px;
+  border: 2px solid rgba(0,212,255,0.25);
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,0.04),
+    0 0 70px rgba(0,212,255,0.12),
+    0 50px 100px rgba(0,0,0,0.6);
+  overflow: hidden;
+  position: relative;
+}
+.phone::before {
+  content: '';
+  position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+  width: 110px; height: 30px;
+  background: #0a0a1a;
+  border-radius: 0 0 20px 20px;
+  z-index: 10;
+}
+.ph-screen { padding: 44px 14px 14px; height: 100%; overflow: hidden; }
+.ph-hdr { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; padding: 0 4px; }
+.ph-dot { width: 26px; height: 26px; border-radius: 7px; background: linear-gradient(135deg,#00d4ff,#8b5cf6); }
+.ph-nm  { font-size: 13px; font-weight: 700; }
+
+.ph-card {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 9px;
+}
+.ph-lbl { font-size: 9px; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+.ph-val { font-size: 19px; font-weight: 700; font-family: 'Space Mono', monospace; }
+.ph-imei { font-size: 10px; font-family: 'Space Mono', monospace; color: #00d4ff; letter-spacing: 0.5px; margin-top: 2px; }
+.ph-badge {
+  display: inline-block; padding: 2px 9px; border-radius: 20px;
+  font-size: 9px; font-weight: 600; margin-top: 5px;
+  background: rgba(0,212,255,0.12); color: #00d4ff;
+  border: 1px solid rgba(0,212,255,0.25);
+}
+.ph-badge.sold {
+  background: rgba(139,92,246,0.12); color: #a78bfa;
+  border-color: rgba(139,92,246,0.25);
+}
+
+/* scan line */
+.scan-region {
+  position: relative;
+  background: rgba(0,212,255,0.05);
+  border: 1px solid rgba(0,212,255,0.2);
+  border-radius: 8px; height: 58px; margin: 8px 0; overflow: hidden;
+}
+.scan-line {
+  position: absolute; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, transparent, #00d4ff, transparent);
+  top: 0; box-shadow: 0 0 10px #00d4ff;
+  animation: scan 1.8s linear infinite;
+}
+
+/* invoice inside phone */
+.ph-inv { background: rgba(255,255,255,0.04); border: 1px solid rgba(139,92,246,0.2); border-radius: 10px; padding: 10px; margin-top: 8px; }
+.ph-inv-row { display: flex; justify-content: space-between; font-size: 9px; color: rgba(255,255,255,0.5); padding: 3px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+.ph-inv-row:last-child { border: none; }
+.ph-inv-total { display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; padding-top: 6px; margin-top: 4px; }
+.ph-pdf-btn {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  background: linear-gradient(135deg, rgba(0,212,255,0.14), rgba(139,92,246,0.14));
+  border: 1px solid rgba(0,212,255,0.28); border-radius: 8px;
+  padding: 9px; margin-top: 8px; font-size: 10px; color: #00d4ff; font-weight: 600;
+}
+
+/* sync */
+.sync-row { display: flex; align-items: center; justify-content: center; gap: 18px; margin: 12px 0; }
+.sync-arr { font-size: 20px; color: #00d4ff; animation: pulse 1.4s ease-in-out infinite; }
+.mini-g { width: 34px; height: 34px; background: #0f9d58; border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 700; font-family: 'Space Mono', monospace; }
+.mini-pd { width: 34px; height: 34px; border-radius: 9px; background: linear-gradient(135deg,#00d4ff,#8b5cf6); display: flex; align-items: center; justify-content: center; font-size: 14px; }
+
+/* ─── FEATURE LAYOUT ─── */
+.feat-layout {
+  display: flex; align-items: center; gap: 110px; padding: 0 130px; width: 100%;
+}
+.feat-layout.rev { flex-direction: row-reverse; }
+.feat-txt { flex: 1; }
+.feat-eyebrow { font-size: 13px; color: rgba(255,255,255,0.28); letter-spacing: 5px; text-transform: uppercase; animation: fadeUp 0.5s ease both; margin-bottom: 14px; }
+.feat-h { font-size: 66px; font-weight: 700; line-height: 1.08; letter-spacing: -1.5px; margin-bottom: 22px; }
+.feat-h1 { display: block; animation: fadeUp 0.7s 0.2s ease both; }
+.feat-h2 { display: block; animation: fadeUp 0.7s 0.4s ease both; }
+.feat-p { font-size: 23px; color: rgba(255,255,255,0.58); line-height: 1.6; animation: fadeUp 0.7s 0.6s ease both; max-width: 490px; }
+.feat-list { list-style: none; margin-top: 28px; display: flex; flex-direction: column; gap: 14px; }
+.feat-li { display: flex; align-items: center; gap: 14px; font-size: 19px; color: rgba(255,255,255,0.68); }
+.feat-li:nth-child(1) { animation: fadeUp 0.6s 0.72s ease both; }
+.feat-li:nth-child(2) { animation: fadeUp 0.6s 0.92s ease both; }
+.feat-li:nth-child(3) { animation: fadeUp 0.6s 1.12s ease both; }
+.feat-bullet { width: 9px; height: 9px; border-radius: 50%; background: linear-gradient(135deg,#00d4ff,#8b5cf6); flex-shrink: 0; }
+
+.txt-left  { animation: slideLeft  0.85s ease both; }
+.txt-right { animation: slideRight 0.85s ease both; }
+
+/* ─── SCENE 7: Offline ─── */
+.s7-wrap { text-align: center; max-width: 960px; }
+.s7-emoji { font-size: 110px; animation: fadeUp 0.7s ease both; margin-bottom: 28px; display: block; }
+.s7-h { font-size: 78px; font-weight: 700; line-height: 1.1; margin-bottom: 26px; animation: fadeUp 0.75s 0.3s ease both; }
+.s7-p { font-size: 26px; color: rgba(255,255,255,0.5); line-height: 1.65; animation: fadeUp 0.7s 0.7s ease both; }
+.s7-devices { display: flex; gap: 28px; justify-content: center; margin-top: 44px; }
+.s7-dev {
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.09);
+  border-radius: 18px; padding: 22px 36px;
+}
+.s7-dev:nth-child(1) { animation: fadeUp 0.6s 1.0s ease both; }
+.s7-dev:nth-child(2) { animation: fadeUp 0.6s 1.2s ease both; }
+.s7-dev:nth-child(3) { animation: fadeUp 0.6s 1.4s ease both; }
+.s7-dev-ico { font-size: 36px; margin-bottom: 10px; }
+.s7-dev-lbl { font-size: 14px; color: rgba(255,255,255,0.55); }
+
+/* ─── SCENE 8: CTA ─── */
+.s8-wrap { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 22px; }
+.s8-icon { width: 108px; height: 108px; border-radius: 26px; box-shadow: 0 0 80px rgba(0,212,255,0.35); animation: scaleIn 0.9s ease both; }
+.s8-eyebrow { font-size: 18px; color: rgba(255,255,255,0.35); letter-spacing: 5px; text-transform: uppercase; animation: fadeUp 0.6s 0.35s ease both; }
+.s8-name { font-size: 80px; font-weight: 700; letter-spacing: -2px; animation: fadeUp 0.75s 0.55s ease both; }
+.s8-tagline { font-size: 24px; color: rgba(255,255,255,0.45); animation: fadeUp 0.6s 0.85s ease both; }
+.s8-divider { display: flex; align-items: center; gap: 18px; animation: fadeUp 0.6s 1.1s ease both; margin-top: 4px; }
+.s8-line { height: 1px; width: 70px; background: linear-gradient(90deg,transparent,rgba(255,255,255,0.15)); }
+.s8-line.r { background: linear-gradient(270deg,transparent,rgba(255,255,255,0.15)); }
+.s8-lic { font-size: 14px; color: rgba(255,255,255,0.28); letter-spacing: 4px; }
+
+/* ─── Progress & Dots ─── */
+.progress {
+  position: fixed; bottom: 0; left: 0; height: 3px;
+  background: linear-gradient(90deg, #00d4ff, #8b5cf6);
+  z-index: 100; box-shadow: 0 0 12px rgba(0,212,255,0.5);
+  transition: width 0.2s linear;
+}
+.dots { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); display: flex; gap: 9px; z-index: 100; }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: rgba(255,255,255,0.18); transition: all 0.35s ease; }
+.dot.on { background: #00d4ff; width: 28px; border-radius: 4px; box-shadow: 0 0 10px rgba(0,212,255,0.5); }
+</style>
+</head>
+<body>
+
+<div class="bg">
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+</div>
+
+<div class="progress" id="prog"></div>
+<div class="dots" id="dots"></div>
+
+<!-- ══════ S1: LOGO ══════ -->
+<div class="scene" id="s1">
+  <div class="s1-wrap">
+    <img src="/pd-icon.png" class="s1-icon" alt="PhoneDukaan"
+      onerror="this.style.cssText='width:130px;height:130px;border-radius:30px;background:linear-gradient(135deg,#00d4ff,#8b5cf6);box-shadow:0 0 80px rgba(0,212,255,.35)'" />
+    <div class="s1-name"><span style="color:#fff">Phone</span><span class="grad">Dukaan</span></div>
+    <div class="s1-sub">Mobile Shop Manager</div>
+  </div>
+</div>
+
+<!-- ══════ S2: TAGLINE ══════ -->
+<div class="scene" id="s2">
+  <div class="s2-wrap">
+    <div class="s2-eyebrow">Introducing</div>
+    <div class="s2-main">
+      <span class="s2-l1">Apka Mobile Shop,</span>
+      <span class="s2-l2 grad">Ab Smart Hai.</span>
+    </div>
+  </div>
+</div>
+
+<!-- ══════ S3: PROBLEM ══════ -->
+<div class="scene" id="s3">
+  <div class="s3-wrap">
+    <div class="s3-emoji">😤</div>
+    <div class="s3-q1">Register mein phones track karna mushkil hai?</div>
+    <div class="s3-q2">IMEI numbers yaad nahi rehte?</div>
+    <div class="s3-q3">Invoice banane mein ghante lagte hain?</div>
+    <div class="s3-ans">
+      <span style="color:rgba(255,255,255,.5)">Solution aa gaya —&nbsp;</span>
+      <span class="grad">PhoneDukaan</span>
+    </div>
+  </div>
+</div>
+
+<!-- ══════ S4: IMEI ══════ -->
+<div class="scene" id="s4">
+  <div class="feat-layout">
+    <div class="feat-txt txt-left">
+      <div class="feat-eyebrow">Feature 01</div>
+      <div class="feat-h">
+        <span class="feat-h1 grad">IMEI</span>
+        <span class="feat-h2">Tracking</span>
+      </div>
+      <div class="feat-p">Har phone ka IMEI securely store karo. Ek second mein dhundho, koi cheez nahi chhootegi.</div>
+      <ul class="feat-list">
+        <li class="feat-li"><span class="feat-bullet"></span>Barcode scanner se instant IMEI scan</li>
+        <li class="feat-li"><span class="feat-bullet"></span>Buy & sell history — IMEI se linked</li>
+        <li class="feat-li"><span class="feat-bullet"></span>Kabhi bhi, koi bhi phone trace karo</li>
+      </ul>
+    </div>
+    <div class="phone-wrap">
+      <div class="phone">
+        <div class="ph-screen">
+          <div class="ph-hdr"><div class="ph-dot"></div><div class="ph-nm">PhoneDukaan</div></div>
+          <div class="ph-card">
+            <div class="ph-lbl">iPhone 15 Pro Max</div>
+            <div class="ph-val">₹89,000</div>
+            <div class="ph-imei">IMEI: 358 240 05 148931 5</div>
+            <div class="ph-badge">● In Stock</div>
+          </div>
+          <div class="ph-card">
+            <div class="ph-lbl">Scan IMEI</div>
+            <div class="scan-region"><div class="scan-line"></div></div>
+          </div>
+          <div class="ph-card">
+            <div class="ph-lbl">Samsung S24 Ultra</div>
+            <div class="ph-val">₹1,24,999</div>
+            <div class="ph-imei">IMEI: 490 154 20 364821 7</div>
+            <div class="ph-badge sold">● Sold</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════ S5: GST INVOICE ══════ -->
+<div class="scene" id="s5">
+  <div class="feat-layout rev">
+    <div class="feat-txt txt-right">
+      <div class="feat-eyebrow">Feature 02</div>
+      <div class="feat-h">
+        <span class="feat-h1">GST Invoice</span>
+        <span class="feat-h2 grad">Ek Click Mein</span>
+      </div>
+      <div class="feat-p">Professional GST invoices turat generate karo. PDF download karo ya WhatsApp pe seedha bhejo.</div>
+      <ul class="feat-list">
+        <li class="feat-li"><span class="feat-bullet"></span>Auto GST calculation (18% / 12% / custom)</li>
+        <li class="feat-li"><span class="feat-bullet"></span>Customer name, number, address save hota hai</li>
+        <li class="feat-li"><span class="feat-bullet"></span>PDF — ek click mein ready</li>
+      </ul>
+    </div>
+    <div class="phone-wrap">
+      <div class="phone">
+        <div class="ph-screen">
+          <div class="ph-hdr"><div class="ph-dot"></div><div class="ph-nm">PhoneDukaan</div></div>
+          <div class="ph-card">
+            <div class="ph-lbl">New Invoice</div>
+            <div style="font-size:11px;color:rgba(255,255,255,.6);margin-top:4px">Customer: Raj Patil</div>
+            <div style="font-size:11px;color:rgba(255,255,255,.6)">+91 98765 43210</div>
+          </div>
+          <div class="ph-inv">
+            <div class="ph-inv-row"><span>iPhone 14</span><span>₹58,000</span></div>
+            <div class="ph-inv-row"><span>GST 18%</span><span>₹10,440</span></div>
+            <div class="ph-inv-row"><span>Discount</span><span>−₹1,000</span></div>
+            <div class="ph-inv-total"><span>Total</span><span style="color:#00d4ff">₹67,440</span></div>
+          </div>
+          <div class="ph-pdf-btn">⬇&nbsp; Download PDF Invoice</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════ S6: GOOGLE SHEETS SYNC ══════ -->
+<div class="scene" id="s6">
+  <div class="feat-layout">
+    <div class="feat-txt txt-left">
+      <div class="feat-eyebrow">Feature 03</div>
+      <div class="feat-h">
+        <span class="feat-h1">Google Sheets</span>
+        <span class="feat-h2 grad">Auto Sync</span>
+      </div>
+      <div class="feat-p">Apka poora data Google Sheets mein automatically backup hota hai. Koi tension nahi, data safe hai.</div>
+      <ul class="feat-list">
+        <li class="feat-li"><span class="feat-bullet"></span>Real-time automatic backup</li>
+        <li class="feat-li"><span class="feat-bullet"></span>Kisi bhi device se access — anytime</li>
+        <li class="feat-li"><span class="feat-bullet"></span>Stock, sales, invoices, dues — sab sync</li>
+      </ul>
+    </div>
+    <div class="phone-wrap">
+      <div class="phone">
+        <div class="ph-screen">
+          <div class="ph-hdr"><div class="ph-dot"></div><div class="ph-nm">PhoneDukaan</div></div>
+          <div class="ph-card">
+            <div class="ph-lbl">Sync Status</div>
+            <div class="sync-row">
+              <div class="mini-pd">📱</div>
+              <div class="sync-arr">⇄</div>
+              <div class="mini-g">G</div>
+            </div>
+            <div style="font-size:9px;color:#00d4ff;text-align:center;font-weight:600">● Connected — Auto Sync ON</div>
+          </div>
+          <div class="ph-card">
+            <div class="ph-lbl">Last Synced</div>
+            <div style="font-size:12px;color:rgba(255,255,255,.75);margin-top:3px">Just now</div>
+            <div style="font-size:9px;color:rgba(255,255,255,.4);margin-top:2px">24 records synced successfully</div>
+          </div>
+          <div class="ph-card">
+            <div style="font-size:9px;color:rgba(255,255,255,.45);letter-spacing:0.5px">📊 Stock &nbsp;·&nbsp; Sales &nbsp;·&nbsp; Invoices &nbsp;·&nbsp; Dues</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════ S7: OFFLINE ══════ -->
+<div class="scene" id="s7">
+  <div class="s7-wrap">
+    <span class="s7-emoji">📵</span>
+    <div class="s7-h">
+      <span style="color:rgba(255,255,255,.88)">Internet nahi?&nbsp;</span>
+      <span class="grad">Koi baat nahi.</span>
+    </div>
+    <div class="s7-p">
+      PhoneDukaan bilkul offline kaam karta hai.<br>
+      Install karo aur use karo — bina net ke bhi.
+    </div>
+    <div class="s7-devices">
+      <div class="s7-dev">
+        <div class="s7-dev-ico">📱</div>
+        <div class="s7-dev-lbl">Mobile</div>
+      </div>
+      <div class="s7-dev">
+        <div class="s7-dev-ico">💻</div>
+        <div class="s7-dev-lbl">Laptop</div>
+      </div>
+      <div class="s7-dev">
+        <div class="s7-dev-ico">🖥️</div>
+        <div class="s7-dev-lbl">Desktop</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════ S8: CTA ══════ -->
+<div class="scene" id="s8">
+  <div class="s8-wrap">
+    <img src="/pd-icon.png" class="s8-icon" alt="PhoneDukaan"
+      onerror="this.style.cssText='width:108px;height:108px;border-radius:26px;background:linear-gradient(135deg,#00d4ff,#8b5cf6);box-shadow:0 0 80px rgba(0,212,255,.35)'" />
+    <div class="s8-eyebrow">Har Shop Ka Digital Partner</div>
+    <div class="s8-name"><span style="color:#fff">Phone</span><span class="grad">Dukaan</span></div>
+    <div class="s8-tagline">Stock &nbsp;·&nbsp; IMEI &nbsp;·&nbsp; Invoices &nbsp;·&nbsp; Sync &nbsp;·&nbsp; Offline</div>
+    <div class="s8-divider">
+      <div class="s8-line"></div>
+      <span class="s8-lic">LIFETIME LICENSE</span>
+      <div class="s8-line r"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SCENES = [
+  { id:'s1', ms: 4500 },
+  { id:'s2', ms: 5000 },
+  { id:'s3', ms: 7500 },
+  { id:'s4', ms: 11000 },
+  { id:'s5', ms: 11000 },
+  { id:'s6', ms: 11000 },
+  { id:'s7', ms: 9000 },
+  { id:'s8', ms: 7000 },
+];
+const TOTAL = SCENES.reduce((a,s)=>a+s.ms,0);
+
+// build dots
+const dotsEl = document.getElementById('dots');
+SCENES.forEach((_,i)=>{
+  const d=document.createElement('div');
+  d.className='dot'; d.id='dot'+i;
+  dotsEl.appendChild(d);
+});
+
+let startTime = null;
+
+function show(i){
+  document.querySelectorAll('.scene').forEach(el=>el.classList.remove('active'));
+  document.querySelectorAll('.dot').forEach(d=>d.classList.remove('on'));
+  if(i>=SCENES.length) return;
+  // Clone the scene node to restart CSS animations
+  const orig = document.getElementById(SCENES[i].id);
+  const clone = orig.cloneNode(true);
+  orig.parentNode.replaceChild(clone, orig);
+  SCENES[i].id = clone.id; // keep reference
+  clone.classList.add('active');
+  document.getElementById('dot'+i).classList.add('on');
+}
+
+function runAt(delay, fn){ setTimeout(fn, delay); }
+
+function start(){
+  startTime = performance.now();
+  let acc = 0;
+  SCENES.forEach((s,i)=>{
+    runAt(acc, ()=>show(i));
+    acc += s.ms;
+  });
+  // after last scene ends, keep it showing
+}
+
+// progress bar
+function tick(){
+  if(!startTime){ requestAnimationFrame(tick); return; }
+  const pct = Math.min((performance.now()-startTime)/TOTAL*100, 100);
+  document.getElementById('prog').style.width = pct+'%';
+  if(pct<100) requestAnimationFrame(tick);
+}
+
+// kick off
+setTimeout(start, 400);
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>

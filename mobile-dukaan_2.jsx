@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { createPortal } from "react-dom";
 import {
     Smartphone, Plus, ShoppingCart, TrendingUp, BarChart3, Settings,
     Camera, X, Search, Filter, Edit2, Trash2, Package, IndianRupee,
@@ -7,12 +8,12 @@ import {
     User, Phone, Calendar, Hash, Palette, HardDrive, Tag, Layers, LogOut,
     ChevronRight, CreditCard, Banknote, QrCode, LayoutGrid, List, Bell,
     ImagePlus, Images, ChevronLeft, ZoomIn, RotateCcw, Upload, Aperture, Battery,
-    Download, Share2, Lock, MapPin, Mail, Printer, Zap, Shield, Clock,
+    Download, Share2, Lock, MapPin, Mail, Printer, Zap, Shield, Clock, Wrench,
     Trash, ArchiveRestore
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, CartesianGrid, Legend, AreaChart, Area } from "recharts";
 import { loadAppState, loadSyncState, saveAppState, saveSyncState, savePhotoBlob, loadPhotoBlob, deletePhotoBlob } from "./app-storage.js";
-import { getPocketBaseUrl, pocketbaseAdminExtendUserTrial, pocketbaseAdminLoadDashboard, pocketbaseAdminLogin, pocketbaseAdminLogout, pocketbaseAdminSendPasswordReset, pocketbaseAdminSession, pocketbaseAdminUpdateSettings, pocketbaseAdminUpdateShop, pocketbaseAdminUpdateUser, pocketbaseCreateTransaction, pocketbaseDeleteInventory, pocketbaseGetTrialDays, pocketbaseIsTrialExpired, pocketbaseListShops, pocketbaseLoadShopBundle, pocketbaseRegisterShopUser, pocketbaseRequestPasswordReset, pocketbaseSaveShop, pocketbaseShopLogin, pocketbaseUpdateShopProfile, pocketbaseUploadPhoto, pocketbaseUpsertInventory, subscribeToShopData, unsubscribeFromShopData } from "./pocketbase-client.js";
+import { getPocketBaseUrl, pocketbaseAdminExtendUserTrial, pocketbaseAdminLoadDashboard, pocketbaseAdminLogin, pocketbaseAdminLogout, pocketbaseAdminSendPasswordReset, pocketbaseAdminSession, pocketbaseAdminUpdateSettings, pocketbaseAdminUpdateShop, pocketbaseAdminUpdateUser, pocketbaseCreateTransaction, pocketbaseDeleteInventory, pocketbaseDeleteRepair, pocketbaseGetTrialDays, pocketbaseIsTrialExpired, pocketbaseListShops, pocketbaseLoadShopBundle, pocketbaseRegisterShopUser, pocketbaseRequestPasswordReset, pocketbaseSaveShop, pocketbaseShopLogin, pocketbaseUpdateShopProfile, pocketbaseUploadPhoto, pocketbaseUpsertInventory, pocketbaseUpsertRepair, subscribeToShopData, unsubscribeFromShopData } from "./pocketbase-client.js";
 
 const genId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const fmtDate = (d) => new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
@@ -22,12 +23,23 @@ const CONDITIONS = ["New", "Refurbished", "Used"];
 const STATUSES = ["In Stock", "Sold", "Deleted"];
 const PAYMENT_MODES = ["Cash", "UPI", "Card", "Bank Transfer", "EMI"];
 const BRANDS = ["Samsung", "Apple", "OnePlus", "Xiaomi", "Vivo", "Oppo", "Realme", "Motorola", "Nothing", "Google", "iQOO", "Poco", "Other"];
-const REPORT_TYPES = ["All", "Buy", "Sell", "Add"];
+const REPORT_TYPES = ["All", "Buy", "Sell", "Add", "Repair"];
 const REPORT_RANGE_PRESETS = ["Today", "Yesterday", "This Week", "This Month", "Custom"];
 const REPORT_BILL_FILTERS = ["All Bills", "GST", "Regular"];
 const REPORT_VIEWS = ["Transactions", "Customer Ledger", "Supplier Summary"];
 const REPORT_DUE_FILTERS = ["All Status", "Due Only", "Paid Only"];
 const PHOTO_PREVIEW_MAX = 900;
+const STOCK_PAGE_SIZE = 18;
+const REPORT_PAGE_SIZE = 24;
+const CUSTOM_RAM = "__custom_ram__";
+const RAM_PRESETS = ["2GB", "4GB", "6GB", "8GB", "12GB", "16GB", "20GB", "24GB"];
+const BUSINESS_MODES = ["general", "repair-pro"];
+const GENERAL_MODULES = ["buy", "sell", "repair"];
+const REPAIR_STATUSES = ["Received", "Ready", "Delivered", "Cancelled"];
+const SIGNUP_PROFILE_OPTIONS = [
+    { value: "general", label: "Business Pro" },
+    { value: "repair-pro", label: "Repair Pro" },
+];
 
 const BRAND_GRADIENTS = {
     Samsung: "linear-gradient(135deg, #1428a0, #0b79d0)", Apple: "linear-gradient(135deg, #1d1d1f, #555)",
@@ -100,6 +112,8 @@ const DEFAULT_SHOP_PROFILE = {
     stickerShowPrice: true,
     footer: "Handset checked and delivered in working condition.",
     terms: "Goods once sold will be serviced as per shop policy.",
+    businessMode: "general",
+    enabledModules: GENERAL_MODULES,
 };
 const STORAGE_PRESETS = ["32GB", "64GB", "128GB", "256GB", "512GB", "1TB"];
 const CUSTOM_STORAGE = "__custom__";
@@ -292,8 +306,24 @@ const normalizeShopProfile = (cfg = {}) => ({
     stickerShowPrice: cfg.stickerShowPrice === undefined ? true : !!cfg.stickerShowPrice,
     footer: pickText(cfg.footer, DEFAULT_SHOP_PROFILE.footer),
     terms: pickText(cfg.terms, DEFAULT_SHOP_PROFILE.terms),
+    businessMode: BUSINESS_MODES.includes(String(cfg.businessMode || "").trim()) ? String(cfg.businessMode).trim() : DEFAULT_SHOP_PROFILE.businessMode,
+    enabledModules: Array.from(new Set((Array.isArray(cfg.enabledModules) ? cfg.enabledModules : GENERAL_MODULES).map(v => String(v || "").trim()).filter(v => GENERAL_MODULES.includes(v)))).length
+        ? Array.from(new Set((Array.isArray(cfg.enabledModules) ? cfg.enabledModules : GENERAL_MODULES).map(v => String(v || "").trim()).filter(v => GENERAL_MODULES.includes(v))))
+        : GENERAL_MODULES,
 });
-const createEmptyForm = (shop = DEFAULT_SHOP_PROFILE) => ({ imei: "", imei2: "", brand: "Samsung", model: "", color: "", ram: "", storage: "128GB", batteryHealth: "", condition: "New", buyPrice: "", sellPrice: "", status: "In Stock", qty: "1", supplier: "", customerName: "", phone: "", amount: "", paidAmount: "", dueAmount: "0", paymentMode: "Cash", notes: "", photos: [], sellerName: "", sellerPhone: "", sellerAadhaarNumber: "", purchaseDate: isoDate(), sellerAgreementAccepted: false, sellerIdPhotoData: "", sellerPhotoData: "", sellerSignatureData: "", warrantyType: "No Warranty", warrantyMonths: "", billType: shop.defaultBillType || "NON GST", gstRate: String(shop.defaultGstRate || 18) });
+const resolveSignupProfile = (value = "general") => {
+    if (value === "buy") return { businessMode: "general", enabledModules: ["buy"] };
+    if (value === "sell") return { businessMode: "general", enabledModules: ["sell"] };
+    if (value === "repair") return { businessMode: "general", enabledModules: ["repair"] };
+    if (value === "repair-pro") return { businessMode: "repair-pro", enabledModules: ["repair"] };
+    return { businessMode: "general", enabledModules: GENERAL_MODULES };
+};
+const getEnabledModules = (shop = DEFAULT_SHOP_PROFILE) => {
+    const normalized = normalizeShopProfile(shop);
+    if (normalized.businessMode === "repair-pro") return ["repair"];
+    return normalized.enabledModules;
+};
+const createEmptyForm = (shop = DEFAULT_SHOP_PROFILE) => ({ imei: "", imei2: "", brand: "Samsung", model: "", color: "", ram: "", storage: "128GB", batteryHealth: "", condition: "New", buyPrice: "", sellPrice: "", status: "In Stock", qty: "1", supplier: "", customerName: "", phone: "", amount: "", paidAmount: "", dueAmount: "0", paymentMode: "Cash", notes: "", photos: [], sellerName: "", sellerPhone: "", sellerAadhaarNumber: "", purchaseDate: isoDate(), sellerAgreementAccepted: false, sellerIdPhotoData: "", sellerPhotoData: "", sellerSignatureData: "", warrantyType: "1 Year Warranty", warrantyMonths: "", billType: shop.defaultBillType || "NON GST", gstRate: String(shop.defaultGstRate || 18) });
 const calcInvoiceTotals = (amount, billType = "NON GST", gstRate = 18) => {
     const total = roundMoney(amount);
     const rate = Number(gstRate || 0);
@@ -428,13 +458,53 @@ const normalizeTx = (it = {}) => ({
     whatsAppPdfAt: it.whatsAppPdfAt || "",
     shopSnapshot: it.shopSnapshot ? normalizeShopProfile(it.shopSnapshot) : null,
 });
+const normalizeRepair = (it = {}) => ({
+    id: it.id || genId(),
+    repairNo: String(it.repairNo || `RPR-${String(it.id || genId()).slice(-6).toUpperCase()}`),
+    customerName: String(it.customerName || "").trim(),
+    phone: cleanMobileNumber(it.phone || ""),
+    brand: String(it.brand || "").trim(),
+    model: String(it.model || "").trim(),
+    color: String(it.color || "").trim(),
+    imei: cleanImei(it.imei || it.imei1),
+    problem: String(it.problem || "").trim(),
+    estimatedCost: Number(it.estimatedCost || 0),
+    advance: Number(it.advance || 0),
+    finalCost: Number(it.finalCost || 0),
+    status: REPAIR_STATUSES.includes(String(it.status || "").trim()) ? String(it.status).trim() : "Received",
+    receivedDate: it.receivedDate || isoDate(),
+    deliveredDate: it.deliveredDate || "",
+    notes: String(it.notes || "").trim(),
+    photos: Array.isArray(it.photos) ? it.photos.map(normalizePhotoRef) : [],
+    createdAt: it.createdAt || new Date().toISOString(),
+    updatedAt: it.updatedAt || new Date().toISOString(),
+});
+const createEmptyRepairForm = () => ({
+    id: "",
+    repairNo: "",
+    customerName: "",
+    phone: "",
+    brand: "Samsung",
+    model: "",
+    color: "",
+    imei: "",
+    problem: "",
+    estimatedCost: "",
+    advance: "",
+    finalCost: "",
+    status: "Received",
+    receivedDate: isoDate(),
+    deliveredDate: "",
+    notes: "",
+    photos: [],
+});
 const loadStore = () => {
-    if (typeof window === "undefined") return { inv: DEMO_INVENTORY.map(normalizeInv), tx: DEMO_TX.map(normalizeTx), shop: normalizeShopProfile(DEFAULT_SHOP_PROFILE) };
+    if (typeof window === "undefined") return { inv: DEMO_INVENTORY.map(normalizeInv), tx: DEMO_TX.map(normalizeTx), repairs: [], shop: normalizeShopProfile(DEFAULT_SHOP_PROFILE) };
     try {
         const raw = JSON.parse(window.localStorage.getItem(STORE_KEY) || "null");
-        if (raw?.inv && raw?.tx) return { inv: raw.inv.map(normalizeInv), tx: raw.tx.map(normalizeTx), shop: normalizeShopProfile(raw.shop || raw.shopProfile || DEFAULT_SHOP_PROFILE) };
+        if (raw?.inv && raw?.tx) return { inv: raw.inv.map(normalizeInv), tx: raw.tx.map(normalizeTx), repairs: Array.isArray(raw.repairs) ? raw.repairs.map(normalizeRepair) : [], shop: normalizeShopProfile(raw.shop || raw.shopProfile || DEFAULT_SHOP_PROFILE) };
     } catch { }
-    return { inv: DEMO_INVENTORY.map(normalizeInv), tx: DEMO_TX.map(normalizeTx), shop: normalizeShopProfile(DEFAULT_SHOP_PROFILE) };
+    return { inv: DEMO_INVENTORY.map(normalizeInv), tx: DEMO_TX.map(normalizeTx), repairs: [], shop: normalizeShopProfile(DEFAULT_SHOP_PROFILE) };
 };
 const normalizeSyncCfg = (cfg = {}) => ({
     scriptUrl: "",
@@ -911,7 +981,7 @@ const makeInvoiceFile = async (sale, shop) => {
     const fileName = `${(sale.invoiceNo || sale.id || "invoice").toLowerCase()}.pdf`;
     return { blob, fileName, file: new File([blob], fileName, { type: "application/pdf" }) };
 };
-const buildReportDoc = async ({ rows, summary, reportType, rangeLabel, shop }) => {
+const buildReportDoc = async ({ rows, summary, reportType, rangeLabel, shop, filtersLabel = "" }) => {
     const { jsPDF } = await import("jspdf");
     const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
     const pageWidth = doc.internal.pageSize.getWidth();
@@ -924,7 +994,7 @@ const buildReportDoc = async ({ rows, summary, reportType, rangeLabel, shop }) =
     const title = reportType === "All" ? "Stock Activity Report" : `${reportType} Report`;
     const summaryCards = [
         { label: "Records", value: String(summary.records) },
-        { label: "Buy/Add", value: fmtMoney(summary.buyAddTotal) },
+        { label: reportType === "Repair" ? "Repairs" : "Buy/Add", value: fmtMoney(reportType === "Repair" ? summary.repairTotal : summary.buyAddTotal) },
         { label: "Sales", value: fmtMoney(summary.sellTotal) },
         { label: "Due", value: fmtMoney(summary.dueTotal) },
     ];
@@ -932,7 +1002,7 @@ const buildReportDoc = async ({ rows, summary, reportType, rangeLabel, shop }) =
         { label: "Date", width: 26 },
         { label: "Type", width: 18 },
         { label: "Party", width: 42 },
-        { label: "Item", width: 70 },
+        { label: "Item", width: 68 },
         { label: "Amount", width: 28 },
     ];
 
@@ -962,6 +1032,10 @@ const buildReportDoc = async ({ rows, summary, reportType, rangeLabel, shop }) =
         doc.setTextColor(...muted);
         doc.text(`Range: ${rangeLabel}`, 14, startY + 5.5);
         doc.text(`Generated: ${fmtDateTime(new Date())}`, pageWidth - 14, startY + 5.5, { align: "right" });
+        if (filtersLabel) {
+            const filterLines = doc.splitTextToSize(`Filters: ${filtersLabel}`, pageWidth - 28);
+            doc.text(filterLines, 14, startY + 11);
+        }
     };
 
     const drawTableHeader = (y) => {
@@ -996,7 +1070,7 @@ const buildReportDoc = async ({ rows, summary, reportType, rangeLabel, shop }) =
         cardX += 45;
     });
 
-    let y = 84;
+    let y = filtersLabel ? 90 : 84;
     drawTableHeader(y);
     y += 10;
     doc.setTextColor(...ink);
@@ -1046,114 +1120,171 @@ const buildReportDoc = async ({ rows, summary, reportType, rangeLabel, shop }) =
 
     return doc;
 };
-const makeReportFile = async ({ rows, summary, reportType, rangeLabel, shop }) => {
-    const doc = await buildReportDoc({ rows, summary, reportType, rangeLabel, shop });
+const makeReportFile = async ({ rows, summary, reportType, rangeLabel, shop, filtersLabel = "" }) => {
+    const doc = await buildReportDoc({ rows, summary, reportType, rangeLabel, shop, filtersLabel });
     const blob = doc.output("blob");
     const fileName = `report-${reportType.toLowerCase()}-${rangeLabel.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.pdf`;
     return { blob, fileName, file: new File([blob], fileName, { type: "application/pdf" }) };
 };
+const buildStickerBarcodeDataUrl = async (value) => {
+    if (!value || typeof document === "undefined") return null;
+    const { default: JsBarcode } = await import("jsbarcode");
+    const canvas = document.createElement("canvas");
+    JsBarcode(canvas, value, {
+        format: "CODE128",
+        width: 1.8,
+        height: 42,
+        margin: 0,
+        displayValue: false,
+        background: "#ffffff",
+        lineColor: "#111827",
+    });
+    return canvas.toDataURL("image/png");
+};
+
+const loadStickerLogoDataUrl = async () => {
+    if (typeof window === "undefined") return null;
+    try {
+        const res = await fetch(APP_WORDMARK_FALLBACK, { cache: "force-cache" });
+        const blob = await res.blob();
+        return await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
+    } catch {
+        return null;
+    }
+};
+
 const buildStickerDoc = async (item, shop) => {
     const { jsPDF } = await import("jspdf");
     const shopProfile = normalizeShopProfile(shop || DEFAULT_SHOP_PROFILE);
-    const isUsedOrRefurb = item.condition === "Used" || item.condition === "Refurbished";
-    const hasWarrantyInfo = isUsedOrRefurb && item.warrantyType && item.warrantyType !== "No Warranty";
-    const stickerH = hasWarrantyInfo ? 34 : 30;
+    const hasWarrantyInfo = item.warrantyType && item.warrantyType !== "No Warranty";
+    const stickerH = 30;
     const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: [stickerH, 50] });
-    const accent = [20, 71, 120];
     const ink = [28, 36, 44];
     const muted = [95, 103, 112];
     const paper = [255, 255, 255];
-    const brandLine = [item.brand, item.model].filter(Boolean).join(" ").trim();
-    const specLine = [item.storage || "", item.ram || "", item.color || ""].filter(Boolean).join("  |  ") || "Specs not set";
-    const brandLines = doc.splitTextToSize(brandLine || "Mobile", 45);
+    const line = [210, 217, 224];
+    const brandText = String(item.brand || "Mobile").trim() || "Mobile";
+    const modelTextRaw = String(item.model || "").trim();
+    const modelText = modelTextRaw || (item.brand ? "" : "Model");
+    const specText = [item.ram || "", item.storage || ""].filter(Boolean).join("/") || (item.storage || "Specs not set");
+    const warranty = getWarrantyStatus(item);
+    const imei1Barcode = await buildStickerBarcodeDataUrl(item.imei);
+    const logoDataUrl = await loadStickerLogoDataUrl();
+    const conditionText = (item.condition || "").trim() || "In Stock";
+    const conditionWidth = Math.min(21, Math.max(13, conditionText.length * 1.25 + 4.2));
+    const conditionX = 50 - conditionWidth - 1.2;
+    const textBlockWidth = Math.max(21, conditionX - 2.4);
+    const fitTextAtSize = (text, maxWidth, preferredSize, minSize) => {
+        if (!text) return { text: "", size: preferredSize };
+        const originalSize = doc.getFontSize();
+        let size = preferredSize;
+        while (size >= minSize) {
+            doc.setFontSize(size);
+            if (doc.getTextWidth(text) <= maxWidth) {
+                doc.setFontSize(originalSize);
+                return { text, size };
+            }
+            size = Math.round((size - 0.2) * 10) / 10;
+        }
+        doc.setFontSize(minSize);
+        let next = text;
+        while (next.length > 4 && doc.getTextWidth(`${next}...`) > maxWidth) next = next.slice(0, -1);
+        doc.setFontSize(originalSize);
+        return { text: `${next.trimEnd()}...`, size: minSize };
+    };
+    const brandLine = fitTextAtSize(brandText, textBlockWidth, 6.7, 5.4);
+    const modelLine = fitTextAtSize(modelText, textBlockWidth, 6.2, 4.7);
+    const specLine = fitTextAtSize(specText, textBlockWidth * 0.72, 4.8, 4.0);
+    const barcodeTop = 10.3;
+    const barcodeBlockHeight = 9.7;
+    const barcodeW = 46.2;
+    const barcodeX = 1.9;
+    const imeiTextY = 21.95;
+    const bottomBandY = 22.9;
+    const bottomBandH = 5.2;
+    const priceY = 27.1;
 
     doc.setFillColor(...paper);
     doc.rect(0, 0, 50, stickerH, "F");
-    doc.setDrawColor(210, 217, 224);
+    doc.setDrawColor(...line);
     doc.roundedRect(0.8, 0.8, 48.4, stickerH - 1.6, 1.2, 1.2);
 
-    doc.setFillColor(...accent);
-    doc.rect(0, 0, 50, 5.2, "F");
-    doc.setTextColor(255, 255, 255);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(6.8);
-    doc.text((shopProfile.shopName || shopProfile.legalName || APP_NAME).slice(0, 28), 2.2, 3.55);
-
     doc.setTextColor(...ink);
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(7.6);
-    doc.text(brandLines, 2.2, 9.4);
+    doc.setFontSize(brandLine.size);
+    doc.text(brandLine.text, 1.4, 3.7, { maxWidth: textBlockWidth });
 
-    doc.setFillColor(244, 247, 249);
-    doc.roundedRect(2.2, 12.8, 45.6, 4.8, 1, 1, "F");
-    doc.setTextColor(...muted);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(4.8);
-    doc.text(specLine.slice(0, 42), 3.2, 15.9);
-
-    if (item.condition) {
-        const badgeWidth = Math.min(18, Math.max(10, item.condition.length * 1.5 + 4));
-        doc.setFillColor(246, 250, 252);
-        doc.setDrawColor(...accent);
-        doc.roundedRect(50 - badgeWidth - 2.2, 6.1, badgeWidth, 4.3, 1.2, 1.2, "FD");
-        doc.setTextColor(...accent);
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(4.6);
-        doc.text(item.condition.toUpperCase(), 50 - badgeWidth / 2 - 2.2, 8.85, { align: "center" });
+    if (modelLine.text) {
+        doc.setFontSize(modelLine.size);
+        doc.text(modelLine.text, 1.4, 6.8, { maxWidth: textBlockWidth });
     }
 
-    doc.setTextColor(...muted);
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(4.6);
-    doc.text("IMEI 1", 2.2, 21.2);
-    doc.setTextColor(...ink);
-    doc.setFont("courier", "bold");
-    doc.setFontSize(6.6);
-    doc.text(item.imei || "-", 2.2, 24.3);
+    doc.setFontSize(specLine.size);
+    doc.text(specLine.text, 1.4, 9.05);
 
-    if (item.imei2) {
-        doc.setTextColor(...muted);
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(4.6);
-        doc.text("IMEI 2", 2.2, 27.0);
+    doc.setDrawColor(...ink);
+    doc.roundedRect(conditionX, 4.0, conditionWidth, 6.9, 0.9, 0.9);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(conditionText.length > 10 ? 4.6 : 5.5);
+    doc.text(conditionText.slice(0, 12), conditionX + (conditionWidth / 2), 8.45, { align: "center", maxWidth: conditionWidth - 1.2 });
+
+    const drawBarcodeBlock = (x, imei, barcodeDataUrl) => {
+        if (barcodeDataUrl && imei) {
+            doc.addImage(barcodeDataUrl, "PNG", x, barcodeTop, barcodeW, barcodeBlockHeight);
+        } else {
+            doc.setTextColor(...muted);
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(4);
+            doc.text("No barcode", x + barcodeW / 2, barcodeTop + 5.2, { align: "center" });
+        }
         doc.setTextColor(...ink);
         doc.setFont("courier", "bold");
-        doc.setFontSize(5.8);
-        doc.text(item.imei2, 12.2, 27.0);
-    }
+        doc.setFontSize(3.55);
+        doc.text(imei || "-", x + barcodeW / 2, imeiTextY, { align: "center" });
+    };
 
-    const warranty = getWarrantyStatus(item);
-    const bottomY = item.imei2 ? 24.3 : 27.0;
+    drawBarcodeBlock(barcodeX, item.imei, imei1Barcode);
+
+    doc.setFillColor(255, 255, 255);
+    doc.rect(1.1, bottomBandY, 47.8, bottomBandH, "F");
 
     if (shopProfile.stickerShowPrice && (item.sellPrice || item.buyPrice)) {
         const price = item.sellPrice || item.buyPrice;
         doc.setFont("helvetica", "bold");
-        doc.setFontSize(6);
-        doc.setTextColor(...accent);
-        doc.text(`Rs ${formatMoney(price)}`, 48, bottomY, { align: "right" });
+        doc.setFontSize(6.8);
+        doc.text(`${formatMoney(price)} RS`, 26, priceY, { align: "center", maxWidth: 26 });
     }
 
     if (hasWarrantyInfo) {
-        // Expand sticker height to fit warranty line
-        const wY = 29;
-        doc.setFillColor(240, 248, 240);
-        doc.rect(0, wY - 2.5, 50, 3.5, "F");
+        const warrantyText = warranty.active ? warranty.remaining.slice(0, 8) : "Expired";
+        const warrantyBadge = fitTextAtSize(warrantyText, 8.4, 4.8, 3.4);
+        doc.setDrawColor(...ink);
+        doc.roundedRect(1.4, 23.45, 9.8, 5.2, 0.8, 0.8);
         doc.setFont("helvetica", "bold");
-        doc.setFontSize(4.2);
-        if (warranty.active) {
-            doc.setTextColor(30, 130, 60);
-            const wLabel = `W: ${warranty.remaining}`;
-            doc.text(wLabel, 2.2, wY);
-        } else {
-            doc.setTextColor(160, 80, 40);
-            doc.text("WARRANTY EXPIRED", 2.2, wY);
-        }
-        if (item.purchaseDate) {
-            doc.setTextColor(...muted);
-            doc.setFont("helvetica", "normal");
-            doc.setFontSize(4);
-            doc.text(`Purch: ${fmtDate(item.purchaseDate)}`, 48, wY, { align: "right" });
-        }
+        doc.setFontSize(warrantyBadge.size);
+        doc.setTextColor(...ink);
+        doc.text(warrantyBadge.text, 6.3, 26.85, { align: "center", maxWidth: 8.4 });
+    } else if (item.imei2) {
+        doc.setTextColor(...muted);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(2.6);
+        doc.text("IMEI2", 1.5, 27.15);
+        doc.setTextColor(...ink);
+        doc.setFont("courier", "bold");
+        doc.setFontSize(2.55);
+        doc.text(item.imei2, 13.2, 27.15);
+    }
+
+    if (logoDataUrl) {
+        doc.setDrawColor(...line);
+        doc.roundedRect(43.2, 23.2, 5.1, 5.1, 0.5, 0.5);
+        doc.addImage(logoDataUrl, "PNG", 43.65, 23.65, 4.2, 4.2);
     }
 
     return doc;
@@ -1162,6 +1293,73 @@ const makeStickerFile = async (item, shop) => {
     const doc = await buildStickerDoc(item, shop);
     const blob = doc.output("blob");
     const fileName = `sticker-${(item.brand || "phone").toLowerCase()}-${(item.model || item.id || "item").toLowerCase().replace(/[^a-z0-9]+/g, "-")}.pdf`;
+    return { blob, fileName, file: new File([blob], fileName, { type: "application/pdf" }) };
+};
+const buildRepairStickerDoc = async (repair, shop) => {
+    const { jsPDF } = await import("jspdf");
+    const shopProfile = normalizeShopProfile(shop || DEFAULT_SHOP_PROFILE);
+    const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: [30, 50] });
+    const ink = [28, 36, 44];
+    const border = [26, 32, 39];
+    const fitText = (text, maxWidth, preferredSize, minSize = preferredSize) => {
+        const original = doc.getFontSize();
+        let size = preferredSize;
+        while (size >= minSize) {
+            doc.setFontSize(size);
+            if (doc.getTextWidth(text) <= maxWidth) {
+                doc.setFontSize(original);
+                return { text, size };
+            }
+            size = Math.round((size - 0.2) * 10) / 10;
+        }
+        doc.setFontSize(minSize);
+        let next = text;
+        while (next.length > 4 && doc.getTextWidth(`${next}...`) > maxWidth) next = next.slice(0, -1);
+        doc.setFontSize(original);
+        return { text: `${next.trimEnd()}...`, size: minSize };
+    };
+    const shopText = fitText((shopProfile.shopName || APP_NAME).slice(0, 28), 39, 5.7, 5.0);
+    const deviceText = fitText(([repair.brand, repair.model].filter(Boolean).join(" ") || "Repair Job"), 39, 7.8, 6.4);
+    const customerText = fitText((repair.customerName || "Walk-in Customer"), 39, 4.9, 4.2);
+    const problemText = fitText((repair.problem || "Issue not set"), 39, 4.9, 4.1);
+    const ticketText = fitText(`Ticket  ${repair.repairNo || repair.id}`, 24, 4.1, 3.8);
+    const estimateText = fitText(`Est ${formatMoney(repair.estimatedCost || 0)}`, 17, 5.4, 4.7);
+    const statusText = fitText((repair.status || "Received").slice(0, 16), 16, 5.5, 4.8);
+    doc.setFillColor(255, 255, 255);
+    doc.rect(0, 0, 50, 30, "F");
+    doc.setDrawColor(...border);
+    doc.roundedRect(0.7, 0.7, 48.6, 28.6, 2.2, 2.2);
+    doc.roundedRect(2.1, 2.1, 45.8, 25.8, 1.8, 1.8);
+    doc.setTextColor(...ink);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(shopText.size);
+    doc.text(shopText.text, 3.8, 6.0);
+    doc.setFontSize(deviceText.size);
+    doc.text(deviceText.text, 3.8, 10.7);
+    doc.setFontSize(customerText.size);
+    doc.text(customerText.text, 3.8, 14.0);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(problemText.size);
+    doc.text(problemText.text, 3.8, 17.2);
+    doc.setDrawColor(...border);
+    doc.setLineWidth(0.15);
+    doc.line(3.5, 19.8, 46.2, 19.8);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(ticketText.size);
+    doc.text(ticketText.text, 3.8, 22.4);
+    doc.line(3.5, 23.8, 46.2, 23.8);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...ink);
+    doc.setFontSize(statusText.size);
+    doc.text(statusText.text, 3.8, 27.0);
+    doc.setFontSize(estimateText.size);
+    doc.text(estimateText.text, 45.8, 27.0, { align: "right" });
+    return doc;
+};
+const makeRepairStickerFile = async (repair, shop) => {
+    const doc = await buildRepairStickerDoc(repair, shop);
+    const blob = doc.output("blob");
+    const fileName = `repair-${(repair.repairNo || repair.id || "ticket").toLowerCase().replace(/[^a-z0-9]+/g, "-")}.pdf`;
     return { blob, fileName, file: new File([blob], fileName, { type: "application/pdf" }) };
 };
 
@@ -1283,8 +1481,9 @@ function CamCap({ onCapture, onClose }) {
         const v = vr.current, c = cr.current; c.width = v.videoWidth; c.height = v.videoHeight; const x = c.getContext("2d");
         if (fm === "user") { x.translate(c.width, 0); x.scale(-1, 1); } x.drawImage(v, 0, 0); onCapture(c.toDataURL("image/jpeg", .85));
     };
-    return (
-        <div className="co fi">
+    if (typeof document === "undefined") return null;
+    return createPortal(
+        <div className="co">
             <div className="cc">
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
                     <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#fff", display: "flex", alignItems: "center", gap: 6, fontSize: 14, fontFamily: "'Outfit'" }}><X size={20} /> Close</button>
@@ -1296,7 +1495,8 @@ function CamCap({ onCapture, onClose }) {
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%" }}><div className="cs" onClick={snap}><Aperture size={28} color="#fff" /></div></div>
                 <p style={{ color: "var(--t3)", fontSize: 12, textAlign: "center" }}>Tap to capture device photo</p>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 }
 
@@ -1768,6 +1968,20 @@ function StorageInput({ value, onChange }) {
     );
 }
 
+function RamInput({ value, onChange }) {
+    const usingCustom = value && !RAM_PRESETS.includes(value);
+    return (
+        <div style={{ display: "grid", gap: 8 }}>
+            <select className="gs" value={usingCustom ? CUSTOM_RAM : value} onChange={e => onChange(e.target.value === CUSTOM_RAM ? (usingCustom ? value : "") : e.target.value)}>
+                <option value="">Select RAM</option>
+                {RAM_PRESETS.map(ram => <option key={ram} value={ram}>{ram}</option>)}
+                <option value={CUSTOM_RAM}>Custom</option>
+            </select>
+            {usingCustom && <input className="gi" value={value} onChange={e => onChange(e.target.value)} placeholder="Custom RAM e.g. 18GB" />}
+        </div>
+    );
+}
+
 // ═══ MAIN ═══
 export default function App() {
     const AUTO_SYNC_RETRY_MS = 60000;
@@ -1785,7 +1999,7 @@ export default function App() {
     const [loginError, setLoginError] = useState("");
     const [loginBusy, setLoginBusy] = useState(false);
     const [authMode, setAuthMode] = useState("sign-in");
-    const [signupForm, setSignupForm] = useState({ shopName: "", mobileNumber: "", email: "", password: "", confirmPassword: "" });
+    const [signupForm, setSignupForm] = useState({ shopName: "", mobileNumber: "", email: "", password: "", confirmPassword: "", profile: "general" });
     const [signupError, setSignupError] = useState("");
     const [signupBusy, setSignupBusy] = useState(false);
     const [trialDays, setTrialDays] = useState(DEFAULT_TRIAL_DAYS);
@@ -1809,6 +2023,7 @@ export default function App() {
     const [pg, sPg] = useState("dashboard");
     const [inv, sInv] = useState(seed.current.inv);
     const [tx, sTx] = useState(seed.current.tx);
+    const [repairs, setRepairs] = useState(seed.current.repairs || []);
     const [shopCfg, sShopCfg] = useState(seed.current.shop);
     const [scs, setScs] = useState(false);
     const [st, sSt] = useState(null);
@@ -1825,14 +2040,24 @@ export default function App() {
     const [reportBrandFilter, setReportBrandFilter] = useState("All Brands");
     const [reportItemQuery, setReportItemQuery] = useState("");
     const [reportDueFilter, setReportDueFilter] = useState("All Status");
+    const [reportRepairStatusFilter, setReportRepairStatusFilter] = useState("All Repair Statuses");
+    const [reportVisibleCount, setReportVisibleCount] = useState(REPORT_PAGE_SIZE);
     const [fc, sFc] = useState("All");
-    const [fs, sFs] = useState("All");
+    const [fs, sFs] = useState("In Stock");
     const [ei, sEi] = useState(null);
+    const [bulkAdd, setBulkAdd] = useState(false);
+    const [bulkImeis, setBulkImeis] = useState([]);
+    const [bulkManualImei, setBulkManualImei] = useState("");
+    const [bulkSaveBusy, setBulkSaveBusy] = useState(false);
+    const [stockVisibleCount, setStockVisibleCount] = useState(STOCK_PAGE_SIZE);
+    const [repairQuery, setRepairQuery] = useState("");
     const [sf, sSf] = useState(false);
     const [nt, sNt] = useState(null);
     const [vm, sVm] = useState("grid");
     const [lb, sLb] = useState(null);
     const [di, sDi] = useState(null);
+    const [repairDetail, setRepairDetail] = useState(null);
+    const [repairForm, setRepairForm] = useState(createEmptyRepairForm());
     const [confirmDel, setConfirmDel] = useState(null);
     const [canPersist] = useState(typeof window !== "undefined" && !!window.localStorage);
     const [ol, setOl] = useState(typeof navigator === "undefined" ? true : navigator.onLine);
@@ -1847,6 +2072,8 @@ export default function App() {
     const [installed, setInstalled] = useState(typeof window !== "undefined" && (window.matchMedia?.("(display-mode: standalone)")?.matches || window.navigator.standalone));
     const [swReady, setSwReady] = useState(false);
     const [swUpdate, setSwUpdate] = useState(false);
+    const stockLoadMoreRef = useRef(null);
+    const reportLoadMoreRef = useRef(null);
     const lastRemoteCheckAtRef = useRef(0);
     const loadPocketBaseDataRef = useRef(null);
     const lastSavedShopProfileSignatureRef = useRef('');
@@ -1892,6 +2119,7 @@ export default function App() {
 
     const ef = useMemo(() => createEmptyForm(shopCfg), [shopCfg]);
     const [fm, sFm] = useState(ef);
+    const enabledModules = useMemo(() => getEnabledModules(shopCfg), [shopCfg]);
     const liveDeviceByImei = (imei) => inv.find(i => matchImei(i, imei) && i.status === "In Stock" && i.qty > 0);
     const activeSyncUrl = getPocketBaseUrl();
     const syncReady = !!(shopSession?.pbAuth?.token && (syncCfg.shopId || shopSession?.shopId));
@@ -2009,13 +2237,15 @@ export default function App() {
         setSignupBusy(true); setSignupError("");
         try {
             const data = await pocketbaseRegisterShopUser({ ...signupForm, mobileNumber, trialDays });
+            const initialProfile = resolveSignupProfile(signupForm.profile);
             const session = { loginId: data.record?.username || mobileNumber, shopId: data.shop.shopId, shopName: data.shop.shopName, scriptUrl: activeSyncUrl, syncKey: '', trialEndsAt: data.trialEndsAt || '', pbAuth: { token: data.token, record: data.record } };
             window.localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(session));
             applyShopSession(session);
+            sShopCfg(current => normalizeShopProfile({ ...current, ...initialProfile }));
             setAuthReady(true);
             setLoginId(data.record?.username || mobileNumber);
             setLoginPassword("");
-            setSignupForm({ shopName: "", mobileNumber: "", email: "", password: "", confirmPassword: "" });
+            setSignupForm({ shopName: "", mobileNumber: "", email: "", password: "", confirmPassword: "", profile: "general" });
             notify(`Account created. Trial active for ${trialDays} days.`, "success");
         } catch (e) {
             setSignupError(e?.message || "Unable to create account.");
@@ -2171,7 +2401,13 @@ export default function App() {
         notify("Logged out.", "success");
     };
     const openSc = (t) => { sSt(t); setScs(true); };
-    const resetForm = () => { sEi(null); sFm(createEmptyForm(shopCfg)); };
+    const resetForm = () => {
+        sEi(null);
+        setBulkAdd(false);
+        setBulkImeis([]);
+        setBulkManualImei("");
+        sFm(createEmptyForm(shopCfg));
+    };
     const goPage = (page, { skipHistory = false } = {}) => {
         sDi(null); sSf(false);
         if (page === "add") resetForm();
@@ -2182,12 +2418,17 @@ export default function App() {
             return page;
         });
     };
-    const editFromStock = (item) => { sEi(item); sFm(toForm(item)); sSf(false); sDi(null); sPg(prev => { if (typeof window !== "undefined" && prev !== "add") window.history.pushState({ page: prev }, "", window.location.pathname); return "add"; }); };
+    const editFromStock = (item) => { setBulkAdd(false); setBulkImeis([]); setBulkManualImei(""); sEi(item); sFm(toForm(item)); sSf(false); sDi(null); sPg(prev => { if (typeof window !== "undefined" && prev !== "add") window.history.pushState({ page: prev }, "", window.location.pathname); return "add"; }); };
     const setSyncField = (k, v) => setSyncCfg(p => normalizeSyncCfg({ ...p, [k]: v, ...(k === "scriptUrl" || k === "shopId" || k === "syncKey" ? { connected: false } : {}) }));
     const setShopField = (k, v) => {
         setShopProfileDirty(true);
         shopProfileDirtyRef.current = true;
-        sShopCfg(p => normalizeShopProfile({ ...p, [k]: v }));
+        sShopCfg(p => {
+            const next = { ...p, [k]: v };
+            if (k === "businessMode" && v === "repair-pro") next.enabledModules = ["repair"];
+            if (k === "enabledModules" && !Array.isArray(v)) next.enabledModules = p.enabledModules;
+            return normalizeShopProfile(next);
+        });
     };
     const markSyncConnected = useCallback((extra = {}) => {
         setSyncCfg(p => normalizeSyncCfg({ ...p, connected: true, ...extra }));
@@ -2232,6 +2473,14 @@ export default function App() {
     const uf = (k, v) => sFm(p => {
         const next = { ...p, [k]: v };
         if (k === "imei" || k === "imei2") next[k] = cleanImei(v);
+        if (k === "condition" && v === "New" && (!next.warrantyType || next.warrantyType === "No Warranty")) {
+            next.warrantyType = "1 Year Warranty";
+            if (!next.purchaseDate) next.purchaseDate = isoDate();
+        }
+        if (k === "warrantyType") {
+            if (v !== "Testing Warranty") next.warrantyMonths = "";
+            if (v !== "No Warranty" && !next.purchaseDate) next.purchaseDate = isoDate();
+        }
         if (k === "amount" || k === "paidAmount") {
             const total = Number(k === "amount" ? v : next.amount) || 0;
             let paid = Number(k === "paidAmount" ? v : next.paidAmount) || 0;
@@ -2241,6 +2490,57 @@ export default function App() {
         if (k === "gstRate") next.gstRate = String(v).replace(/[^\d.]/g, "");
         return next;
     });
+    const addBulkImei = useCallback((rawImei) => {
+        const imei = cleanImei(rawImei);
+        if (!hasImei(imei)) {
+            notify("IMEI must be 15 digits.", "error");
+            return false;
+        }
+        const existing = findDeviceByImei(inv, imei);
+        if (existing) {
+            notify(`Skipped duplicate IMEI on ${existing.brand} ${existing.model}.`, "warning");
+            return false;
+        }
+        let added = false;
+        setBulkImeis(current => {
+            if (current.includes(imei)) return current;
+            added = true;
+            return [imei, ...current];
+        });
+        if (!added) {
+            notify("This IMEI is already in the current bulk list.", "warning");
+            return false;
+        }
+        notify("IMEI added to bulk list", "success");
+        return true;
+    }, [inv, notify]);
+    const removeBulkImei = useCallback((imei) => {
+        setBulkImeis(current => current.filter(value => value !== imei));
+    }, []);
+    const submitBulkManualImei = useCallback(() => {
+        if (addBulkImei(bulkManualImei)) setBulkManualImei("");
+    }, [addBulkImei, bulkManualImei]);
+    const setRepairField = useCallback((key, value) => {
+        setRepairForm(current => ({
+            ...current,
+            [key]: key === "imei" ? cleanImei(value) : value,
+        }));
+    }, []);
+    const openRepairForm = useCallback((repair = null) => {
+        if (repair) {
+            setRepairForm({
+                ...createEmptyRepairForm(),
+                ...repair,
+                estimatedCost: repair.estimatedCost ? String(repair.estimatedCost) : "",
+                advance: repair.advance ? String(repair.advance) : "",
+                finalCost: repair.finalCost ? String(repair.finalCost) : "",
+            });
+        } else {
+            setRepairForm(createEmptyRepairForm());
+        }
+        setRepairDetail(null);
+        goPage("repair-form");
+    }, []);
     const toForm = (item, extras = {}) => ({ ...ef, ...item, ...extras, buyPrice: String(item.buyPrice ?? extras.buyPrice ?? ""), sellPrice: String(item.sellPrice ?? extras.sellPrice ?? ""), qty: String(item.qty ?? extras.qty ?? 1), amount: String(item.amount ?? extras.amount ?? ""), paidAmount: String(item.paidAmount ?? extras.paidAmount ?? item.sellPrice ?? item.amount ?? ""), dueAmount: String(item.dueAmount ?? extras.dueAmount ?? 0) });
     useEffect(() => {
         try {
@@ -2353,6 +2653,14 @@ export default function App() {
     }, []);
     // ── sync refs for hardware barcode scanner ──
     useEffect(() => { pgRef.current = pg; }, [pg]);
+    useEffect(() => {
+        if (shopCfg.businessMode === "repair-pro" && pg === "dashboard") sPg("repair");
+    }, [pg, shopCfg.businessMode]);
+    useEffect(() => {
+        if ((pg === "add" && !enabledModules.some(module => module === "buy" || module === "sell")) || (pg === "buy" && !enabledModules.includes("buy")) || (pg === "sell" && !enabledModules.includes("sell")) || (pg === "repair" && !enabledModules.includes("repair")) || (pg === "repair-form" && !enabledModules.includes("repair"))) {
+            sPg(shopCfg.businessMode === "repair-pro" ? "repair" : "dashboard");
+        }
+    }, [enabledModules, pg, shopCfg.businessMode]);
     useEffect(() => { fmRef.current = fm; }, [fm]);
     useEffect(() => { invRef.current = inv; }, [inv]);
     useEffect(() => { scsRef.current = scs; }, [scs]);
@@ -2406,6 +2714,7 @@ export default function App() {
                     skipNextDirtyMark.current = true;
                     sInv(appState.inv.map(normalizeInv));
                     sTx(appState.tx.map(normalizeTx));
+                    setRepairs(Array.isArray(appState.repairs) ? appState.repairs.map(normalizeRepair) : []);
                     sShopCfg(normalizeShopProfile(appState.shop || appState.shopProfile || DEFAULT_SHOP_PROFILE));
                 }
                 if (storedSyncMeta) setSyncMeta(normalizeSyncMeta(storedSyncMeta));
@@ -2419,8 +2728,8 @@ export default function App() {
     }, []);
     useEffect(() => {
         if (!storageReady) return;
-        void saveAppState({ inv, tx, shop: normalizeShopProfile(shopCfg) });
-    }, [storageReady, inv, tx, shopCfg]);
+        void saveAppState({ inv, tx, repairs, shop: normalizeShopProfile(shopCfg) });
+    }, [storageReady, inv, tx, repairs, shopCfg]);
     useEffect(() => {
         if (!storageReady) return;
         void saveSyncState(syncMeta);
@@ -2443,7 +2752,7 @@ export default function App() {
             lastLocalChangeAt: new Date().toISOString(),
             syncError: "",
         }));
-    }, [storageReady, inv, tx, shopCfg, ol, updateSyncMeta]);
+    }, [storageReady, inv, tx, repairs, shopCfg, ol, updateSyncMeta]);
     useEffect(() => {
         if (typeof window === "undefined") return;
         const onOn = () => setOl(true), onOff = () => setOl(false);
@@ -2512,6 +2821,7 @@ export default function App() {
             skipNextDirtyMark.current = true;
             sInv(Array.isArray(bundle.inv) ? bundle.inv.map(normalizeInv) : []);
             sTx(Array.isArray(bundle.tx) ? bundle.tx.map(normalizeTx) : []);
+            setRepairs(Array.isArray(bundle.repairs) ? bundle.repairs.map(normalizeRepair) : []);
             const nextShopProfile = normalizeShopProfile(bundle.shop || DEFAULT_SHOP_PROFILE);
             if (!shopProfileDirtyRef.current) {
                 lastSavedShopProfileSignatureRef.current = JSON.stringify(nextShopProfile);
@@ -2610,6 +2920,11 @@ export default function App() {
 
     const handleScan = (imei, imei2) => {
         setScs(false); const ex = findDeviceByImei(inv, imei);
+        if (st === "repair") {
+            setRepairField("imei", imei);
+            notify("Repair IMEI scanned", "success");
+            return;
+        }
         if (st === "sell") {
             const live = liveDeviceByImei(imei);
             if (live) { sFm(toForm(live, { amount: live.sellPrice, paidAmount: live.sellPrice, dueAmount: 0, customerName: "", phone: "", notes: "" })); sPg("sell"); }
@@ -2619,6 +2934,10 @@ export default function App() {
         if (st === "add2" || st === "buy2") {
             uf("imei2", imei);
             if (ex) notify("This IMEI already exists in stock history.", "warning");
+            return;
+        }
+        if (st === "bulk-add") {
+            addBulkImei(imei);
             return;
         }
         if (ex) { sEi(ex); sFm(toForm(ex)); notify("IMEI found — editing", "warning"); }
@@ -2644,6 +2963,10 @@ export default function App() {
             return;
         }
         if (curPg === "add" || curPg === "buy") {
+            if (curPg === "add" && bulkAdd && !ei) {
+                addBulkImei(imei);
+                return;
+            }
             if (hasImei(cleanImei(curFm.imei)) && cleanImei(curFm.imei) !== imei) {
                 uf("imei2", imei);
                 const ex = findDeviceByImei(curInv, imei);
@@ -2687,6 +3010,7 @@ export default function App() {
         if (imeiError) { notify(imeiError, "error"); return; }
         if (!fm.model || !fm.brand) { notify("Brand and model are required!", "error"); return; }
         if (!(+fm.sellPrice > 0)) { notify("Sell price is required.", "error"); return; }
+        if (fm.warrantyType && fm.warrantyType !== "No Warranty" && !fm.purchaseDate) { notify("Purchase date is required when warranty is enabled.", "error"); return; }
         const nextItem = normalizeInv({ ...ei, ...fm, imei: fm.imei, imei2: fm.imei2, buyPrice: +fm.buyPrice, sellPrice: +fm.sellPrice, qty: ei?.status === "Sold" ? 0 : 1, photos: fm.photos || [], addedDate: ei?.addedDate || new Date().toISOString().slice(0, 10) });
         try {
             const savedRecord = await pocketbaseUpsertInventory(shopSession?.pbAuth, nextItem);
@@ -2713,6 +3037,102 @@ export default function App() {
             updateSyncMeta(current => ({ ...current, syncState: ol ? 'error' : 'offline', syncError: e?.message || 'Unable to save stock.' }));
         }
     };
+    const saveBulkInv = async () => {
+        if (ei) { notify("Bulk add is only for new stock entries.", "error"); return; }
+        if (!fm.model || !fm.brand) { notify("Brand and model are required!", "error"); return; }
+        if (!(+fm.sellPrice > 0)) { notify("Sell price is required.", "error"); return; }
+        if (fm.warrantyType && fm.warrantyType !== "No Warranty" && !fm.purchaseDate) { notify("Purchase date is required when warranty is enabled.", "error"); return; }
+        if (!bulkImeis.length) { notify("Scan at least one IMEI first.", "error"); return; }
+        setBulkSaveBusy(true);
+        try {
+            const addedDate = new Date().toISOString().slice(0, 10);
+            const sharedPhotos = (fm.photos || []).map(normalizePhotoRef);
+            const savedItems = [];
+            const savedTxs = [];
+            let pendingPhotoFailures = 0;
+            for (const imei of bulkImeis) {
+                const item = normalizeInv({ id: genId(), imei, imei2: "", brand: fm.brand, model: fm.model, color: fm.color, ram: fm.ram, storage: fm.storage, batteryHealth: fm.batteryHealth, condition: fm.condition, buyPrice: +fm.buyPrice, sellPrice: +fm.sellPrice, status: "In Stock", qty: 1, addedDate, supplier: fm.supplier, photos: sharedPhotos, sellerName: "", sellerPhone: "", sellerAadhaarNumber: "", purchaseDate: fm.purchaseDate, sellerAgreementAccepted: false, sellerIdPhotoData: "", sellerPhotoData: "", sellerSignatureData: "", warrantyType: fm.warrantyType, warrantyMonths: fm.warrantyMonths });
+                const savedRecord = await pocketbaseUpsertInventory(shopSession?.pbAuth, item);
+                const savedItemBase = normalizeInv({ ...item, id: savedRecord.id });
+                const uploadedPhotos = await uploadPendingPhotosForItem(savedRecord.id, savedItemBase.photos || []);
+                pendingPhotoFailures += uploadedPhotos.failures.length;
+                const savedItem = { ...savedItemBase, photos: uploadedPhotos.photos };
+                savedItems.push(savedItem);
+                const addTx = normalizeTx({ id: genId(), type: "Add", stockItemId: savedItem.id, imei: savedItem.imei, imei2: "", brand: savedItem.brand, model: savedItem.model, color: savedItem.color, ram: savedItem.ram, storage: savedItem.storage, batteryHealth: savedItem.batteryHealth, condition: savedItem.condition, customerName: fm.supplier, phone: fm.phone, amount: +fm.buyPrice, paidAmount: 0, dueAmount: 0, paymentMode: "", date: savedItem.addedDate, dateTime: `${savedItem.addedDate}T12:00:00`, notes: fm.notes });
+                const savedTx = await pocketbaseCreateTransaction(shopSession?.pbAuth, addTx);
+                savedTxs.push(normalizeTx({ ...addTx, id: savedTx.id, stockItemId: savedItem.id }));
+            }
+            sInv(current => [...savedItems, ...current]);
+            sTx(current => [...savedTxs, ...current]);
+            notify(`Added ${savedItems.length} devices to stock${pendingPhotoFailures ? ". Some photos are still local." : ""}`);
+            markSyncConnected({ lastStatus: "Saved" });
+            updateSyncMeta(current => ({ ...current, pendingSync: !!pendingPhotoFailures, syncState: pendingPhotoFailures ? 'saved-local' : 'synced', syncError: '' }));
+            resetForm();
+        } catch (e) {
+            notify(e?.message || "Unable to save bulk stock.", "error");
+            updateSyncMeta(current => ({ ...current, syncState: ol ? 'error' : 'offline', syncError: e?.message || 'Unable to save bulk stock.' }));
+        } finally {
+            setBulkSaveBusy(false);
+        }
+    };
+    const saveRepair = async () => {
+        if (!repairForm.customerName.trim()) { notify("Customer name is required.", "error"); return; }
+        if (!repairForm.model.trim()) { notify("Device model is required.", "error"); return; }
+        if (!repairForm.problem.trim()) { notify("Problem details are required.", "error"); return; }
+        const base = normalizeRepair({
+            ...repairForm,
+            repairNo: repairForm.repairNo || `RPR-${String(Date.now()).slice(-6)}`,
+            estimatedCost: Number(repairForm.estimatedCost || 0),
+            advance: Number(repairForm.advance || 0),
+            finalCost: Number(repairForm.finalCost || 0),
+            updatedAt: new Date().toISOString(),
+        });
+        try {
+            let savedRepair = base;
+            if (shopSession?.pbAuth?.token && shopSession?.pbAuth?.record?.shop) {
+                const saved = await pocketbaseUpsertRepair(shopSession.pbAuth, base);
+                savedRepair = normalizeRepair({
+                    ...base,
+                    id: saved.id,
+                    photos: Array.isArray(saved.photos)
+                        ? saved.photos.map((fileName) => ({
+                            id: `${saved.id}:${fileName}`,
+                            fileId: fileName,
+                            fileName,
+                            fileUrl: `${getPocketBaseUrl().replace(/\/$/, "")}/api/files/repairs/${saved.id}/${fileName}`,
+                            previewDataUrl: `${getPocketBaseUrl().replace(/\/$/, "")}/api/files/repairs/${saved.id}/${fileName}`,
+                            syncStatus: "synced",
+                        }))
+                        : base.photos,
+                    createdAt: saved.created || base.createdAt,
+                    updatedAt: saved.updated || base.updatedAt,
+                });
+            }
+            setRepairs(current => {
+                const exists = current.some(item => item.id === savedRepair.id);
+                return exists
+                    ? current.map(item => item.id === savedRepair.id ? savedRepair : item)
+                    : [savedRepair, ...current];
+            });
+            notify(repairForm.id ? "Repair updated" : "Repair added", "success");
+            setRepairForm(createEmptyRepairForm());
+            goPage("repair");
+        } catch (error) {
+            notify(error?.message || "Unable to save repair.", "error");
+        }
+    };
+    const deleteRepair = useCallback((repairId) => {
+        const removeLocal = () => {
+            setRepairs(current => current.filter(item => item.id !== repairId));
+            setRepairDetail(current => current?.id === repairId ? null : current);
+            notify("Repair deleted", "success");
+        };
+        if (shopSession?.pbAuth?.token && shopSession?.pbAuth?.record?.shop && /^[a-z0-9]{15}$/i.test(String(repairId || ""))) {
+            void pocketbaseDeleteRepair(shopSession.pbAuth, repairId).then(removeLocal).catch((error) => notify(error?.message || "Unable to delete repair.", "error"));
+            return;
+        }
+        removeLocal();
+    }, [notify, shopSession?.pbAuth]);
     const delInv = async (id) => {
         try {
             const item = inv.find(i => i.id === id);
@@ -2757,6 +3177,10 @@ export default function App() {
         if (imeiError) { notify(imeiError, "error"); return; }
         if (!fm.model || !fm.supplier) { notify("Fill required!", "error"); return; }
         if (!(+fm.sellPrice > 0)) { notify("Sell price is required.", "error"); return; }
+        if (fm.warrantyType && fm.warrantyType !== "No Warranty" && !fm.purchaseDate) {
+            notify("Purchase date is required when warranty is enabled.", "error");
+            return;
+        }
         const requiresSellerVerification = fm.condition === "Used" || fm.condition === "Refurbished";
         if (requiresSellerVerification) {
             if (!fm.sellerName.trim() || !fm.sellerPhone.trim() || !fm.sellerAadhaarNumber.trim() || !fm.purchaseDate) {
@@ -2772,7 +3196,7 @@ export default function App() {
                 return;
             }
         }
-        const item = normalizeInv({ id: genId(), imei: fm.imei, imei2: fm.imei2, brand: fm.brand, model: fm.model, color: fm.color, ram: fm.ram, storage: fm.storage, batteryHealth: fm.batteryHealth, condition: fm.condition, buyPrice: +fm.buyPrice, sellPrice: +fm.sellPrice, status: "In Stock", qty: 1, addedDate: new Date().toISOString().slice(0, 10), supplier: fm.supplier, photos: fm.photos || [], sellerName: fm.sellerName, sellerPhone: fm.sellerPhone, sellerAadhaarNumber: fm.sellerAadhaarNumber, purchaseDate: fm.purchaseDate, sellerAgreementAccepted: fm.sellerAgreementAccepted, sellerIdPhotoData: fm.sellerIdPhotoData, sellerPhotoData: fm.sellerPhotoData, sellerSignatureData: fm.sellerSignatureData });
+        const item = normalizeInv({ id: genId(), imei: fm.imei, imei2: fm.imei2, brand: fm.brand, model: fm.model, color: fm.color, ram: fm.ram, storage: fm.storage, batteryHealth: fm.batteryHealth, condition: fm.condition, buyPrice: +fm.buyPrice, sellPrice: +fm.sellPrice, status: "In Stock", qty: 1, addedDate: new Date().toISOString().slice(0, 10), supplier: fm.supplier, photos: fm.photos || [], sellerName: fm.sellerName, sellerPhone: fm.sellerPhone, sellerAadhaarNumber: fm.sellerAadhaarNumber, purchaseDate: fm.purchaseDate, sellerAgreementAccepted: fm.sellerAgreementAccepted, sellerIdPhotoData: fm.sellerIdPhotoData, sellerPhotoData: fm.sellerPhotoData, sellerSignatureData: fm.sellerSignatureData, warrantyType: fm.warrantyType, warrantyMonths: fm.warrantyMonths });
         try {
             const savedRecord = await pocketbaseUpsertInventory(shopSession?.pbAuth, item);
             const savedItemBase = normalizeInv({ ...item, id: savedRecord.id });
@@ -2825,9 +3249,34 @@ export default function App() {
         const ms = !sq || [i.imei, i.imei2, i.brand, i.model, i.color, i.ram, i.storage, i.supplier].some(f => (f || "").toLowerCase().includes(sq.toLowerCase()));
         return ms && (fc === "All" || i.condition === fc) && (fs === "All" || i.status === fs);
     }), [inv, sq, fc, fs]);
+    const visibleFi = useMemo(() => fi.slice(0, stockVisibleCount), [fi, stockVisibleCount]);
+    const hasMoreStock = visibleFi.length < fi.length;
+    useEffect(() => {
+        setStockVisibleCount(STOCK_PAGE_SIZE);
+    }, [pg, sq, fc, fs]);
+    useEffect(() => {
+        if (typeof window === "undefined" || pg !== "inventory" || !hasMoreStock) return;
+        const target = stockLoadMoreRef.current;
+        if (!target) return;
+        const observer = new IntersectionObserver((entries) => {
+            if (entries.some(entry => entry.isIntersecting)) {
+                setStockVisibleCount(count => Math.min(count + STOCK_PAGE_SIZE, fi.length));
+            }
+        }, { rootMargin: "320px 0px" });
+        observer.observe(target);
+        return () => observer.disconnect();
+    }, [fi.length, hasMoreStock, pg, visibleFi.length]);
     const recycleBinItems = useMemo(() => inv.filter(i => i.status === "Deleted"), [inv]);
     const latestSell = useMemo(() => tx.find(t => t.type === "Sell") || null, [tx]);
     const latestInvoices = useMemo(() => tx.filter(t => t.type === "Sell").slice(0, 3), [tx]);
+    const repairRecords = useMemo(() => [...repairs].sort((a, b) => String(b.updatedAt || b.createdAt || "").localeCompare(String(a.updatedAt || a.createdAt || ""))), [repairs]);
+    const filteredRepairRecords = useMemo(() => {
+        const q = repairQuery.trim().toLowerCase();
+        if (!q) return repairRecords;
+        return repairRecords.filter(repair => [repair.repairNo, repair.customerName, repair.phone, repair.brand, repair.model, repair.color, repair.imei, repair.problem, repair.status].some(v => String(v || "").toLowerCase().includes(q)));
+    }, [repairQuery, repairRecords]);
+    const repairOpenCount = useMemo(() => repairs.filter(item => !["Delivered", "Cancelled"].includes(item.status)).length, [repairs]);
+    const repairReadyCount = useMemo(() => repairs.filter(item => item.status === "Ready").length, [repairs]);
     const invoiceRecords = useMemo(() => {
         const q = iq.trim().toLowerCase();
         return tx.filter(t => t.type === "Sell").filter(t => {
@@ -2837,6 +3286,8 @@ export default function App() {
     }, [iq, tx]);
     const salePreview = useMemo(() => calcInvoiceTotals(fm.amount || 0, fm.billType, fm.gstRate), [fm.amount, fm.billType, fm.gstRate]);
     const reportRange = useMemo(() => getReportRange(reportPreset, reportFrom, reportTo), [reportPreset, reportFrom, reportTo]);
+    const reportPartyQueryLower = reportPartyQuery.trim().toLowerCase();
+    const reportItemQueryLower = reportItemQuery.trim().toLowerCase();
     const reportEntries = useMemo(() => {
         const trackedAddIds = new Set(tx.filter(t => t.type === "Add" && t.stockItemId).map(t => t.stockItemId));
         const trackedAddImeis = new Set(tx.filter(t => t.type === "Add" || t.type === "Buy").flatMap(t => [t.imei, t.imei2]).filter(Boolean));
@@ -2876,14 +3327,38 @@ export default function App() {
             billType: "",
             paymentMode: "",
         }));
-        return [...txEntries, ...legacyAdds].sort((a, b) => String(b.dateTime).localeCompare(String(a.dateTime)));
-    }, [inv, tx]);
+        const repairEntries = repairs.map(repair => {
+            const amount = repair.finalCost || repair.estimatedCost || 0;
+            const dueAmount = Math.max(amount - (repair.advance || 0), 0);
+            const issue = repair.problem ? `Issue: ${repair.problem}` : "";
+            return {
+                id: `repair-${repair.id}`,
+                type: "Repair",
+                status: repair.status,
+                date: (repair.updatedAt || repair.receivedDate || isoDate()).slice(0, 10),
+                dateTime: repair.updatedAt || `${repair.receivedDate || isoDate()}T12:00:00`,
+                party: repair.customerName || "Walk-in customer",
+                phone: repair.phone || "",
+                item: `${repair.brand} ${repair.model}`.trim() || "Repair Job",
+                extra: [repair.status, issue].filter(Boolean).join(" · "),
+                imei: repair.imei,
+                imei2: "",
+                amount,
+                dueAmount,
+                profit: 0,
+                invoiceNo: repair.repairNo || "",
+                billType: "",
+                paymentMode: "",
+            };
+        });
+        return [...txEntries, ...legacyAdds, ...repairEntries].sort((a, b) => String(b.dateTime).localeCompare(String(a.dateTime)));
+    }, [inv, repairs, tx]);
     const reportBrands = useMemo(() => ["All Brands", ...Array.from(new Set(reportEntries.map(row => row.item.split(" ")[0]).filter(Boolean)))], [reportEntries]);
     const reportRows = useMemo(() => reportEntries.filter(row => {
         if (reportType !== "All" && row.type !== reportType) return false;
         const rowDate = row.date || (row.dateTime ? row.dateTime.slice(0, 10) : "");
         if (!(rowDate >= reportRange.from && rowDate <= reportRange.to)) return false;
-        const effectiveBillFilter = reportType === "Buy" || reportType === "Add" ? "All Bills" : reportBillFilter;
+        const effectiveBillFilter = reportType === "Buy" || reportType === "Add" || reportType === "Repair" ? "All Bills" : reportBillFilter;
         if (effectiveBillFilter !== "All Bills") {
             if (row.type !== "Sell") return false;
             if (effectiveBillFilter === "GST" && row.billType !== "GST") return false;
@@ -2891,37 +3366,38 @@ export default function App() {
         }
         if (reportPaymentFilter !== "All Payments" && row.paymentMode !== reportPaymentFilter) return false;
         if (reportBrandFilter !== "All Brands" && !String(row.item || "").toLowerCase().startsWith(reportBrandFilter.toLowerCase())) return false;
+        if (reportRepairStatusFilter !== "All Repair Statuses" && row.type === "Repair" && row.status !== reportRepairStatusFilter) return false;
         const effectiveDueFilter = reportView === "Supplier Summary" ? "All Status" : reportDueFilter;
         if (effectiveDueFilter !== "All Status") {
-            if (row.type !== "Sell") return false;
+            if (row.type !== "Sell" && row.type !== "Repair") return false;
             if (effectiveDueFilter === "Due Only" && !(row.dueAmount > 0)) return false;
             if (effectiveDueFilter === "Paid Only" && row.dueAmount > 0) return false;
         }
-        const partyQuery = reportPartyQuery.trim().toLowerCase();
-        const itemQuery = reportItemQuery.trim().toLowerCase();
-        if (partyQuery && ![row.party, row.phone].some(v => String(v || "").toLowerCase().includes(partyQuery))) return false;
-        if (itemQuery && ![row.item, row.invoiceNo, row.imei, row.imei2, row.extra].some(v => String(v || "").toLowerCase().includes(itemQuery))) return false;
+        if (reportPartyQueryLower && ![row.party, row.phone].some(v => String(v || "").toLowerCase().includes(reportPartyQueryLower))) return false;
+        if (reportItemQueryLower && ![row.item, row.invoiceNo, row.imei, row.imei2, row.extra].some(v => String(v || "").toLowerCase().includes(reportItemQueryLower))) return false;
         return true;
-    }), [reportEntries, reportRange.from, reportRange.to, reportType, reportView, reportBillFilter, reportPaymentFilter, reportBrandFilter, reportDueFilter, reportPartyQuery, reportItemQuery]);
+    }), [reportEntries, reportRange.from, reportRange.to, reportType, reportView, reportBillFilter, reportPaymentFilter, reportBrandFilter, reportRepairStatusFilter, reportDueFilter, reportPartyQueryLower, reportItemQueryLower]);
     const reportSummary = useMemo(() => {
         const buyAddRows = reportRows.filter(row => row.type === "Buy" || row.type === "Add");
         const sellRows = reportRows.filter(row => row.type === "Sell");
+        const repairRows = reportRows.filter(row => row.type === "Repair");
         return {
             records: reportRows.length,
             buyAddTotal: buyAddRows.reduce((sum, row) => sum + (row.amount || 0), 0),
             sellTotal: sellRows.reduce((sum, row) => sum + (row.amount || 0), 0),
-            dueTotal: sellRows.reduce((sum, row) => sum + (row.dueAmount || 0), 0),
+            repairTotal: repairRows.reduce((sum, row) => sum + (row.amount || 0), 0),
+            dueTotal: [...sellRows, ...repairRows].reduce((sum, row) => sum + (row.dueAmount || 0), 0),
             profit: sellRows.reduce((sum, row) => sum + (row.profit || 0), 0),
         };
     }, [reportRows]);
     const customerLedgerRows = useMemo(() => {
         const groups = new Map();
-        reportRows.filter(row => row.type === "Sell").forEach((row) => {
+        reportRows.filter(row => row.type === "Sell" || row.type === "Repair").forEach((row) => {
             const key = (row.phone || row.party || `walkin-${row.id}`).toLowerCase();
             if (!groups.has(key)) {
                 groups.set(key, {
                     id: key,
-                    type: "Sell",
+                    type: row.type === "Repair" ? "Repair" : "Sell",
                     item: row.party || row.phone || "Walk-in customer",
                     label: row.phone || row.party || "Walk-in customer",
                     party: row.party || "Walk-in customer",
@@ -2969,13 +3445,48 @@ export default function App() {
         return Array.from(groups.values()).sort((a, b) => String(b.lastDateTime).localeCompare(String(a.lastDateTime)));
     }, [reportRows]);
     const activeReportRows = reportView === "Customer Ledger" ? customerLedgerRows : reportView === "Supplier Summary" ? supplierSummaryRows : reportRows;
+    const visibleReportRows = useMemo(() => activeReportRows.slice(0, reportVisibleCount), [activeReportRows, reportVisibleCount]);
+    const hasMoreReportRows = visibleReportRows.length < activeReportRows.length;
     const activeReportSummary = reportView === "Transactions" ? reportSummary : {
         records: activeReportRows.length,
         buyAddTotal: reportView === "Supplier Summary" ? activeReportRows.reduce((s, row) => s + (row.amount || 0), 0) : 0,
-        sellTotal: reportView === "Customer Ledger" ? activeReportRows.reduce((s, row) => s + (row.amount || 0), 0) : 0,
+        sellTotal: reportView === "Customer Ledger" ? activeReportRows.filter(row => row.type === "Sell").reduce((s, row) => s + (row.amount || 0), 0) : 0,
+        repairTotal: reportView === "Customer Ledger" ? activeReportRows.filter(row => row.type === "Repair").reduce((s, row) => s + (row.amount || 0), 0) : 0,
         dueTotal: reportView === "Customer Ledger" ? activeReportRows.reduce((s, row) => s + (row.dueAmount || 0), 0) : 0,
         profit: reportView === "Customer Ledger" ? activeReportRows.reduce((s, row) => s + (row.profit || 0), 0) : 0,
     };
+    const reportSummaryCards = [
+        { l: "Records", v: activeReportSummary.records, c: "var(--t1)" },
+        { l: reportView === "Supplier Summary" ? "Purchases" : "Buy + Add", v: fmtCurrency(activeReportSummary.buyAddTotal), c: "var(--a2)" },
+        { l: "Repairs", v: fmtCurrency(activeReportSummary.repairTotal || 0), c: "var(--warn)" },
+        { l: "Sales", v: fmtCurrency(activeReportSummary.sellTotal), c: "var(--a)" },
+        { l: "Due", v: fmtCurrency(activeReportSummary.dueTotal), c: "var(--warn)" },
+        { l: "Profit", v: fmtCurrency(activeReportSummary.profit), c: "var(--ok)" },
+    ].filter(card => card.l !== "Repairs" || reportView !== "Supplier Summary" || (activeReportSummary.repairTotal || 0) > 0 || reportType === "Repair" || reportType === "All");
+    const reportFiltersLabel = [
+        reportType !== "Buy" && reportType !== "Add" && reportType !== "Repair" && reportBillFilter !== "All Bills" && reportView === "Transactions" ? reportBillFilter : "",
+        reportRepairStatusFilter !== "All Repair Statuses" ? `Repair Status: ${reportRepairStatusFilter}` : "",
+        reportDueFilter !== "All Status" ? reportDueFilter : "",
+        reportPaymentFilter !== "All Payments" ? reportPaymentFilter : "",
+        reportBrandFilter !== "All Brands" ? reportBrandFilter : "",
+        reportPartyQuery.trim(),
+        reportItemQuery.trim(),
+    ].filter(Boolean).join(" · ");
+    useEffect(() => {
+        setReportVisibleCount(REPORT_PAGE_SIZE);
+    }, [pg, reportView, reportType, reportPreset, reportFrom, reportTo, reportBillFilter, reportPaymentFilter, reportBrandFilter, reportRepairStatusFilter, reportDueFilter, reportPartyQueryLower, reportItemQueryLower]);
+    useEffect(() => {
+        if (typeof window === "undefined" || pg !== "reports" || !hasMoreReportRows) return;
+        const target = reportLoadMoreRef.current;
+        if (!target) return;
+        const observer = new IntersectionObserver((entries) => {
+            if (entries.some(entry => entry.isIntersecting)) {
+                setReportVisibleCount(count => Math.min(count + REPORT_PAGE_SIZE, activeReportRows.length));
+            }
+        }, { rootMargin: "320px 0px" });
+        observer.observe(target);
+        return () => observer.disconnect();
+    }, [activeReportRows.length, hasMoreReportRows, pg, visibleReportRows.length]);
 
     const bcd = Object.entries(stats.bc).map(([name, value]) => ({ name, value }));
     const ccd = Object.entries(stats.cc).map(([name, value]) => ({ name, value }));
@@ -3026,7 +3537,7 @@ export default function App() {
         notify("WhatsApp message opened. Send it so the customer appears in recent chats, then share the PDF.", "success");
     };
     const downloadReport = async () => {
-        const { blob, fileName } = await makeReportFile({ rows: activeReportRows, summary: activeReportSummary, reportType: reportView === "Transactions" ? reportType : reportView, rangeLabel: reportRange.label, shop: shopCfg });
+        const { blob, fileName } = await makeReportFile({ rows: activeReportRows, summary: activeReportSummary, reportType: reportView === "Transactions" ? reportType : reportView, rangeLabel: reportRange.label, shop: shopCfg, filtersLabel: reportFiltersLabel });
         dlBlob(blob, fileName);
         notify("Report PDF downloaded");
     };
@@ -3050,7 +3561,7 @@ export default function App() {
     };
     const previewReportPdf = async (autoPrint = false) => {
         const targetWindow = window.open("", "_blank");
-        const { blob } = await makeReportFile({ rows: activeReportRows, summary: activeReportSummary, reportType: reportView === "Transactions" ? reportType : reportView, rangeLabel: reportRange.label, shop: shopCfg });
+        const { blob } = await makeReportFile({ rows: activeReportRows, summary: activeReportSummary, reportType: reportView === "Transactions" ? reportType : reportView, rangeLabel: reportRange.label, shop: shopCfg, filtersLabel: reportFiltersLabel });
         openBlobInTab(blob, autoPrint, targetWindow);
         notify(autoPrint ? "Report PDF opened for printing." : "Report PDF preview opened.", "success");
     };
@@ -3061,8 +3572,36 @@ export default function App() {
         openBlobInTab(blob, true, targetWindow);
         notify("Sticker PDF opened for printing.", "success");
     };
+    const printRepairSticker = async (repair) => {
+        if (!repair) return;
+        const targetWindow = window.open("", "_blank");
+        const { blob } = await makeRepairStickerFile(repair, shopCfg);
+        openBlobInTab(blob, true, targetWindow);
+        notify("Repair sticker opened for printing.", "success");
+    };
 
-    const nav = [{ id: "dashboard", ic: Home, l: "Dashboard" }, { id: "add", ic: Plus, l: "Add" }, { id: "buy", ic: ArrowDownCircle, l: "Buy" }, { id: "sell", ic: ArrowUpCircle, l: "Sell" }, { id: "transactions", ic: FileText, l: "Invoices" }, { id: "reports", ic: BarChart3, l: "Reports" }, { id: "inventory", ic: Package, l: "Stock" }, { id: "recycle", ic: Trash, l: "Bin" }, { id: "settings", ic: Settings, l: "Settings" }];
+    const nav = useMemo(() => {
+        const generalNav = [
+            { id: "dashboard", ic: Home, l: "Dashboard" },
+            ...(enabledModules.includes("buy") || enabledModules.includes("sell") ? [{ id: "add", ic: Plus, l: "Add" }] : []),
+            ...(enabledModules.includes("buy") ? [{ id: "buy", ic: ArrowDownCircle, l: "Buy" }] : []),
+            ...(enabledModules.includes("sell") ? [{ id: "sell", ic: ArrowUpCircle, l: "Sell" }] : []),
+            ...(enabledModules.includes("repair") ? [{ id: "repair", ic: Wrench, l: "Repair" }] : []),
+            { id: "transactions", ic: FileText, l: "Invoices" },
+            { id: "reports", ic: BarChart3, l: "Reports" },
+            { id: "inventory", ic: Package, l: "Stock" },
+            { id: "recycle", ic: Trash, l: "Bin" },
+            { id: "settings", ic: Settings, l: "Settings" },
+        ];
+        if (shopCfg.businessMode !== "repair-pro") return generalNav;
+        return [
+            { id: "repair", ic: Wrench, l: "Repair" },
+            { id: "dashboard", ic: Home, l: "Dashboard" },
+            { id: "inventory", ic: Package, l: "Stock" },
+            { id: "reports", ic: BarChart3, l: "Reports" },
+            { id: "settings", ic: Settings, l: "Settings" },
+        ];
+    }, [enabledModules, shopCfg.businessMode]);
     const adminTabs = [{ id: "overview", label: "Overview" }, { id: "users", label: "Users" }, { id: "trials", label: "Trials" }, { id: "shops", label: "Shops" }, { id: "settings", label: "Settings" }];
     const getTrialMeta = (trialEndsAt) => {
         const expiresAt = Date.parse(String(trialEndsAt || ""));
@@ -3076,6 +3615,7 @@ export default function App() {
 
     const condBadge = (c) => c === "New" ? "bn" : c === "Refurbished" ? "br" : "bu";
     const statBadge = (s) => s === "In Stock" ? "bi" : s === "Sold" ? "bso" : "bre";
+    const repairStatusTone = (status) => status === "Ready" || status === "Delivered" ? "bi" : status === "Cancelled" ? "bre" : "br";
 
     // ── LOGIN GATES ──────────────────────────────────────────────────────
     if (!authReady) return (
@@ -3124,6 +3664,9 @@ export default function App() {
                         </> : authMode === "sign-up" ? <>
                             <input className="gi lic-input" placeholder="Shop Name" value={signupForm.shopName} autoComplete="organization" onChange={e => { setSignupForm(f => ({ ...f, shopName: e.target.value })); setSignupError(""); }} />
                             <input className="gi lic-input" placeholder="Mobile Number" value={signupForm.mobileNumber} autoComplete="tel" inputMode="numeric" onChange={e => { const mobileNumber = cleanMobileNumber(e.target.value); setSignupForm(f => ({ ...f, mobileNumber })); setSignupError(""); }} />
+                            <select className="gs lic-input" value={signupForm.profile} onChange={e => { setSignupForm(f => ({ ...f, profile: e.target.value })); setSignupError(""); }}>
+                                {SIGNUP_PROFILE_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+                            </select>
                             <input className="gi lic-input" type="email" placeholder="Email" value={signupForm.email} autoComplete="email" onChange={e => { setSignupForm(f => ({ ...f, email: e.target.value })); setSignupError(""); }} />
                             <input className="gi lic-input" type="password" placeholder="Password" value={signupForm.password} autoComplete="new-password" onChange={e => { setSignupForm(f => ({ ...f, password: e.target.value })); setSignupError(""); }} />
                             <input className="gi lic-input" type="password" placeholder="Confirm Password" value={signupForm.confirmPassword} autoComplete="new-password" onChange={e => { setSignupForm(f => ({ ...f, confirmPassword: e.target.value })); setSignupError(""); }} onKeyDown={e => e.key === "Enter" && !signupBusy && handleShopSignup()} />
@@ -3323,34 +3866,65 @@ export default function App() {
 
                     {/* ═══ ADD ═══ */}
                     {pg === "add" && <div className="fi" style={{ maxWidth: 760 }}>
-                        <div style={{ marginBottom: 28 }}><h1 style={{ color: "var(--t1)", fontSize: 28, fontWeight: 700, display: "flex", alignItems: "center", gap: 10 }}><Plus size={28} style={{ color: "var(--a)" }} /> {ei ? "Edit Mobile" : "Add Mobile"}</h1><p style={{ color: "var(--t3)", fontSize: 14, marginTop: 4 }}>{ei ? "Update the selected stock item and save it back to stock." : "Fast stock entry for new phones before selling."}</p></div>
+                        <div style={{ marginBottom: 28 }}><h1 style={{ color: "var(--t1)", fontSize: 28, fontWeight: 700, display: "flex", alignItems: "center", gap: 10 }}><Plus size={28} style={{ color: "var(--a)" }} /> {ei ? "Edit Mobile" : bulkAdd ? "Bulk Add Mobiles" : "Add Mobile"}</h1><p style={{ color: "var(--t3)", fontSize: 14, marginTop: 4 }}>{ei ? "Update the selected stock item and save it back to stock." : bulkAdd ? "Fill shared device details once, then scan each IMEI to build a bulk stock list." : "Fast stock entry for new phones before selling."}</p></div>
                         <div className="gc" style={{ border: "1px solid rgba(0,212,255,.2)" }}>
-                            <F l="Device Photos" ic={Images}><PhotoUp photos={fm.photos || []} onChange={p => uf("photos", p)} onCameraNeeded={releaseCameraNow} /></F>
+                            {!ei && <div className="action-row" style={{ marginTop: 0, marginBottom: 16 }}>
+                                <button className={bulkAdd ? "bp" : "bg"} onClick={() => { setBulkAdd(v => !v); setBulkImeis([]); setBulkManualImei(""); uf("imei", ""); uf("imei2", ""); }} style={{ justifyContent: "center" }}><Layers size={16} /> {bulkAdd ? "Switch to Single Add" : "Bulk Add"}</button>
+                                {bulkAdd && <div style={{ color: "var(--t3)", fontSize: 12, display: "flex", alignItems: "center" }}>Bulk add saves one stock record per scanned IMEI.</div>}
+                            </div>}
+                            <F l={bulkAdd ? "Shared Device Photos" : "Device Photos"} ic={Images}><PhotoUp photos={fm.photos || []} onChange={p => uf("photos", p)} onCameraNeeded={releaseCameraNow} /></F>
                             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12 }}>
-                                <F l="IMEI 1" ic={Hash}><div style={{ display: "flex", gap: 8 }}><input className="gi" value={fm.imei} onChange={e => uf("imei", e.target.value)} placeholder="15-digit IMEI" style={{ fontFamily: "'Space Mono',monospace" }} /><button className="bg" onClick={() => openSc("add")} style={{ padding: 10 }}><Camera size={16} /></button></div></F>
-                                <F l="IMEI 2 (Optional)" ic={Hash}><div style={{ display: "flex", gap: 8 }}><input className="gi" value={fm.imei2} onChange={e => uf("imei2", e.target.value)} placeholder="Optional second IMEI" style={{ fontFamily: "'Space Mono',monospace" }} /><button className="bg" onClick={() => openSc("add2")} style={{ padding: 10 }}><Camera size={16} /></button></div></F>
+                                {!bulkAdd && <F l="IMEI 1" ic={Hash}><div style={{ display: "flex", gap: 8 }}><input className="gi" value={fm.imei} onChange={e => uf("imei", e.target.value)} placeholder="15-digit IMEI" style={{ fontFamily: "'Space Mono',monospace" }} /><button className="bg" onClick={() => openSc("add")} style={{ padding: 10 }}><Camera size={16} /></button></div></F>}
+                                {!bulkAdd && <F l="IMEI 2 (Optional)" ic={Hash}><div style={{ display: "flex", gap: 8 }}><input className="gi" value={fm.imei2} onChange={e => uf("imei2", e.target.value)} placeholder="Optional second IMEI" style={{ fontFamily: "'Space Mono',monospace" }} /><button className="bg" onClick={() => openSc("add2")} style={{ padding: 10 }}><Camera size={16} /></button></div></F>}
                                 <F l="Brand" ic={Tag}><select className="gs" value={fm.brand} onChange={e => uf("brand", e.target.value)}>{BRANDS.map(b => <option key={b}>{b}</option>)}</select></F>
                                 <F l="Model" ic={Smartphone}><input className="gi" value={fm.model} onChange={e => uf("model", e.target.value)} placeholder="e.g. Galaxy S24 Ultra" /></F>
                                 <F l="Color" ic={Palette}><input className="gi" value={fm.color} onChange={e => uf("color", e.target.value)} placeholder="e.g. Black" /></F>
-                                <F l="RAM (Optional)" ic={Layers}><input className="gi" value={fm.ram} onChange={e => uf("ram", e.target.value)} placeholder="e.g. 8GB" /></F>
+                                <F l="RAM (Optional)" ic={Layers}><RamInput value={fm.ram} onChange={v => uf("ram", v)} /></F>
                                 <F l="Storage" ic={HardDrive}><StorageInput value={fm.storage} onChange={v => uf("storage", v)} /></F>
                                 <F l="Battery Health (Optional)" ic={Battery}><input className="gi" value={fm.batteryHealth} onChange={e => uf("batteryHealth", e.target.value)} placeholder="e.g. 92%" /></F>
                                 <F l="Condition" ic={Layers}><select className="gs" value={fm.condition} onChange={e => uf("condition", e.target.value)}>{CONDITIONS.map(c => <option key={c}>{c}</option>)}</select></F>
                                 <F l="Warranty" ic={Shield}><select className="gs" value={fm.warrantyType || "No Warranty"} onChange={e => uf("warrantyType", e.target.value)}>{WARRANTY_TYPES.map(w => <option key={w}>{w}</option>)}</select></F>
                                 {fm.warrantyType === "Testing Warranty" && <F l="Warranty Period (Months)" ic={Clock}><input className="gi" type="number" min="1" max="36" value={fm.warrantyMonths} onChange={e => uf("warrantyMonths", e.target.value)} placeholder="e.g. 3" /></F>}
+                                {fm.warrantyType !== "No Warranty" && <F l="Purchase Date" ic={Calendar}><input className="gi" type="date" value={fm.purchaseDate} onChange={e => uf("purchaseDate", e.target.value)} /></F>}
                                 <F l="Buy Price (Optional)" ic={IndianRupee}><input className="gi" type="number" value={fm.buyPrice} onChange={e => uf("buyPrice", e.target.value)} placeholder="₹0" /></F>
                                 <F l="Sell Price" ic={IndianRupee}><input className="gi" type="number" value={fm.sellPrice} onChange={e => uf("sellPrice", e.target.value)} placeholder="₹0" /></F>
                                 <F l="Serialized Stock" ic={Package}><div className="gi" style={{ display: "flex", alignItems: "center", minHeight: 48 }}>Each mobile saves as qty 1. Use Buy when you want to record supplier purchase details too.</div></F>
                                 <F l="Supplier (Optional)" ic={User}><input className="gi" value={fm.supplier} onChange={e => uf("supplier", e.target.value)} placeholder="Supplier" /></F>
                             </div>
-                            <div className="action-row"><button className="bp" onClick={saveInv}><CheckCircle size={16} /> {ei ? "Save Changes" : "Add to Stock"}</button><button className="bg" onClick={() => ei ? goPage("inventory") : resetForm()}>{ei ? "Back to Stock" : "Clear Form"}</button></div>
+                            {bulkAdd && !ei && <div className="gc" style={{ marginTop: 16, padding: 16, border: "1px solid rgba(255,255,255,.08)", background: "rgba(255,255,255,.03)" }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
+                                    <div>
+                                        <div style={{ color: "var(--t1)", fontSize: 15, fontWeight: 700 }}>Bulk IMEI Queue</div>
+                                        <div style={{ color: "var(--t3)", fontSize: 12, marginTop: 4 }}>{bulkImeis.length} device{bulkImeis.length !== 1 ? "s" : ""} ready. Shared photos will be copied to every saved device. IMEI 2 stays disabled in bulk mode.</div>
+                                    </div>
+                                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                                        <button className="bg" onClick={() => openSc("bulk-add")}><ScanLine size={15} /> Scan IMEI</button>
+                                        <button className="bg" onClick={() => setBulkImeis([])} disabled={!bulkImeis.length}><Trash2 size={15} /> Clear List</button>
+                                    </div>
+                                </div>
+                                <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+                                    <input className="gi" value={bulkManualImei} onChange={e => setBulkManualImei(cleanImei(e.target.value))} onKeyDown={e => e.key === "Enter" && submitBulkManualImei()} placeholder="Type or paste 15-digit IMEI" style={{ fontFamily: "'Space Mono',monospace", flex: 1 }} />
+                                    <button className="bp" onClick={submitBulkManualImei} style={{ whiteSpace: "nowrap" }}><CheckCircle size={16} /> Add IMEI</button>
+                                </div>
+                                <div style={{ display: "grid", gap: 8, maxHeight: 260, overflowY: "auto" }}>
+                                    {bulkImeis.length === 0 && <div style={{ color: "var(--t3)", fontSize: 13, padding: "10px 4px" }}>Scan each handset IMEI to build the bulk stock list.</div>}
+                                    {bulkImeis.map((imei, index) => <div key={imei} className="tr" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, padding: "10px 12px", borderRadius: 12, border: "1px solid rgba(255,255,255,.06)", background: "rgba(255,255,255,.03)" }}>
+                                        <div style={{ minWidth: 0 }}>
+                                            <div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", letterSpacing: .8 }}>Device {bulkImeis.length - index}</div>
+                                            <div style={{ color: "var(--t1)", fontSize: 14, fontFamily: "'Space Mono',monospace", marginTop: 3 }}>{imei}</div>
+                                        </div>
+                                        <button className="bg" onClick={() => removeBulkImei(imei)} style={{ padding: "8px 10px" }}><Trash2 size={14} /> Remove</button>
+                                    </div>)}
+                                </div>
+                            </div>}
+                            <div className="action-row"><button className="bp" onClick={bulkAdd && !ei ? saveBulkInv : saveInv} disabled={bulkSaveBusy}><CheckCircle size={16} /> {bulkAdd && !ei ? (bulkSaveBusy ? "Saving Bulk Stock..." : `Add ${bulkImeis.length || ""} to Stock`) : ei ? "Save Changes" : "Add to Stock"}</button><button className="bg" onClick={() => ei ? goPage("inventory") : resetForm()}>{ei ? "Back to Stock" : "Clear Form"}</button></div>
                         </div>
                     </div>}
 
                     {/* ═══ INVENTORY ═══ */}
                     {pg === "inventory" && !di && <div className="fi">
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12, marginBottom: 24 }}>
-                            <div><h1 style={{ color: "var(--t1)", fontSize: 28, fontWeight: 700 }}>Stock</h1><p style={{ color: "var(--t3)", fontSize: 14, marginTop: 4 }}>{fi.length} devices</p></div>
+                            <div><h1 style={{ color: "var(--t1)", fontSize: 28, fontWeight: 700 }}>Stock</h1><p style={{ color: "var(--t3)", fontSize: 14, marginTop: 4 }}>{fi.length} devices{fi.length > visibleFi.length ? ` · showing ${visibleFi.length}` : ""}</p></div>
                             <div style={{ display: "flex", gap: 8 }}><button className="bp" onClick={() => openSc("add")}><Camera size={16} /> Scan</button><button className="bp" onClick={() => goPage("add")}><Plus size={16} /> Add Mobile</button></div>
                         </div>
                         <div className="gc stock-filter-card">
@@ -3366,12 +3940,12 @@ export default function App() {
 
                         {/* Grid — Horizontal Cards */}
                         {vm === "grid" ? <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(min(420px,100%),1fr))", gap: 14 }}>
-                            {fi.map(it => <div key={it.id} className="gc hcard" style={{ padding: 0, overflow: "hidden", display: "flex", flexDirection: "row", minHeight: 210, borderLeft: `3px solid ${it.status === "In Stock" ? "var(--a)" : "rgba(255,255,255,.12)"}` }}>
+                            {visibleFi.map(it => <div key={it.id} className="gc hcard" style={{ padding: 0, overflow: "hidden", display: "flex", flexDirection: "row", minHeight: 210, borderLeft: `3px solid ${it.status === "In Stock" ? "var(--a)" : "rgba(255,255,255,.12)"}` }}>
                                 {/* LEFT — Portrait Photo */}
                                 <div className="hcard-photo" style={{ width: 160, minWidth: 160, flexShrink: 0, position: "relative", cursor: "pointer", overflow: "hidden", borderRight: "1px solid rgba(255,255,255,.06)" }}
                                     onClick={() => { if (it.photos?.length) sLb({ photos: it.photos, si: 0 }); else sDi(it); }}>
                                     {it.photos?.length > 0 ? <>
-                                        <img src={getPhotoPreview(it.photos[0])} alt={it.model} style={{ width: "100%", height: "100%", objectFit: "cover", transition: "transform .4s" }}
+                                        <img src={getPhotoPreview(it.photos[0])} alt={it.model} loading="lazy" decoding="async" style={{ width: "100%", height: "100%", objectFit: "cover", transition: "transform .4s" }}
                                             onMouseOver={e => e.currentTarget.style.transform = "scale(1.06)"} onMouseOut={e => e.currentTarget.style.transform = "scale(1)"} />
                                         {it.photos.length > 1 && <div className="ipc"><Images size={12} /> {it.photos.length}</div>}
                                     </> : <div style={{ width: "100%", height: "100%", background: BRAND_GRADIENTS[it.brand] || BRAND_GRADIENTS.Other, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, position: "relative", overflow: "hidden" }}>
@@ -3420,8 +3994,11 @@ export default function App() {
                                     </div>
 
                                     {/* Bottom — Meta + Actions */}
-                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 8, borderTop: "1px solid rgba(255,255,255,.05)" }}>
-                                        <span style={{ color: "var(--t3)", fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "50%" }}>{(() => { const d = daysInStock(it.addedDate); const c = d < 30 ? "var(--ok)" : d < 60 ? "var(--warn)" : "var(--err)"; return <span style={{ color: c, fontWeight: 600 }}>{d}d in stock</span>; })()}{it.lastInvoiceNo ? ` · ${it.lastInvoiceNo}` : ""}</span>
+                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, paddingTop: 8, borderTop: "1px solid rgba(255,255,255,.05)" }}>
+                                        <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                                            {it.status === "In Stock" && it.qty > 0 && <button className="hcard-ab" style={{ padding: 8, color: "var(--err)", border: "1px solid rgba(248,113,113,.35)", background: "rgba(248,113,113,.08)" }} onClick={e => { e.stopPropagation(); sFm(toForm(it, { amount: it.sellPrice, paidAmount: it.sellPrice, dueAmount: 0, customerName: "", phone: "", notes: "" })); sPg("sell"); sDi(null); }} aria-label="Sell item" title="Sell"><ArrowUpCircle size={15} /></button>}
+                                            {it.lastInvoiceNo && <span style={{ color: "var(--t3)", fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.lastInvoiceNo}</span>}
+                                        </div>
                                         <div className="hcard-actions">
                                             <button className="bg hcard-ab" style={{ padding: 8 }} onClick={e => { e.stopPropagation(); void printSticker(it); }}><Printer size={15} /></button>
                                             <button className="bg hcard-ab" style={{ padding: 8 }} onClick={e => { e.stopPropagation(); sDi(it); }}><Eye size={15} /></button>
@@ -3437,9 +4014,9 @@ export default function App() {
                                     <thead><tr style={{ borderBottom: "1px solid rgba(255,255,255,.08)" }}>
                                         {["Photo", "IMEIs", "Device", "Cond.", "Specs", "Buy", "Sell", "Status", ""].map(h => <th key={h} style={{ padding: "12px 14px", color: "var(--t3)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1, textAlign: "left" }}>{h}</th>)}
                                     </tr></thead>
-                                    <tbody>{fi.map(it => <tr key={it.id} className="tr" style={{ borderBottom: "1px solid rgba(255,255,255,.03)" }}>
+                                    <tbody>{visibleFi.map(it => <tr key={it.id} className="tr" style={{ borderBottom: "1px solid rgba(255,255,255,.03)" }}>
                                         <td style={{ padding: "8px 14px" }}><div style={{ width: 44, height: 44, borderRadius: 8, overflow: "hidden", cursor: "pointer", border: "1px solid var(--gbo)" }} onClick={() => it.photos?.length ? sLb({ photos: it.photos, si: 0 }) : null}>
-                                            {it.photos?.length > 0 ? <img src={getPhotoPreview(it.photos[0])} style={{ width: "100%", height: "100%", objectFit: "cover" }} alt="" /> : <div style={{ width: "100%", height: "100%", background: BRAND_GRADIENTS[it.brand] || BRAND_GRADIENTS.Other, display: "flex", alignItems: "center", justifyContent: "center" }}><Smartphone size={18} style={{ opacity: .4, color: "#fff" }} /></div>}
+                                            {it.photos?.length > 0 ? <img src={getPhotoPreview(it.photos[0])} loading="lazy" decoding="async" style={{ width: "100%", height: "100%", objectFit: "cover" }} alt="" /> : <div style={{ width: "100%", height: "100%", background: BRAND_GRADIENTS[it.brand] || BRAND_GRADIENTS.Other, display: "flex", alignItems: "center", justifyContent: "center" }}><Smartphone size={18} style={{ opacity: .4, color: "#fff" }} /></div>}
                                         </div></td>
                                         <td style={{ padding: "12px 14px", fontFamily: "'Space Mono',monospace", fontSize: 11, color: "var(--t2)" }}><div>{it.imei}</div>{it.imei2 && <div style={{ color: "var(--t3)", fontSize: 10, marginTop: 3 }}>{it.imei2}</div>}</td>
                                         <td style={{ padding: "12px 14px" }}><div style={{ color: "var(--t1)", fontSize: 13, fontWeight: 500 }}>{it.brand} {it.model}</div><div style={{ color: "var(--t3)", fontSize: 11 }}>{it.color}</div></td>
@@ -3448,10 +4025,11 @@ export default function App() {
                                         <td style={{ padding: "12px 14px", color: "var(--t2)", fontSize: 13 }}>{fmtCurrency(it.buyPrice)}</td>
                                         <td style={{ padding: "12px 14px", color: "var(--ok)", fontSize: 13, fontWeight: 500 }}>{fmtCurrency(it.sellPrice)}</td>
                                         <td style={{ padding: "12px 14px" }}><span className={`ba ${statBadge(it.status)}`}>{it.status}</span></td>
-                                        <td style={{ padding: "12px 14px" }}><div style={{ display: "flex", gap: 4 }}><button className="bg" style={{ padding: 6 }} onClick={() => void printSticker(it)}><Printer size={14} /></button><button className="bg" style={{ padding: 6 }} onClick={() => sDi(it)}><Eye size={14} /></button><button className="bg" style={{ padding: 6 }} onClick={() => editFromStock(it)}><Edit2 size={14} /></button><button className="bd" style={{ padding: 6 }} onClick={() => setConfirmDel(it)}><Trash2 size={14} /></button></div></td>
+                                        <td style={{ padding: "12px 14px" }}><div style={{ display: "flex", gap: 4 }}>{it.status === "In Stock" && it.qty > 0 && <button style={{ padding: 6, color: "var(--err)", border: "1px solid rgba(248,113,113,.35)", background: "rgba(248,113,113,.08)", borderRadius: 10, display: "inline-flex", alignItems: "center", justifyContent: "center" }} onClick={() => { sFm(toForm(it, { amount: it.sellPrice, paidAmount: it.sellPrice, dueAmount: 0, customerName: "", phone: "", notes: "" })); sPg("sell"); sDi(null); }} aria-label="Sell item" title="Sell"><ArrowUpCircle size={14} /></button>}<button className="bg" style={{ padding: 6 }} onClick={() => void printSticker(it)}><Printer size={14} /></button><button className="bg" style={{ padding: 6 }} onClick={() => sDi(it)}><Eye size={14} /></button><button className="bg" style={{ padding: 6 }} onClick={() => editFromStock(it)}><Edit2 size={14} /></button><button className="bd" style={{ padding: 6 }} onClick={() => setConfirmDel(it)}><Trash2 size={14} /></button></div></td>
                                     </tr>)}</tbody>
                                 </table>
                             </div>}
+                        {hasMoreStock && <div ref={stockLoadMoreRef} style={{ height: 1, marginTop: 16 }} />}
                         {fi.length === 0 && <div className="gc" style={{ textAlign: "center", padding: 48 }}><Package size={40} style={{ color: "var(--t3)", marginBottom: 12 }} /><p style={{ color: "var(--t2)", fontSize: 15 }}>No devices found</p></div>}
                     </div>}
 
@@ -3556,10 +4134,13 @@ export default function App() {
                                 <F l="Brand" ic={Tag}><select className="gs" value={fm.brand} onChange={e => uf("brand", e.target.value)}>{BRANDS.map(b => <option key={b}>{b}</option>)}</select></F>
                                 <F l="Model" ic={Smartphone}><input className="gi" value={fm.model} onChange={e => uf("model", e.target.value)} placeholder="Model" /></F>
                                 <F l="Color" ic={Palette}><input className="gi" value={fm.color} onChange={e => uf("color", e.target.value)} placeholder="Color" /></F>
-                                <F l="RAM (Optional)" ic={Layers}><input className="gi" value={fm.ram} onChange={e => uf("ram", e.target.value)} placeholder="e.g. 8GB" /></F>
+                                <F l="RAM (Optional)" ic={Layers}><RamInput value={fm.ram} onChange={v => uf("ram", v)} /></F>
                                 <F l="Storage" ic={HardDrive}><StorageInput value={fm.storage} onChange={v => uf("storage", v)} /></F>
                                 <F l="Battery Health (Optional)" ic={Battery}><input className="gi" value={fm.batteryHealth} onChange={e => uf("batteryHealth", e.target.value)} placeholder="e.g. 92%" /></F>
                                 <F l="Condition" ic={Layers}><select className="gs" value={fm.condition} onChange={e => uf("condition", e.target.value)}>{CONDITIONS.map(c => <option key={c}>{c}</option>)}</select></F>
+                                <F l="Warranty" ic={Shield}><select className="gs" value={fm.warrantyType || "No Warranty"} onChange={e => uf("warrantyType", e.target.value)}>{WARRANTY_TYPES.map(w => <option key={w}>{w}</option>)}</select></F>
+                                {fm.warrantyType === "Testing Warranty" && <F l="Warranty Period (Months)" ic={Clock}><input className="gi" type="number" min="1" max="36" value={fm.warrantyMonths} onChange={e => uf("warrantyMonths", e.target.value)} placeholder="e.g. 3" /></F>}
+                                {(fm.warrantyType !== "No Warranty" || fm.condition === "Used" || fm.condition === "Refurbished") && <F l={(fm.condition === "Used" || fm.condition === "Refurbished") ? "Purchase Date *" : "Purchase Date"} ic={Calendar}><input className="gi" type="date" value={fm.purchaseDate} onChange={e => uf("purchaseDate", e.target.value)} /></F>}
                                 <F l="Buy Price" ic={IndianRupee}><input className="gi" type="number" value={fm.buyPrice} onChange={e => uf("buyPrice", e.target.value)} placeholder="₹" /></F>
                                 <F l="Sell Price" ic={IndianRupee}><input className="gi" type="number" value={fm.sellPrice} onChange={e => uf("sellPrice", e.target.value)} placeholder="₹" /></F>
                                 <F l="Serialized Stock" ic={Package}><div className="gi" style={{ display: "flex", alignItems: "center", minHeight: 48 }}>Mobile IMEI stock saves one handset per entry.</div></F>
@@ -3573,7 +4154,6 @@ export default function App() {
                                     <F l="Seller Name *" ic={User}><input className="gi" value={fm.sellerName} onChange={e => uf("sellerName", e.target.value)} placeholder="Seller full name" /></F>
                                     <F l="Seller Phone *" ic={Phone}><input className="gi" type="tel" value={fm.sellerPhone} onChange={e => uf("sellerPhone", e.target.value)} placeholder="Seller phone" /></F>
                                     <F l="Aadhaar Number *" ic={Hash}><input className="gi" value={fm.sellerAadhaarNumber} onChange={e => uf("sellerAadhaarNumber", e.target.value.replace(/[^\d]/g, "").slice(0, 12))} placeholder="12 digit Aadhaar" style={{ fontFamily: "'Space Mono',monospace" }} /></F>
-                                    <F l="Purchase Date *" ic={Calendar}><input className="gi" type="date" value={fm.purchaseDate} onChange={e => uf("purchaseDate", e.target.value)} /></F>
                                 </div>
                                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 16, marginTop: 14 }}>
                                     <F l="Seller ID Photo *" ic={FileText}><SingleImageInput label="Seller ID" value={fm.sellerIdPhotoData} onChange={v => uf("sellerIdPhotoData", v)} /></F>
@@ -3658,6 +4238,82 @@ export default function App() {
                         </div>
                     </div>}
 
+                    {/* ═══ REPAIR ═══ */}
+                    {pg === "repair" && !repairDetail && <div className="fi" style={{ maxWidth: 920 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12, marginBottom: 24 }}>
+                            <div><h1 style={{ color: "var(--t1)", fontSize: 28, fontWeight: 700, display: "flex", alignItems: "center", gap: 10 }}><Wrench size={28} style={{ color: "var(--warn)" }} /> Repair</h1><p style={{ color: "var(--t3)", fontSize: 14, marginTop: 4 }}>{repairRecords.length} jobs · {repairOpenCount} open · {repairReadyCount} ready</p></div>
+                            <button className="bp" onClick={() => openRepairForm()}><Plus size={16} /> Add Repair</button>
+                        </div>
+                        <div className="gc" style={{ marginBottom: 16, padding: 16 }}>
+                            <div style={{ position: "relative" }}><Search size={16} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--t3)" }} /><input className="gi" placeholder="Search repair no, customer, phone, device, IMEI, problem..." value={repairQuery} onChange={e => setRepairQuery(e.target.value)} style={{ paddingLeft: 36 }} /></div>
+                        </div>
+                        <div style={{ display: "grid", gap: 14 }}>
+                            {filteredRepairRecords.length === 0 && <div className="gc" style={{ textAlign: "center", padding: 40 }}><Wrench size={40} style={{ color: "var(--t3)", marginBottom: 12 }} /><p style={{ color: "var(--t2)", fontSize: 15 }}>{repairQuery.trim() ? "No matching repair jobs" : "No repair jobs yet"}</p><p style={{ color: "var(--t3)", fontSize: 13, marginTop: 4 }}>{repairQuery.trim() ? "Try a different search term." : "Create your first repair entry to start tracking received devices."}</p></div>}
+                            {filteredRepairRecords.map(repair => <div key={repair.id} className="gc" style={{ display: "grid", gap: 10 }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
+                                    <div>
+                                        <div style={{ color: "var(--t1)", fontSize: 16, fontWeight: 700 }}>{repair.customerName || "Walk-in Customer"}</div>
+                                        <div style={{ color: "var(--t3)", fontSize: 12, marginTop: 4 }}>{repair.repairNo} · {fmtDate(repair.receivedDate)}</div>
+                                    </div>
+                                    <span className={`ba ${repairStatusTone(repair.status)}`}>{repair.status}</span>
+                                </div>
+                                <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+                                    {repair.photos?.length > 0 && <div style={{ width: 72, height: 72, borderRadius: 10, overflow: "hidden", flexShrink: 0, cursor: "pointer" }} onClick={() => sLb({ photos: repair.photos, si: 0 })}><img src={getPhotoPreview(repair.photos[0])} style={{ width: "100%", height: "100%", objectFit: "cover" }} alt="" /></div>}
+                                    <div style={{ minWidth: 0, flex: 1 }}>
+                                        <div style={{ color: "var(--t1)", fontSize: 15, fontWeight: 600 }}>{[repair.brand, repair.model].filter(Boolean).join(" ") || "Device"}</div>
+                                        <div style={{ color: "var(--t2)", fontSize: 13, marginTop: 4 }}>{repair.color || "Color pending"}{repair.imei ? ` · IMEI ${repair.imei}` : ""}</div>
+                                        <div style={{ color: "var(--t3)", fontSize: 13, marginTop: 4 }}>{repair.problem}</div>
+                                    </div>
+                                </div>
+                                <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+                                    <div style={{ color: "var(--t2)", fontSize: 13 }}>Estimate {fmtCurrency(repair.estimatedCost)} · Advance {fmtCurrency(repair.advance)}</div>
+                                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                                        <button className="bg" onClick={() => setRepairDetail(repair)}><Eye size={14} /> View</button>
+                                        <button className="bg" onClick={() => openRepairForm(repair)}><Edit2 size={14} /> Edit</button>
+                                        <button className="bg" onClick={() => void printRepairSticker(repair)}><Printer size={14} /> Sticker</button>
+                                    </div>
+                                </div>
+                            </div>)}
+                        </div>
+                    </div>}
+
+                    {pg === "repair" && repairDetail && <div className="fi" style={{ maxWidth: 760 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12, marginBottom: 24 }}>
+                            <div><h1 style={{ color: "var(--t1)", fontSize: 28, fontWeight: 700 }}>Repair Detail</h1><p style={{ color: "var(--t3)", fontSize: 14, marginTop: 4 }}>{repairDetail.repairNo}</p></div>
+                            <button className="bg" onClick={() => setRepairDetail(null)}><ChevronLeft size={16} /> Back</button>
+                        </div>
+                        <div className="gc" style={{ display: "grid", gap: 14 }}>
+                            {repairDetail.photos?.length > 0 && <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>{repairDetail.photos.map((photo, index) => <div key={photo.id || index} style={{ width: 120, height: 120, borderRadius: 12, overflow: "hidden", cursor: "pointer" }} onClick={() => sLb({ photos: repairDetail.photos, si: index })}><img src={getPhotoPreview(photo)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /></div>)}</div>}
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 12 }}>
+                                {[{ l: "Customer", v: repairDetail.customerName || "—", ic: User }, { l: "Phone", v: repairDetail.phone || "—", ic: Phone }, { l: "Device", v: [repairDetail.brand, repairDetail.model].filter(Boolean).join(" ") || "—", ic: Smartphone }, { l: "Color", v: repairDetail.color || "—", ic: Palette }, { l: "IMEI", v: repairDetail.imei || "—", ic: Hash }, { l: "Status", v: repairDetail.status, ic: Tag }, { l: "Estimate", v: fmtCurrency(repairDetail.estimatedCost), ic: IndianRupee }, { l: "Advance", v: fmtCurrency(repairDetail.advance), ic: Banknote }, { l: "Received", v: fmtDate(repairDetail.receivedDate), ic: Calendar }].map((d, i) => <div key={i} className="gc" style={{ background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.06)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 6 }}>{d.l}</div><div style={{ color: "var(--t1)", fontWeight: 600, display: "flex", gap: 8, alignItems: "center" }}><d.ic size={14} /> {d.v}</div></div>)}
+                            </div>
+                            <div className="gc" style={{ background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.06)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 6 }}>Problem</div><div style={{ color: "var(--t1)", lineHeight: 1.7 }}>{repairDetail.problem}</div>{repairDetail.notes ? <div style={{ color: "var(--t3)", lineHeight: 1.7, marginTop: 10 }}>Notes: {repairDetail.notes}</div> : null}</div>
+                            <div className="action-row"><button className="bp" onClick={() => openRepairForm(repairDetail)}><Edit2 size={16} /> Edit Repair</button><button className="bg" onClick={() => void printRepairSticker(repairDetail)}><Printer size={16} /> Print Sticker</button><button className="bd" onClick={() => deleteRepair(repairDetail.id)}><Trash2 size={16} /> Delete</button></div>
+                        </div>
+                    </div>}
+
+                    {pg === "repair-form" && <div className="fi" style={{ maxWidth: 760 }}>
+                        <div style={{ marginBottom: 28 }}><h1 style={{ color: "var(--t1)", fontSize: 28, fontWeight: 700, display: "flex", alignItems: "center", gap: 10 }}><Wrench size={28} style={{ color: "var(--warn)" }} /> {repairForm.id ? "Edit Repair" : "Add Repair"}</h1><p style={{ color: "var(--t3)", fontSize: 14, marginTop: 4 }}>Track customer repair intake, issue details, cost estimates, advance, and print a repair sticker.</p></div>
+                        <div className="gc" style={{ border: "1px solid rgba(251,191,36,.2)" }}>
+                            <F l="Device Photo" ic={Images}><PhotoUp photos={repairForm.photos || []} onChange={photos => setRepairField("photos", photos)} max={4} onCameraNeeded={releaseCameraNow} /></F>
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12 }}>
+                                <F l="Customer Name" ic={User}><input className="gi" value={repairForm.customerName} onChange={e => setRepairField("customerName", e.target.value)} placeholder="Customer name" /></F>
+                                <F l="Phone" ic={Phone}><input className="gi" value={repairForm.phone} onChange={e => setRepairField("phone", cleanMobileNumber(e.target.value))} placeholder="Phone number" /></F>
+                                <F l="Brand" ic={Tag}><select className="gs" value={repairForm.brand} onChange={e => setRepairField("brand", e.target.value)}>{BRANDS.map(brand => <option key={brand}>{brand}</option>)}</select></F>
+                                <F l="Model" ic={Smartphone}><input className="gi" value={repairForm.model} onChange={e => setRepairField("model", e.target.value)} placeholder="Model" /></F>
+                                <F l="Color" ic={Palette}><input className="gi" value={repairForm.color} onChange={e => setRepairField("color", e.target.value)} placeholder="Color" /></F>
+                                <F l="IMEI (Optional)" ic={Hash}><div style={{ display: "flex", gap: 8 }}><input className="gi" value={repairForm.imei} onChange={e => setRepairField("imei", e.target.value)} placeholder="Optional IMEI" style={{ fontFamily: "'Space Mono',monospace" }} /><button className="bg" onClick={() => openSc("repair")}><Camera size={16} /></button></div></F>
+                                <F l="Status" ic={Tag}><select className="gs" value={repairForm.status} onChange={e => setRepairField("status", e.target.value)}>{REPAIR_STATUSES.map(status => <option key={status}>{status}</option>)}</select></F>
+                                <F l="Received Date" ic={Calendar}><input className="gi" type="date" value={repairForm.receivedDate} onChange={e => setRepairField("receivedDate", e.target.value)} /></F>
+                                <F l="Estimated Cost" ic={IndianRupee}><input className="gi" type="number" value={repairForm.estimatedCost} onChange={e => setRepairField("estimatedCost", e.target.value)} placeholder="Optional estimate" /></F>
+                                <F l="Advance" ic={Banknote}><input className="gi" type="number" value={repairForm.advance} onChange={e => setRepairField("advance", e.target.value)} placeholder="Optional advance" /></F>
+                            </div>
+                            <F l="Problem" ic={ClipboardList}><textarea className="gi" style={{ minHeight: 96 }} value={repairForm.problem} onChange={e => setRepairField("problem", e.target.value)} placeholder="Describe the reported problem, issue, or required repair" /></F>
+                            <F l="Notes" ic={FileText}><textarea className="gi" style={{ minHeight: 84 }} value={repairForm.notes} onChange={e => setRepairField("notes", e.target.value)} placeholder="Internal notes" /></F>
+                            <div className="action-row"><button className="bp" onClick={saveRepair}><CheckCircle size={16} /> {repairForm.id ? "Save Repair" : "Add Repair"}</button><button className="bg" onClick={() => { setRepairForm(createEmptyRepairForm()); goPage("repair"); }}><ChevronLeft size={16} /> Back to Repair</button></div>
+                        </div>
+                    </div>}
+
                     {/* ═══ INVOICES ═══ */}
                     {pg === "transactions" && <div className="fi">
                         <div style={{ marginBottom: 28 }}><h1 style={{ color: "var(--t1)", fontSize: 28, fontWeight: 700 }}>Invoices</h1><p style={{ color: "var(--t3)", fontSize: 14, marginTop: 4 }}>{invoiceRecords.length} sales invoices</p></div>
@@ -3682,16 +4338,17 @@ export default function App() {
 
                     {/* ═══ REPORTS ═══ */}
                     {pg === "reports" && <div className="fi">
-                        <div style={{ marginBottom: 28 }}><h1 style={{ color: "var(--t1)", fontSize: 28, fontWeight: 700 }}>Reports</h1><p style={{ color: "var(--t3)", fontSize: 14, marginTop: 4 }}>Filter Buy, Sell, and Add records by date, GST, payment mode, brand, and party. View transaction reports, customer ledgers, or supplier purchase summaries and export them as PDF.</p></div>
+                        <div style={{ marginBottom: 28 }}><h1 style={{ color: "var(--t1)", fontSize: 28, fontWeight: 700 }}>Reports</h1><p style={{ color: "var(--t3)", fontSize: 14, marginTop: 4 }}>Filter Buy, Sell, Add, and Repair records by date, GST, payment mode, brand, and party. View transaction reports, customer ledgers, or supplier purchase summaries and export them as PDF.</p></div>
                         <div className="gc" style={{ marginBottom: 16 }}>
                             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 12 }}>
                                 <F l="Report View" ic={BarChart3}><select className="gs" value={reportView} onChange={e => setReportView(e.target.value)}>{REPORT_VIEWS.map(type => <option key={type}>{type}</option>)}</select></F>
                                 <F l="Report Type" ic={FileText}><select className="gs" value={reportType} onChange={e => setReportType(e.target.value)}>{REPORT_TYPES.map(type => <option key={type}>{type}</option>)}</select></F>
                                 <F l="Date Range" ic={Calendar}><select className="gs" value={reportPreset} onChange={e => setReportPreset(e.target.value)}>{REPORT_RANGE_PRESETS.map(type => <option key={type}>{type}</option>)}</select></F>
-                                <F l="GST Filter" ic={Hash}><select className="gs" value={reportBillFilter} onChange={e => setReportBillFilter(e.target.value)} disabled={reportType === "Buy" || reportType === "Add" || reportView !== "Transactions"}>{REPORT_BILL_FILTERS.map(type => <option key={type}>{type}</option>)}</select></F>
+                                <F l="GST Filter" ic={Hash}><select className="gs" value={reportBillFilter} onChange={e => setReportBillFilter(e.target.value)} disabled={reportType === "Buy" || reportType === "Add" || reportType === "Repair" || reportView !== "Transactions"}>{REPORT_BILL_FILTERS.map(type => <option key={type}>{type}</option>)}</select></F>
                                 <F l="Payment Mode" ic={CreditCard}><select className="gs" value={reportPaymentFilter} onChange={e => setReportPaymentFilter(e.target.value)}>{["All Payments", ...PAYMENT_MODES].map(type => <option key={type}>{type}</option>)}</select></F>
                                 <F l="Brand" ic={Tag}><select className="gs" value={reportBrandFilter} onChange={e => setReportBrandFilter(e.target.value)}>{reportBrands.map(type => <option key={type}>{type}</option>)}</select></F>
-                                <F l="Due Status" ic={Banknote}><select className="gs" value={reportDueFilter} onChange={e => setReportDueFilter(e.target.value)} disabled={reportView === "Supplier Summary" || (reportType !== "All" && reportType !== "Sell")}>{REPORT_DUE_FILTERS.map(type => <option key={type}>{type}</option>)}</select></F>
+                                <F l="Due Status" ic={Banknote}><select className="gs" value={reportDueFilter} onChange={e => setReportDueFilter(e.target.value)} disabled={reportView === "Supplier Summary" || (reportType !== "All" && reportType !== "Sell" && reportType !== "Repair")}>{REPORT_DUE_FILTERS.map(type => <option key={type}>{type}</option>)}</select></F>
+                                <F l="Repair Status" ic={Wrench}><select className="gs" value={reportRepairStatusFilter} onChange={e => setReportRepairStatusFilter(e.target.value)} disabled={reportView !== "Transactions" || (reportType !== "All" && reportType !== "Repair")}>{["All Repair Statuses", ...REPAIR_STATUSES].map(type => <option key={type}>{type}</option>)}</select></F>
                                 <F l="Customer / Supplier" ic={Search}><input className="gi" value={reportPartyQuery} onChange={e => setReportPartyQuery(e.target.value)} placeholder="Search party, phone, invoice, IMEI" /></F>
                                 <F l="Brand / Model / IMEI" ic={Package}><input className="gi" value={reportItemQuery} onChange={e => setReportItemQuery(e.target.value)} placeholder="Search brand, model, invoice, IMEI" /></F>
                                 {reportPreset === "Custom" && <><F l="From" ic={Calendar}><input className="gi" type="date" value={reportFrom} onChange={e => setReportFrom(e.target.value)} /></F><F l="To" ic={Calendar}><input className="gi" type="date" value={reportTo} onChange={e => setReportTo(e.target.value)} /></F></>}
@@ -3703,21 +4360,23 @@ export default function App() {
                             </div>
                         </div>
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 14, marginBottom: 24 }}>
-                            {[{ l: "Records", v: activeReportSummary.records, c: "var(--t1)" }, { l: reportView === "Supplier Summary" ? "Purchases" : "Buy + Add", v: fmtCurrency(activeReportSummary.buyAddTotal), c: "var(--a2)" }, { l: reportView === "Customer Ledger" ? "Sales" : "Sales", v: fmtCurrency(activeReportSummary.sellTotal), c: "var(--a)" }, { l: "Due", v: fmtCurrency(activeReportSummary.dueTotal), c: "var(--warn)" }, { l: "Profit", v: fmtCurrency(activeReportSummary.profit), c: "var(--ok)" }].map((s, i) =>
+                            {reportSummaryCards.map((s, i) =>
                                 <div key={i} className="gc" style={{ textAlign: "center" }}><div style={{ color: "var(--t3)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>{s.l}</div><div style={{ color: s.c, fontSize: 22, fontWeight: 700 }}>{s.v}</div></div>
                             )}
                         </div>
                         <div className="gc">
-                            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 14 }}><h3 style={{ color: "var(--t1)", fontSize: 15, fontWeight: 600 }}>Report Preview</h3><div style={{ color: "var(--t3)", fontSize: 13 }}>{reportView} · {reportType} · {reportRange.label}{reportType !== "Buy" && reportType !== "Add" && reportBillFilter !== "All Bills" && reportView === "Transactions" ? ` · ${reportBillFilter}` : ""}{reportDueFilter !== "All Status" ? ` · ${reportDueFilter}` : ""}{reportPaymentFilter !== "All Payments" ? ` · ${reportPaymentFilter}` : ""}{reportBrandFilter !== "All Brands" ? ` · ${reportBrandFilter}` : ""}{reportPartyQuery.trim() ? ` · ${reportPartyQuery.trim()}` : ""}{reportItemQuery.trim() ? ` · ${reportItemQuery.trim()}` : ""}</div></div>
+                            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 14 }}><h3 style={{ color: "var(--t1)", fontSize: 15, fontWeight: 600 }}>Report Preview</h3><div style={{ color: "var(--t3)", fontSize: 13 }}>{reportView} · {reportType} · {reportRange.label}{reportFiltersLabel ? ` · ${reportFiltersLabel}` : ""}</div></div>
                             <div style={{ display: "grid", gap: 12 }}>
                                 {activeReportRows.length === 0 && <div style={{ color: "var(--t2)", fontSize: 14 }}>No records found for this range.</div>}
-                                {activeReportRows.map(row => <div key={row.id} className="tr" style={{ display: "grid", gap: 6, padding: "12px 10px", borderRadius: 12, border: "1px solid rgba(255,255,255,.05)", background: "rgba(255,255,255,.03)" }}>
+                                {activeReportRows.length > visibleReportRows.length && <div style={{ color: "var(--t3)", fontSize: 12 }}>Showing {visibleReportRows.length} of {activeReportRows.length} records</div>}
+                                {visibleReportRows.map(row => <div key={row.id} className="tr" style={{ display: "grid", gap: 6, padding: "12px 10px", borderRadius: 12, border: "1px solid rgba(255,255,255,.05)", background: "rgba(255,255,255,.03)" }}>
                                     <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}><div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}><span className={`ba ${row.type === "Sell" ? "bi" : row.type === "Buy" ? "br" : "bu"}`}>{row.type}</span>{row.billType === "GST" && <span className="ba br">GST</span>}{row.invoiceNo && <span style={{ color: "var(--t3)", fontSize: 12 }}>{row.invoiceNo}</span>}</div><div style={{ color: "var(--ok)", fontWeight: 700 }}>{fmtCurrency(row.amount || 0)}</div></div>
                                     <div style={{ color: "var(--t1)", fontSize: 15, fontWeight: 600 }}>{row.item || row.label}</div>
                                     <div style={{ color: "var(--t2)", fontSize: 13 }}>{row.party || "-"}{row.phone ? ` · ${row.phone}` : ""}{row.paymentMode ? ` · ${row.paymentMode}` : ""}</div>
                                     <div style={{ color: "var(--t3)", fontSize: 12 }}>{fmtDateTime(row.lastDateTime || row.dateTime)}{row.extra ? ` · ${row.extra}` : ""}{reportView !== "Transactions" ? ` · ${row.records} records` : ""}</div>
-                                    <div style={{ color: "var(--t3)", fontSize: 12, fontFamily: "'Space Mono',monospace" }}>{reportView === "Transactions" ? (row.imei ? `IMEI 1: ${row.imei}${row.imei2 ? ` · IMEI 2: ${row.imei2}` : ""}` : "No IMEI") : `Due ${fmtCurrency(row.dueAmount || 0)}${reportView === "Customer Ledger" ? ` · Profit ${fmtCurrency(row.profit || 0)}` : ""}`}</div>
+                                    <div style={{ color: "var(--t3)", fontSize: 12, fontFamily: "'Space Mono',monospace" }}>{reportView === "Transactions" ? (row.type === "Repair" ? `${row.imei ? `IMEI 1: ${row.imei}` : "No IMEI"} · Due ${fmtCurrency(row.dueAmount || 0)}` : row.imei ? `IMEI 1: ${row.imei}${row.imei2 ? ` · IMEI 2: ${row.imei2}` : ""}` : "No IMEI") : `Due ${fmtCurrency(row.dueAmount || 0)}${reportView === "Customer Ledger" ? ` · Profit ${fmtCurrency(row.profit || 0)}` : ""}`}</div>
                                 </div>)}
+                                {hasMoreReportRows && <div ref={reportLoadMoreRef} style={{ height: 1 }} />}
                             </div>
                         </div>
                     </div>}
@@ -3767,6 +4426,29 @@ export default function App() {
                                 <div className="gc" style={{ marginTop: 12, background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.06)" }}>
                                     <div style={{ color: "var(--t1)", fontSize: 14, fontWeight: 600, marginBottom: 6 }}>Invoice Output</div>
                                     <div style={{ color: "var(--t2)", fontSize: 13, lineHeight: 1.7 }}>PDFs are generated in professional A4 portrait format with your uploaded shop logo, shop address, customer details, handset specs, IMEIs, payment summary, and GST or regular invoice totals. On supported phones, the PDF can be shared directly to WhatsApp from the native share sheet.</div>
+                                </div>
+                                <div className="gc" style={{ marginTop: 12, background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.06)" }}>
+                                    <div style={{ color: "var(--t1)", fontSize: 14, fontWeight: 600, marginBottom: 10 }}>Business Mode</div>
+                                    <div style={{ display: "grid", gap: 12 }}>
+                                        <F l="App Focus" ic={Wrench}><select className="gs" value={shopCfg.businessMode} onChange={e => setShopField("businessMode", e.target.value)}>{[{ value: "general", label: "General" }, { value: "repair-pro", label: "Repair Pro" }].map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></F>
+                                        <F l="Enabled Modules" ic={ClipboardList}><div className="gi" style={{ display: "grid", gap: 8 }}>
+                                            {GENERAL_MODULES.map(module => <label key={module} style={{ display: "flex", alignItems: "center", gap: 10, cursor: shopCfg.businessMode === "repair-pro" && module !== "repair" ? "not-allowed" : "pointer", opacity: shopCfg.businessMode === "repair-pro" && module !== "repair" ? 0.45 : 1 }}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={getEnabledModules(shopCfg).includes(module)}
+                                                    disabled={shopCfg.businessMode === "repair-pro" && module !== "repair"}
+                                                    onChange={e => {
+                                                        const current = new Set(getEnabledModules(shopCfg));
+                                                        if (e.target.checked) current.add(module);
+                                                        else current.delete(module);
+                                                        setShopField("enabledModules", Array.from(current));
+                                                    }}
+                                                />
+                                                <span style={{ textTransform: "capitalize" }}>{module}</span>
+                                            </label>)}
+                                        </div></F>
+                                        <div style={{ color: "var(--t3)", fontSize: 12, lineHeight: 1.6 }}>General mode can show Buy, Sell, and Repair together. Repair Pro keeps the app focused on repair jobs, while still allowing you to switch back here later.</div>
+                                    </div>
                                 </div>
                             </div>
                         </div>

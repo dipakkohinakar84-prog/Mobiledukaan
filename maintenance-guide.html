@@ -1,0 +1,1072 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PhoneDukaan Maintenance & Recovery Guide</title>
+  <style>
+    :root {
+      --bg: #07111f;
+      --bg-2: #140f37;
+      --panel: rgba(20, 28, 53, 0.82);
+      --panel-strong: rgba(28, 37, 68, 0.96);
+      --line: rgba(255, 255, 255, 0.11);
+      --text: #ecf3ff;
+      --muted: #a6b4d1;
+      --blue: #22d3ee;
+      --blue-2: #4f9cff;
+      --violet: #8b5cf6;
+      --green: #34d399;
+      --amber: #fbbf24;
+      --red: #f87171;
+      --shadow: 0 24px 60px rgba(0, 0, 0, 0.34);
+      --radius: 22px;
+      --radius-sm: 14px;
+      --max: 1380px;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(34, 211, 238, 0.16), transparent 32%),
+        radial-gradient(circle at top right, rgba(139, 92, 246, 0.18), transparent 28%),
+        linear-gradient(120deg, var(--bg) 0%, #0c2035 36%, #21114d 100%);
+      min-height: 100vh;
+    }
+
+    a { color: var(--blue); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code, pre { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; }
+    code {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      padding: 0.15rem 0.45rem;
+      color: #dff7ff;
+    }
+    pre {
+      margin: 0;
+      padding: 18px;
+      overflow-x: auto;
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.09);
+      background: rgba(8, 14, 30, 0.92);
+      color: #dbe7ff;
+      line-height: 1.55;
+      font-size: 13px;
+    }
+
+    .shell {
+      width: min(var(--max), calc(100% - 32px));
+      margin: 0 auto;
+      padding: 28px 0 56px;
+    }
+
+    .hero {
+      position: relative;
+      overflow: hidden;
+      padding: 30px;
+      border-radius: 30px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: linear-gradient(135deg, rgba(13, 24, 47, 0.96), rgba(32, 28, 69, 0.92));
+      box-shadow: var(--shadow);
+      margin-bottom: 20px;
+    }
+    .hero::after {
+      content: "";
+      position: absolute;
+      inset: auto -120px -120px auto;
+      width: 300px;
+      height: 300px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(34, 211, 238, 0.2), transparent 70%);
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+    .logo {
+      width: 64px;
+      height: 64px;
+      border-radius: 18px;
+      display: grid;
+      place-items: center;
+      font-weight: 800;
+      font-size: 22px;
+      background: linear-gradient(135deg, rgba(34, 211, 238, 0.22), rgba(139, 92, 246, 0.25));
+      color: white;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.1);
+    }
+    .brand h1 {
+      margin: 0;
+      font-size: clamp(28px, 5vw, 42px);
+      line-height: 1.05;
+      letter-spacing: -0.03em;
+    }
+    .brand .accent { color: var(--blue-2); }
+    .hero p {
+      margin: 10px 0 0;
+      max-width: 900px;
+      color: var(--muted);
+      line-height: 1.7;
+      font-size: 15px;
+    }
+    .hero-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 24px;
+    }
+    .hero-card {
+      padding: 16px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .hero-card .label {
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .hero-card .value {
+      margin-top: 8px;
+      font-size: 15px;
+      font-weight: 700;
+      line-height: 1.45;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr);
+      gap: 20px;
+      align-items: start;
+    }
+
+    .sidebar {
+      position: sticky;
+      top: 18px;
+      padding: 18px;
+      border-radius: 24px;
+      background: rgba(10, 16, 33, 0.74);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+    }
+    .sidebar h2 {
+      margin: 0 0 14px;
+      font-size: 15px;
+    }
+    .sidebar a {
+      display: block;
+      padding: 10px 12px;
+      margin-bottom: 6px;
+      border-radius: 12px;
+      color: var(--muted);
+      border: 1px solid transparent;
+    }
+    .sidebar a:hover {
+      text-decoration: none;
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.05);
+      border-color: rgba(255, 255, 255, 0.08);
+    }
+
+    .content {
+      display: grid;
+      gap: 20px;
+    }
+    .section {
+      padding: 26px;
+      border-radius: 24px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(8px);
+    }
+    .section h2 {
+      margin: 0 0 8px;
+      font-size: 24px;
+      letter-spacing: -0.02em;
+    }
+    .section p.lead {
+      margin: 0 0 18px;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+
+    .grid-2, .grid-3 {
+      display: grid;
+      gap: 16px;
+    }
+    .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+    .card {
+      padding: 18px;
+      border-radius: 18px;
+      background: var(--panel-strong);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .card h3 {
+      margin: 0 0 10px;
+      font-size: 16px;
+    }
+    .card p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.7;
+      font-size: 14px;
+    }
+
+    .list {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--muted);
+      line-height: 1.8;
+    }
+    .list strong { color: var(--text); }
+
+    .arch {
+      display: grid;
+      gap: 14px;
+      margin-top: 12px;
+    }
+    .arch-row {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      align-items: stretch;
+    }
+    .arch-box {
+      padding: 18px;
+      border-radius: 18px;
+      min-height: 150px;
+      border: 1px solid rgba(255,255,255,0.09);
+      background: linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.02));
+    }
+    .arch-box h3 {
+      margin: 0 0 8px;
+      font-size: 16px;
+    }
+    .arch-box p {
+      margin: 0 0 10px;
+      color: var(--muted);
+      line-height: 1.65;
+      font-size: 14px;
+    }
+    .arrow {
+      text-align: center;
+      color: var(--blue);
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      font-size: 14px;
+    }
+
+    .pill-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 700;
+      border: 1px solid rgba(255,255,255,0.09);
+      background: rgba(255,255,255,0.05);
+    }
+    .ok { color: var(--green); }
+    .warn { color: var(--amber); }
+    .bad { color: var(--red); }
+
+    .flow {
+      display: grid;
+      gap: 12px;
+      margin-top: 12px;
+    }
+    .step {
+      padding: 16px 18px;
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.035);
+    }
+    .step strong { display: block; margin-bottom: 6px; }
+    .step span { color: var(--muted); line-height: 1.65; font-size: 14px; }
+
+    .table-wrap {
+      overflow-x: auto;
+      border-radius: 18px;
+      border: 1px solid rgba(255,255,255,0.09);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: rgba(9, 16, 31, 0.66);
+      min-width: 720px;
+    }
+    th, td {
+      padding: 14px 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      text-align: left;
+      vertical-align: top;
+      line-height: 1.6;
+      font-size: 14px;
+    }
+    th {
+      color: #d9e7ff;
+      background: rgba(255,255,255,0.04);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    td { color: var(--muted); }
+
+    .command {
+      display: grid;
+      gap: 10px;
+    }
+    .command + .command { margin-top: 14px; }
+    .command h3 {
+      margin: 0;
+      font-size: 15px;
+    }
+    .command p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.65;
+      font-size: 14px;
+    }
+
+    .footer-note {
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+      padding: 18px 0 0;
+    }
+
+    .print-btn {
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      z-index: 20;
+      border: 0;
+      cursor: pointer;
+      border-radius: 999px;
+      padding: 14px 18px;
+      font-weight: 800;
+      color: white;
+      background: linear-gradient(135deg, #21d4fd, #8b5cf6);
+      box-shadow: 0 18px 40px rgba(33, 212, 253, 0.28);
+    }
+
+    @media (max-width: 1120px) {
+      .layout { grid-template-columns: 1fr; }
+      .sidebar { position: relative; top: 0; }
+      .hero-grid, .grid-3, .arch-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    @media (max-width: 760px) {
+      .shell { width: min(var(--max), calc(100% - 18px)); padding-top: 12px; }
+      .hero, .section { padding: 18px; border-radius: 20px; }
+      .hero-grid, .grid-2, .grid-3, .arch-row { grid-template-columns: 1fr; }
+      .brand { align-items: flex-start; }
+      .print-btn { right: 10px; bottom: 10px; padding: 12px 14px; }
+    }
+
+    @media print {
+      body {
+        background: white;
+        color: #111827;
+      }
+      .shell { width: 100%; padding: 0; }
+      .layout { display: block; }
+      .sidebar, .print-btn { display: none; }
+      .hero, .section, .card, .arch-box {
+        background: white !important;
+        color: #111827 !important;
+        box-shadow: none !important;
+        border-color: #d1d5db !important;
+      }
+      .hero p, .card p, .step span, td, .list, .footer-note, .section p.lead {
+        color: #374151 !important;
+      }
+      a { color: #1d4ed8 !important; }
+      code, pre {
+        background: #f3f4f6 !important;
+        color: #111827 !important;
+        border-color: #d1d5db !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <button class="print-btn" onclick="window.print()">Save as PDF</button>
+
+  <div class="shell">
+    <section class="hero">
+      <div class="brand">
+        <div class="logo">PD</div>
+        <div>
+          <h1>Phone<span class="accent">Dukaan</span> Maintenance & Recovery Guide</h1>
+          <p>Complete operating manual for frontend, backend, admin API, PocketBase, Nginx, SSL, troubleshooting, regular servicing, and full VPS migration if the current server crashes.</p>
+        </div>
+      </div>
+
+      <div class="hero-grid">
+        <div class="hero-card">
+          <div class="label">Frontend</div>
+          <div class="value">Netlify-hosted Vite React app on <code>phonedukaan.kohnex.com</code></div>
+        </div>
+        <div class="hero-card">
+          <div class="label">Admin API</div>
+          <div class="value">Node service on <code>adminapi.kohnex.com</code> behind Nginx + systemd</div>
+        </div>
+        <div class="hero-card">
+          <div class="label">Database</div>
+          <div class="value">PocketBase on <code>db.kohnex.com</code></div>
+        </div>
+        <div class="hero-card">
+          <div class="label">Current Admin Auth</div>
+          <div class="value">Bearer token via admin API, not browser superuser login</div>
+        </div>
+      </div>
+    </section>
+
+    <div class="layout">
+      <aside class="sidebar">
+        <h2>Guide Index</h2>
+        <a href="#overview">Overview</a>
+        <a href="#architecture">System Architecture</a>
+        <a href="#working">How It Works</a>
+        <a href="#frontend">Frontend Maintenance</a>
+        <a href="#backend">Backend Maintenance</a>
+        <a href="#errors">Error Resolution</a>
+        <a href="#commands">Command Center</a>
+        <a href="#backup">Backup Plan</a>
+        <a href="#migration">VPS Migration Plan</a>
+        <a href="#smoke">Smoke Test Checklist</a>
+      </aside>
+
+      <main class="content">
+        <section class="section" id="overview">
+          <h2>Overview</h2>
+          <p class="lead">This guide is for operating PhoneDukaan in production, fixing common failures quickly, maintaining both frontend and backend safely, and rebuilding the whole stack on a new VPS if required.</p>
+          <div class="grid-2">
+            <div class="card">
+              <h3>Production Domains</h3>
+              <ul class="list">
+                <li><strong>Frontend:</strong> <code>https://phonedukaan.kohnex.com</code></li>
+                <li><strong>Admin API:</strong> <code>https://adminapi.kohnex.com</code></li>
+                <li><strong>PocketBase:</strong> <code>https://db.kohnex.com</code></li>
+              </ul>
+            </div>
+            <div class="card">
+              <h3>Current Working Model</h3>
+              <ul class="list">
+                <li><strong>Shop app:</strong> browser talks directly to PocketBase for shop data</li>
+                <li><strong>Admin panel:</strong> browser talks to admin API only</li>
+                <li><strong>Admin API:</strong> server talks to PocketBase using superuser auth</li>
+                <li><strong>Password reset:</strong> PocketBase sends email using its own app URL</li>
+              </ul>
+            </div>
+          </div>
+          <div class="pill-row">
+            <div class="pill ok">Frontend live on Netlify</div>
+            <div class="pill ok">Admin API behind Nginx</div>
+            <div class="pill ok">systemd service: <code>adminapi</code></div>
+            <div class="pill ok">TLS active on both backend domains</div>
+          </div>
+        </section>
+
+        <section class="section" id="architecture">
+          <h2>Full System Architecture</h2>
+          <p class="lead">The system is split into a Netlify-hosted frontend and a VPS-hosted backend stack. Shop users and admin users follow different data and authentication paths.</p>
+
+          <div class="arch">
+            <div class="arch-row">
+              <div class="arch-box">
+                <h3>Frontend: Netlify</h3>
+                <p>Vite + React app served from Netlify. Routes include normal shop usage on <code>/</code> and admin access on <code>/777admin</code>.</p>
+                <ul class="list">
+                  <li><strong>Shop session:</strong> stored in <code>localStorage</code></li>
+                  <li><strong>Admin session:</strong> stored in <code>sessionStorage</code></li>
+                  <li><strong>PWA:</strong> service worker enabled via Vite PWA plugin</li>
+                </ul>
+              </div>
+              <div class="arch-box">
+                <h3>Admin API: VPS</h3>
+                <p>Node-based API on <code>adminapi.kohnex.com</code>. It accepts admin login from the frontend, validates bearer tokens, and performs trusted admin actions against PocketBase.</p>
+                <ul class="list">
+                  <li><strong>Service:</strong> <code>adminapi.service</code></li>
+                  <li><strong>Port:</strong> <code>127.0.0.1:8787</code></li>
+                  <li><strong>Proxy:</strong> Nginx reverse proxy</li>
+                </ul>
+              </div>
+              <div class="arch-box">
+                <h3>PocketBase: VPS</h3>
+                <p>PocketBase is the main data store and auth service for shop users. It also sends password reset emails and stores collections for all business data.</p>
+                <ul class="list">
+                  <li><strong>Main host:</strong> <code>db.kohnex.com</code></li>
+                  <li><strong>Important setting:</strong> app URL must be <code>https://db.kohnex.com</code></li>
+                </ul>
+              </div>
+            </div>
+
+            <div class="arrow">Browser -> Netlify frontend -> Admin API -> PocketBase</div>
+
+            <div class="grid-3">
+              <div class="card">
+                <h3>Frontend Architecture</h3>
+                <ul class="list">
+                  <li><strong>Main files:</strong> <code>mobile-dukaan_2.jsx</code>, <code>pocketbase-client.js</code>, <code>vite.config.js</code></li>
+                  <li><strong>Build output:</strong> generated into <code>dist/</code></li>
+                  <li><strong>SPA rewrite:</strong> <code>public/_redirects</code> for Netlify route fallback</li>
+                  <li><strong>Admin path:</strong> direct loads to <code>/777admin</code> now work</li>
+                </ul>
+              </div>
+              <div class="card">
+                <h3>Backend Architecture</h3>
+                <ul class="list">
+                  <li><strong>Admin server:</strong> <code>admin-api-server.js</code></li>
+                  <li><strong>Nginx:</strong> handles public HTTPS and proxies to local ports</li>
+                  <li><strong>systemd:</strong> keeps the Node admin API running after reboot</li>
+                  <li><strong>Certbot:</strong> manages certificates</li>
+                </ul>
+              </div>
+              <div class="card">
+                <h3>Core PocketBase Collections</h3>
+                <ul class="list">
+                  <li><code>shop_users</code></li>
+                  <li><code>shops</code></li>
+                  <li><code>app_settings</code></li>
+                  <li><code>inventory</code></li>
+                  <li><code>transactions</code></li>
+                  <li><code>photos</code></li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div class="table-wrap" style="margin-top:18px;">
+            <table>
+              <thead>
+                <tr>
+                  <th>Layer</th>
+                  <th>Host</th>
+                  <th>Purpose</th>
+                  <th>Auth Model</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Frontend</td>
+                  <td><code>phonedukaan.kohnex.com</code></td>
+                  <td>Shop app and admin UI</td>
+                  <td>Shop sessions in <code>localStorage</code>, admin token in <code>sessionStorage</code></td>
+                </tr>
+                <tr>
+                  <td>Admin API</td>
+                  <td><code>adminapi.kohnex.com</code></td>
+                  <td>Trusted admin actions, dashboard, user management, settings, reset email trigger</td>
+                  <td>Bearer token with in-memory session store</td>
+                </tr>
+                <tr>
+                  <td>PocketBase</td>
+                  <td><code>db.kohnex.com</code></td>
+                  <td>Database, shop auth, business records, reset email generation</td>
+                  <td>Shop auth via <code>shop_users</code>; admin superuser only used server-side</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="section" id="working">
+          <h2>How The System Works</h2>
+          <p class="lead">Use this section to understand the live data flow before making changes. It is the reference model for what is supposed to happen when the system is healthy.</p>
+          <div class="grid-2">
+            <div class="card">
+              <h3>Shop User Flow</h3>
+              <div class="flow">
+                <div class="step"><strong>1. Login</strong><span>User signs in with mobile number + password. The browser authenticates directly to PocketBase using the <code>shop_users</code> collection.</span></div>
+                <div class="step"><strong>2. Session restore</strong><span>Shop session is stored in <code>localStorage</code>. On reload, the app restores the saved shop session.</span></div>
+                <div class="step"><strong>3. Data access</strong><span>Inventory, transactions, photos, and shop profile are loaded directly from PocketBase.</span></div>
+                <div class="step"><strong>4. Realtime sync</strong><span>The app subscribes to PocketBase realtime updates for shop data outside the admin route.</span></div>
+              </div>
+            </div>
+            <div class="card">
+              <h3>Admin Flow</h3>
+              <div class="flow">
+                <div class="step"><strong>1. Admin login</strong><span>The browser sends credentials to <code>https://adminapi.kohnex.com/admin-api/login</code>.</span></div>
+                <div class="step"><strong>2. Token issue</strong><span>The admin API authenticates against PocketBase superuser server-side and returns a bearer token to the browser.</span></div>
+                <div class="step"><strong>3. Session validation</strong><span>The browser stores the token in <code>sessionStorage</code> and validates it via <code>/admin-api/session</code>.</span></div>
+                <div class="step"><strong>4. Protected actions</strong><span>Dashboard load, user updates, shop updates, settings changes, and password reset requests all go through the admin API only.</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid-2" style="margin-top:16px;">
+            <div class="card">
+              <h3>Password Reset Flow</h3>
+              <ul class="list">
+                <li>Admin panel sends a request to <code>/admin-api/password-reset</code></li>
+                <li>Admin API calls PocketBase <code>requestPasswordReset(email)</code></li>
+                <li>PocketBase sends the email and generates the reset link</li>
+                <li>The email link host depends on PocketBase <strong>Application URL</strong></li>
+                <li>Correct value: <code>https://db.kohnex.com</code></li>
+              </ul>
+            </div>
+            <div class="card">
+              <h3>Routing + Cache Behavior</h3>
+              <ul class="list">
+                <li>Netlify serves the SPA frontend</li>
+                <li><code>public/_redirects</code> sends all routes to <code>index.html</code></li>
+                <li>This is why direct loads to <code>/777admin</code> work</li>
+                <li>PWA service worker can cache old assets, so use hard refresh when debugging</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <section class="section" id="frontend">
+          <h2>Frontend Maintenance</h2>
+          <p class="lead">Use this process whenever you change the UI, admin flow, PocketBase client code, or Netlify routing.</p>
+
+          <div class="command">
+            <h3>Local Build Verification</h3>
+            <p>Before any deploy, install dependencies and build the frontend to catch syntax or bundling problems.</p>
+            <pre><code>npm install
+npm run build</code></pre>
+          </div>
+
+          <div class="grid-2" style="margin-top:16px;">
+            <div class="card">
+              <h3>Frontend Files That Matter</h3>
+              <ul class="list">
+                <li><code>mobile-dukaan_2.jsx</code> - main app and admin UI</li>
+                <li><code>pocketbase-client.js</code> - all PocketBase and admin API requests</li>
+                <li><code>vite.config.js</code> - build + PWA config</li>
+                <li><code>public/_redirects</code> - Netlify SPA routing</li>
+                <li><code>.env.example</code> - environment variable reference</li>
+              </ul>
+            </div>
+            <div class="card">
+              <h3>Netlify Environment Variables</h3>
+              <ul class="list">
+                <li><code>VITE_POCKETBASE_URL=https://db.kohnex.com</code></li>
+                <li><code>VITE_ADMIN_API_URL=https://adminapi.kohnex.com</code></li>
+                <li>After changing env vars, trigger a new deploy</li>
+                <li>Do not put secrets in frontend env vars</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="command" style="margin-top:16px;">
+            <h3>Frontend Deploy Checklist</h3>
+            <pre><code>1. Update code locally
+2. Run npm run build
+3. Push code to GitHub
+4. Wait for Netlify deploy to finish
+5. Open https://phonedukaan.kohnex.com
+6. Open https://phonedukaan.kohnex.com/777admin
+7. Test login, dashboard, logout
+8. Check browser Network tab if anything looks wrong</code></pre>
+          </div>
+
+          <div class="command" style="margin-top:16px;">
+            <h3>Clear Frontend Cache Problems</h3>
+            <pre><code>1. Open site in Incognito
+2. Hard refresh the page
+3. In DevTools, check "Disable cache"
+4. If still stale, unregister service worker in Application tab
+5. Reload again</code></pre>
+          </div>
+        </section>
+
+        <section class="section" id="backend">
+          <h2>Backend Maintenance</h2>
+          <p class="lead">The backend includes Nginx, PocketBase, the admin API, TLS certificates, and systemd service management.</p>
+
+          <div class="grid-2">
+            <div class="card">
+              <h3>Admin API Service</h3>
+              <ul class="list">
+                <li><strong>Service name:</strong> <code>adminapi</code></li>
+                <li><strong>File:</strong> <code>/etc/systemd/system/adminapi.service</code></li>
+                <li><strong>Working directory:</strong> <code>/var/www/phonedukaan</code></li>
+                <li><strong>Port:</strong> <code>127.0.0.1:8787</code></li>
+              </ul>
+            </div>
+            <div class="card">
+              <h3>Nginx Reverse Proxy</h3>
+              <ul class="list">
+                <li><strong>PocketBase host:</strong> <code>db.kohnex.com</code></li>
+                <li><strong>Admin API host:</strong> <code>adminapi.kohnex.com</code></li>
+                <li>Nginx terminates HTTPS and proxies to local services</li>
+                <li>Always run <code>nginx -t</code> before reload</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="grid-2" style="margin-top:16px;">
+            <div class="command">
+              <h3>Admin API Health Commands</h3>
+              <pre><code>systemctl status adminapi --no-pager
+journalctl -u adminapi -n 100 --no-pager
+systemctl restart adminapi
+ss -ltnp | grep 8787</code></pre>
+            </div>
+            <div class="command">
+              <h3>Nginx + TLS Health Commands</h3>
+              <pre><code>systemctl status nginx --no-pager
+nginx -t
+systemctl reload nginx
+certbot certificates</code></pre>
+            </div>
+          </div>
+
+          <div class="grid-2" style="margin-top:16px;">
+            <div class="card">
+              <h3>PocketBase Checks</h3>
+              <ul class="list">
+                <li>Confirm PocketBase is reachable on <code>https://db.kohnex.com</code></li>
+                <li>Confirm <strong>Application URL</strong> is <code>https://db.kohnex.com</code></li>
+                <li>Check collections and data in admin dashboard if issues appear</li>
+                <li>Verify SMTP settings if password reset stops working</li>
+              </ul>
+            </div>
+            <div class="card">
+              <h3>Admin API Environment Values</h3>
+              <ul class="list">
+                <li><code>POCKETBASE_URL=https://db.kohnex.com</code></li>
+                <li><code>ADMIN_API_PORT=8787</code></li>
+                <li><code>ADMIN_API_ALLOWED_ORIGINS=https://phonedukaan.kohnex.com</code></li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <section class="section" id="errors">
+          <h2>Error Resolution Guide</h2>
+          <p class="lead">Use these fixes in order. Start with the symptom, run the matching commands, and only make changes after you know where the failure is.</p>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Problem</th>
+                  <th>Likely Cause</th>
+                  <th>Resolution</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>/777admin</code> shows Netlify 404</td>
+                  <td>SPA route fallback missing</td>
+                  <td>Ensure <code>public/_redirects</code> exists with <code>/* /index.html 200</code>, then redeploy frontend.</td>
+                </tr>
+                <tr>
+                  <td>Admin login fails</td>
+                  <td>Admin API down, CORS mismatch, wrong env var, wrong credentials</td>
+                  <td>Check <code>systemctl status adminapi</code>, validate <code>VITE_ADMIN_API_URL</code>, inspect browser network requests.</td>
+                </tr>
+                <tr>
+                  <td>Dashboard does not load</td>
+                  <td>Admin token invalid or backend query failure</td>
+                  <td>Test <code>/admin-api/session</code> and <code>/admin-api/dashboard</code> manually with curl.</td>
+                </tr>
+                <tr>
+                  <td><code>502 Bad Gateway</code></td>
+                  <td>Nginx cannot reach backend process</td>
+                  <td>Check service health, logs, and listening port. Restart the failed service.</td>
+                </tr>
+                <tr>
+                  <td>SSL hostname mismatch</td>
+                  <td>Wrong certificate attached to Nginx vhost</td>
+                  <td>Check <code>certbot certificates</code> and the exact <code>server_name</code> in Nginx, then reissue correct certificate.</td>
+                </tr>
+                <tr>
+                  <td>Password reset email points to localhost</td>
+                  <td>PocketBase Application URL is wrong</td>
+                  <td>Set PocketBase <strong>Application URL</strong> to <code>https://db.kohnex.com</code> and resend reset email.</td>
+                </tr>
+                <tr>
+                  <td>Direct refresh shows old UI</td>
+                  <td>Old service worker or browser cache</td>
+                  <td>Hard refresh, disable cache in DevTools, or unregister the service worker.</td>
+                </tr>
+                <tr>
+                  <td>CORS errors in admin panel</td>
+                  <td>Origin missing from allowed list</td>
+                  <td>Update <code>ADMIN_API_ALLOWED_ORIGINS</code>, restart admin API, retest.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="grid-2" style="margin-top:16px;">
+            <div class="command">
+              <h3>Manual Admin API Tests</h3>
+              <pre><code>curl -i https://adminapi.kohnex.com/admin-api/session \
+  -H "Origin: https://phonedukaan.kohnex.com"
+
+curl -i https://adminapi.kohnex.com/admin-api/login \
+  -H "Content-Type: application/json" \
+  -H "Origin: https://phonedukaan.kohnex.com" \
+  --data '{"email":"YOUR_ADMIN_EMAIL","password":"YOUR_ADMIN_PASSWORD"}'</code></pre>
+            </div>
+            <div class="command">
+              <h3>Manual Backend Reachability Tests</h3>
+              <pre><code>curl -i https://db.kohnex.com
+curl -i https://adminapi.kohnex.com/admin-api/session \
+  -H "Origin: https://phonedukaan.kohnex.com"
+ss -ltnp | grep 8787</code></pre>
+            </div>
+          </div>
+        </section>
+
+        <section class="section" id="commands">
+          <h2>Command Center</h2>
+          <p class="lead">These are the commands you will use most often during servicing and recovery.</p>
+
+          <div class="grid-2">
+            <div class="command">
+              <h3>Admin API</h3>
+              <pre><code>systemctl status adminapi --no-pager
+journalctl -u adminapi -n 100 --no-pager
+journalctl -u adminapi -f
+systemctl restart adminapi
+systemctl stop adminapi
+systemctl start adminapi
+ss -ltnp | grep 8787</code></pre>
+            </div>
+            <div class="command">
+              <h3>Nginx</h3>
+              <pre><code>systemctl status nginx --no-pager
+nginx -t
+systemctl reload nginx
+systemctl restart nginx
+nginx -T | grep -n "adminapi.kohnex.com"
+nginx -T | grep -n "ssl_certificate"</code></pre>
+            </div>
+            <div class="command">
+              <h3>Certificates</h3>
+              <pre><code>certbot certificates
+certbot --nginx -d adminapi.kohnex.com
+certbot --nginx -d db.kohnex.com</code></pre>
+            </div>
+            <div class="command">
+              <h3>Frontend</h3>
+              <pre><code>npm install
+npm run build
+git status
+git diff</code></pre>
+            </div>
+          </div>
+        </section>
+
+        <section class="section" id="backup">
+          <h2>Backup Plan</h2>
+          <p class="lead">A working migration depends on having current backups of both code and PocketBase data. Without PocketBase data, restoring only the frontend is not enough.</p>
+
+          <div class="grid-2">
+            <div class="card">
+              <h3>What Must Be Backed Up</h3>
+              <ul class="list">
+                <li>GitHub repository</li>
+                <li>PocketBase data directory</li>
+                <li>PocketBase uploaded files</li>
+                <li>Nginx site configs</li>
+                <li><code>/etc/systemd/system/adminapi.service</code></li>
+                <li>DNS notes and domain mapping</li>
+                <li>Netlify environment values</li>
+                <li>Admin API environment values</li>
+              </ul>
+            </div>
+            <div class="card">
+              <h3>Recommended Backup Frequency</h3>
+              <ul class="list">
+                <li><strong>Code:</strong> every change via GitHub</li>
+                <li><strong>PocketBase data:</strong> daily</li>
+                <li><strong>Before risky updates:</strong> manual backup first</li>
+                <li><strong>Before VPS migration:</strong> fresh backup immediately before cutover</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="command" style="margin-top:16px;">
+            <h3>Backup Checklist</h3>
+            <pre><code>1. Backup PocketBase database/data directory
+2. Backup PocketBase uploaded files
+3. Backup /etc/nginx/sites-available/
+4. Backup /etc/nginx/sites-enabled/
+5. Backup /etc/systemd/system/adminapi.service
+6. Confirm GitHub repo is up to date
+7. Save Netlify env vars in a secure place
+8. Save DNS records and server IP notes</code></pre>
+          </div>
+        </section>
+
+        <section class="section" id="migration">
+          <h2>VPS Crash Recovery and Migration Plan</h2>
+          <p class="lead">If the current VPS crashes, use this exact order. Do not move DNS first. Restore the stack fully, test it, and only then point domains to the new server.</p>
+
+          <div class="grid-2">
+            <div class="command">
+              <h3>Phase 1: Prepare New VPS</h3>
+              <pre><code>apt update
+apt install -y nginx certbot python3-certbot-nginx curl git
+curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+apt install -y nodejs
+node -v
+npm -v</code></pre>
+            </div>
+            <div class="command">
+              <h3>Phase 2: Restore Application Code</h3>
+              <pre><code>mkdir -p /var/www/phonedukaan
+cd /var/www/phonedukaan
+git clone YOUR_GITHUB_REPO_URL .
+npm install</code></pre>
+            </div>
+          </div>
+
+          <div class="grid-2" style="margin-top:16px;">
+            <div class="command">
+              <h3>Phase 3: Restore PocketBase</h3>
+              <pre><code>1. Restore PocketBase binary/service
+2. Restore PocketBase data directory
+3. Restore uploaded files
+4. Start PocketBase
+5. Confirm https://db.kohnex.com will proxy correctly after Nginx is restored</code></pre>
+            </div>
+            <div class="command">
+              <h3>Phase 4: Restore Admin API Service</h3>
+              <pre><code>cat &gt;/etc/systemd/system/adminapi.service &lt;&lt;'EOF'
+[Unit]
+Description=PhoneDukaan Admin API
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/var/www/phonedukaan
+Environment=POCKETBASE_URL=https://db.kohnex.com
+Environment=ADMIN_API_PORT=8787
+Environment=ADMIN_API_ALLOWED_ORIGINS=https://phonedukaan.kohnex.com
+ExecStart=/usr/bin/node /var/www/phonedukaan/admin-api-server.js
+Restart=always
+RestartSec=5
+User=root
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+systemctl enable adminapi
+systemctl start adminapi
+systemctl status adminapi --no-pager</code></pre>
+            </div>
+          </div>
+
+          <div class="grid-2" style="margin-top:16px;">
+            <div class="command">
+              <h3>Phase 5: Restore Nginx</h3>
+              <pre><code>1. Restore Nginx site config for db.kohnex.com
+2. Restore Nginx site config for adminapi.kohnex.com
+3. Run nginx -t
+4. Run systemctl reload nginx</code></pre>
+            </div>
+            <div class="command">
+              <h3>Phase 6: Issue SSL Certificates</h3>
+              <pre><code>certbot --nginx -d db.kohnex.com
+certbot --nginx -d adminapi.kohnex.com
+certbot certificates</code></pre>
+            </div>
+          </div>
+
+          <div class="command" style="margin-top:16px;">
+            <h3>Phase 7: Test Before DNS Cutover</h3>
+            <pre><code>curl -i http://127.0.0.1:8787/admin-api/session
+curl -i https://adminapi.kohnex.com/admin-api/session \
+  -H "Origin: https://phonedukaan.kohnex.com"
+curl -i https://db.kohnex.com
+systemctl status adminapi --no-pager
+systemctl status nginx --no-pager
+certbot certificates</code></pre>
+          </div>
+
+          <div class="command" style="margin-top:16px;">
+            <h3>Phase 8: Move DNS to New VPS</h3>
+            <pre><code>1. Update A record for db.kohnex.com to new VPS IP
+2. Update A record for adminapi.kohnex.com to new VPS IP
+3. Wait for DNS propagation
+4. Re-test both domains
+5. Confirm frontend still points to correct hosts</code></pre>
+          </div>
+
+          <div class="command" style="margin-top:16px;">
+            <h3>Phase 9: Final Post-Migration Checks</h3>
+            <pre><code>1. Open https://phonedukaan.kohnex.com
+2. Open https://phonedukaan.kohnex.com/777admin
+3. Log into admin panel
+4. Confirm dashboard loads
+5. Send password reset email
+6. Confirm reset link uses https://db.kohnex.com
+7. Test one user/shop update
+8. Restart VPS and confirm services auto-start</code></pre>
+          </div>
+        </section>
+
+        <section class="section" id="smoke">
+          <h2>Final Smoke Test Checklist</h2>
+          <p class="lead">Run this after any important deploy, backend change, certificate renewal, or VPS migration.</p>
+
+          <div class="grid-3">
+            <div class="card">
+              <h3>Frontend</h3>
+              <ul class="list">
+                <li>Home page loads</li>
+                <li><code>/777admin</code> direct load works</li>
+                <li>No Netlify 404 for SPA routes</li>
+                <li>Fresh build visible in browser</li>
+              </ul>
+            </div>
+            <div class="card">
+              <h3>Admin</h3>
+              <ul class="list">
+                <li>Admin login works</li>
+                <li><code>/admin-api/session</code> works</li>
+                <li><code>/admin-api/dashboard</code> works</li>
+                <li>User/shop/settings updates work</li>
+              </ul>
+            </div>
+            <div class="card">
+              <h3>Backend</h3>
+              <ul class="list">
+                <li><code>adminapi</code> service is active</li>
+                <li>Nginx config passes <code>nginx -t</code></li>
+                <li>Certificates are valid</li>
+                <li>Password reset points to <code>https://db.kohnex.com</code></li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <div class="footer-note">PhoneDukaan operations guide. Update this file whenever architecture, domains, deployment flow, or recovery steps change.</div>
+      </main>
+    </div>
+  </div>
+</body>
+</html>
