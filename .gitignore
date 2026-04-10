@@ -1,3 +1,11 @@
+<<<<<<< HEAD
+=======
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+>>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
 *.local
 *.pem
 *.key

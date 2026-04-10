@@ -19,11 +19,16 @@ const COLLECTIONS = {
   inventory: 'inventory',
   transactions: 'transactions',
   photos: 'photos',
+<<<<<<< HEAD
   repairs: 'repairs',
 }
 
 const DEFAULT_ENABLED_MODULES = ['buy', 'sell', 'repair']
 
+=======
+}
+
+>>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
 const DEFAULT_TRIAL_DAYS = 7
 const ADMIN_API_BASE = adminApiUrl ? `${adminApiUrl.replace(/\/$/, '')}/admin-api` : '/admin-api'
 
@@ -166,6 +171,7 @@ function pbPhotoToRef(pb, record) {
   }
 }
 
+<<<<<<< HEAD
 function parseEnabledModulesCsv(value = '') {
   const modules = String(value || '')
     .split(',')
@@ -187,6 +193,8 @@ function repairFileToRef(pb, record, fileName) {
   }
 }
 
+=======
+>>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
 export function getPocketBaseUrl() {
   return ensureUrl()
 }
@@ -337,12 +345,19 @@ export async function pocketbaseLoadShopBundle(shopAuth) {
   const shopRecordId = shopAuth?.record?.shop
   if (!shopRecordId) throw new Error('PocketBase shop session is missing shop relation.')
 
+<<<<<<< HEAD
   const [shop, inventory, transactions, photos, repairs] = await Promise.all([
+=======
+  const [shop, inventory, transactions, photos] = await Promise.all([
+>>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
     pb.collection(COLLECTIONS.shops).getOne(shopRecordId),
     pb.collection(COLLECTIONS.inventory).getFullList({ filter: shopFilter(shopRecordId), sort: '-created' }),
     pb.collection(COLLECTIONS.transactions).getFullList({ filter: shopFilter(shopRecordId), sort: '-created' }),
     pb.collection(COLLECTIONS.photos).getFullList({ filter: shopFilter(shopRecordId), sort: '-created' }),
+<<<<<<< HEAD
     pb.collection(COLLECTIONS.repairs).getFullList({ filter: shopFilter(shopRecordId), sort: '-created' }),
+=======
+>>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
   ])
 
   const photosByItemId = new Map()
@@ -358,8 +373,12 @@ export async function pocketbaseLoadShopBundle(shopAuth) {
     shop: await shopRecordToProfile(pb, shop),
     inv: inventory.map((record) => inventoryRecordToItem(pb, record, photosByItemId.get(String(record.id)) || [])),
     tx: transactions.map(transactionRecordToItem),
+<<<<<<< HEAD
     repairs: repairs.map((record) => repairRecordToItem(pb, record)),
     savedAt: newestTimestamp([shop.updated, ...inventory.map(r => r.updated), ...transactions.map(r => r.updated), ...photos.map(r => r.updated), ...repairs.map(r => r.updated)]),
+=======
+    savedAt: newestTimestamp([shop.updated, ...inventory.map(r => r.updated), ...transactions.map(r => r.updated), ...photos.map(r => r.updated)]),
+>>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
   }
 }
 
@@ -392,6 +411,7 @@ export async function pocketbaseDeleteInventory(shopAuth, itemId) {
   await pb.collection(COLLECTIONS.inventory).delete(itemId)
 }
 
+<<<<<<< HEAD
 export async function pocketbaseUpsertRepair(shopAuth, repair) {
   const pb = createClient(shopAuth)
   const shopRecordId = shopAuth?.record?.shop
@@ -420,6 +440,8 @@ export async function pocketbaseDeleteRepair(shopAuth, repairId) {
   await pb.collection(COLLECTIONS.repairs).delete(repairId)
 }
 
+=======
+>>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
 export async function pocketbaseCreateTransaction(shopAuth, tx) {
   const pb = createClient(shopAuth)
   const shopRecordId = shopAuth?.record?.shop
@@ -479,7 +501,10 @@ export async function subscribeToShopData(shopAuth, onChange) {
       pb.collection(COLLECTIONS.inventory).subscribe('*', () => onChange()),
       pb.collection(COLLECTIONS.transactions).subscribe('*', () => onChange()),
       pb.collection(COLLECTIONS.photos).subscribe('*', () => onChange()),
+<<<<<<< HEAD
       pb.collection(COLLECTIONS.repairs).subscribe('*', () => onChange()),
+=======
+>>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
       pb.collection(COLLECTIONS.shops).subscribe(shopRecordId, () => onChange()),
     ])
   } catch (err) {
@@ -580,6 +605,7 @@ function transactionRecordToItem(record) {
   }
 }
 
+<<<<<<< HEAD
 function repairRecordToItem(pb, record) {
   const photoList = Array.isArray(record.photos) ? record.photos : (record.photos ? [record.photos] : [])
   return {
@@ -605,6 +631,8 @@ function repairRecordToItem(pb, record) {
   }
 }
 
+=======
+>>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
 function inventoryItemToRecord(item, shopRecordId) {
   return {
     shop: shopRecordId,
@@ -638,6 +666,7 @@ function inventoryItemToRecord(item, shopRecordId) {
   }
 }
 
+<<<<<<< HEAD
 function repairItemToRecord(item, shopRecordId) {
   return {
     shop: shopRecordId,
@@ -659,6 +688,8 @@ function repairItemToRecord(item, shopRecordId) {
   }
 }
 
+=======
+>>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
 function transactionItemToRecord(item, shopRecordId) {
   return {
     shop: shopRecordId,
@@ -718,8 +749,11 @@ async function shopRecordToProfile(pb, shop) {
     stickerShowPrice: shop.stickerShowPrice === undefined ? true : !!shop.stickerShowPrice,
     footer: shop.footer || '',
     terms: shop.terms || '',
+<<<<<<< HEAD
     businessMode: shop.businessMode || 'general',
     enabledModules: parseEnabledModulesCsv(shop.enabledModulesCsv || ''),
+=======
+>>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
   }
 }
 
@@ -742,8 +776,11 @@ function shopProfileToRecord(profile, currentShop = {}) {
     stickerShowPrice: profile.stickerShowPrice === undefined ? true : !!profile.stickerShowPrice,
     footer: profile.footer || '',
     terms: profile.terms || '',
+<<<<<<< HEAD
     businessMode: profile.businessMode || 'general',
     enabledModulesCsv: Array.isArray(profile.enabledModules) ? profile.enabledModules.join(',') : String(profile.enabledModulesCsv || ''),
+=======
+>>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
   }
 }
 
