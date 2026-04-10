@@ -8,20 +8,12 @@ import {
     User, Phone, Calendar, Hash, Palette, HardDrive, Tag, Layers, LogOut,
     ChevronRight, CreditCard, Banknote, QrCode, LayoutGrid, List, Bell,
     ImagePlus, Images, ChevronLeft, ZoomIn, RotateCcw, Upload, Aperture, Battery,
-<<<<<<< HEAD
     Download, Share2, Lock, MapPin, Mail, Printer, Zap, Shield, Clock, Wrench,
-=======
-    Download, Share2, Lock, MapPin, Mail, Printer, Zap, Shield, Clock,
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
     Trash, ArchiveRestore
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, CartesianGrid, Legend, AreaChart, Area } from "recharts";
 import { loadAppState, loadSyncState, saveAppState, saveSyncState, savePhotoBlob, loadPhotoBlob, deletePhotoBlob } from "./app-storage.js";
-<<<<<<< HEAD
 import { getPocketBaseUrl, pocketbaseAdminExtendUserTrial, pocketbaseAdminLoadDashboard, pocketbaseAdminLogin, pocketbaseAdminLogout, pocketbaseAdminSendPasswordReset, pocketbaseAdminSession, pocketbaseAdminUpdateSettings, pocketbaseAdminUpdateShop, pocketbaseAdminUpdateUser, pocketbaseCreateTransaction, pocketbaseDeleteInventory, pocketbaseDeleteRepair, pocketbaseGetTrialDays, pocketbaseIsTrialExpired, pocketbaseListShops, pocketbaseLoadShopBundle, pocketbaseRegisterShopUser, pocketbaseRequestPasswordReset, pocketbaseSaveShop, pocketbaseShopLogin, pocketbaseUpdateShopProfile, pocketbaseUploadPhoto, pocketbaseUpsertInventory, pocketbaseUpsertRepair, subscribeToShopData, unsubscribeFromShopData } from "./pocketbase-client.js";
-=======
-import { getPocketBaseUrl, pocketbaseAdminExtendUserTrial, pocketbaseAdminLoadDashboard, pocketbaseAdminLogin, pocketbaseAdminLogout, pocketbaseAdminSendPasswordReset, pocketbaseAdminSession, pocketbaseAdminUpdateSettings, pocketbaseAdminUpdateShop, pocketbaseAdminUpdateUser, pocketbaseCreateTransaction, pocketbaseDeleteInventory, pocketbaseGetTrialDays, pocketbaseIsTrialExpired, pocketbaseListShops, pocketbaseLoadShopBundle, pocketbaseRegisterShopUser, pocketbaseRequestPasswordReset, pocketbaseSaveShop, pocketbaseShopLogin, pocketbaseUpdateShopProfile, pocketbaseUploadPhoto, pocketbaseUpsertInventory, subscribeToShopData, unsubscribeFromShopData } from "./pocketbase-client.js";
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
 
 const genId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const fmtDate = (d) => new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
@@ -31,11 +23,7 @@ const CONDITIONS = ["New", "Refurbished", "Used"];
 const STATUSES = ["In Stock", "Sold", "Deleted"];
 const PAYMENT_MODES = ["Cash", "UPI", "Card", "Bank Transfer", "EMI"];
 const BRANDS = ["Samsung", "Apple", "OnePlus", "Xiaomi", "Vivo", "Oppo", "Realme", "Motorola", "Nothing", "Google", "iQOO", "Poco", "Other"];
-<<<<<<< HEAD
 const REPORT_TYPES = ["All", "Buy", "Sell", "Add", "Repair"];
-=======
-const REPORT_TYPES = ["All", "Buy", "Sell", "Add"];
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
 const REPORT_RANGE_PRESETS = ["Today", "Yesterday", "This Week", "This Month", "Custom"];
 const REPORT_BILL_FILTERS = ["All Bills", "GST", "Regular"];
 const REPORT_VIEWS = ["Transactions", "Customer Ledger", "Supplier Summary"];
@@ -43,7 +31,6 @@ const REPORT_DUE_FILTERS = ["All Status", "Due Only", "Paid Only"];
 const PHOTO_PREVIEW_MAX = 900;
 const STOCK_PAGE_SIZE = 18;
 const REPORT_PAGE_SIZE = 24;
-<<<<<<< HEAD
 const CUSTOM_RAM = "__custom_ram__";
 const RAM_PRESETS = ["2GB", "4GB", "6GB", "8GB", "12GB", "16GB", "20GB", "24GB"];
 const BUSINESS_MODES = ["general", "repair-pro"];
@@ -53,8 +40,6 @@ const SIGNUP_PROFILE_OPTIONS = [
     { value: "general", label: "Business Pro" },
     { value: "repair-pro", label: "Repair Pro" },
 ];
-=======
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
 
 const BRAND_GRADIENTS = {
     Samsung: "linear-gradient(135deg, #1428a0, #0b79d0)", Apple: "linear-gradient(135deg, #1d1d1f, #555)",
@@ -127,11 +112,8 @@ const DEFAULT_SHOP_PROFILE = {
     stickerShowPrice: true,
     footer: "Handset checked and delivered in working condition.",
     terms: "Goods once sold will be serviced as per shop policy.",
-<<<<<<< HEAD
     businessMode: "general",
     enabledModules: GENERAL_MODULES,
-=======
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
 };
 const STORAGE_PRESETS = ["32GB", "64GB", "128GB", "256GB", "512GB", "1TB"];
 const CUSTOM_STORAGE = "__custom__";
@@ -324,7 +306,6 @@ const normalizeShopProfile = (cfg = {}) => ({
     stickerShowPrice: cfg.stickerShowPrice === undefined ? true : !!cfg.stickerShowPrice,
     footer: pickText(cfg.footer, DEFAULT_SHOP_PROFILE.footer),
     terms: pickText(cfg.terms, DEFAULT_SHOP_PROFILE.terms),
-<<<<<<< HEAD
     businessMode: BUSINESS_MODES.includes(String(cfg.businessMode || "").trim()) ? String(cfg.businessMode).trim() : DEFAULT_SHOP_PROFILE.businessMode,
     enabledModules: Array.from(new Set((Array.isArray(cfg.enabledModules) ? cfg.enabledModules : GENERAL_MODULES).map(v => String(v || "").trim()).filter(v => GENERAL_MODULES.includes(v)))).length
         ? Array.from(new Set((Array.isArray(cfg.enabledModules) ? cfg.enabledModules : GENERAL_MODULES).map(v => String(v || "").trim()).filter(v => GENERAL_MODULES.includes(v))))
@@ -343,10 +324,6 @@ const getEnabledModules = (shop = DEFAULT_SHOP_PROFILE) => {
     return normalized.enabledModules;
 };
 const createEmptyForm = (shop = DEFAULT_SHOP_PROFILE) => ({ imei: "", imei2: "", brand: "Samsung", model: "", color: "", ram: "", storage: "128GB", batteryHealth: "", condition: "New", buyPrice: "", sellPrice: "", status: "In Stock", qty: "1", supplier: "", customerName: "", phone: "", amount: "", paidAmount: "", dueAmount: "0", paymentMode: "Cash", notes: "", photos: [], sellerName: "", sellerPhone: "", sellerAadhaarNumber: "", purchaseDate: isoDate(), sellerAgreementAccepted: false, sellerIdPhotoData: "", sellerPhotoData: "", sellerSignatureData: "", warrantyType: "1 Year Warranty", warrantyMonths: "", billType: shop.defaultBillType || "NON GST", gstRate: String(shop.defaultGstRate || 18) });
-=======
-});
-const createEmptyForm = (shop = DEFAULT_SHOP_PROFILE) => ({ imei: "", imei2: "", brand: "Samsung", model: "", color: "", ram: "", storage: "128GB", batteryHealth: "", condition: "New", buyPrice: "", sellPrice: "", status: "In Stock", qty: "1", supplier: "", customerName: "", phone: "", amount: "", paidAmount: "", dueAmount: "0", paymentMode: "Cash", notes: "", photos: [], sellerName: "", sellerPhone: "", sellerAadhaarNumber: "", purchaseDate: isoDate(), sellerAgreementAccepted: false, sellerIdPhotoData: "", sellerPhotoData: "", sellerSignatureData: "", warrantyType: "No Warranty", warrantyMonths: "", billType: shop.defaultBillType || "NON GST", gstRate: String(shop.defaultGstRate || 18) });
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
 const calcInvoiceTotals = (amount, billType = "NON GST", gstRate = 18) => {
     const total = roundMoney(amount);
     const rate = Number(gstRate || 0);
@@ -481,7 +458,6 @@ const normalizeTx = (it = {}) => ({
     whatsAppPdfAt: it.whatsAppPdfAt || "",
     shopSnapshot: it.shopSnapshot ? normalizeShopProfile(it.shopSnapshot) : null,
 });
-<<<<<<< HEAD
 const normalizeRepair = (it = {}) => ({
     id: it.id || genId(),
     repairNo: String(it.repairNo || `RPR-${String(it.id || genId()).slice(-6).toUpperCase()}`),
@@ -529,15 +505,6 @@ const loadStore = () => {
         if (raw?.inv && raw?.tx) return { inv: raw.inv.map(normalizeInv), tx: raw.tx.map(normalizeTx), repairs: Array.isArray(raw.repairs) ? raw.repairs.map(normalizeRepair) : [], shop: normalizeShopProfile(raw.shop || raw.shopProfile || DEFAULT_SHOP_PROFILE) };
     } catch { }
     return { inv: DEMO_INVENTORY.map(normalizeInv), tx: DEMO_TX.map(normalizeTx), repairs: [], shop: normalizeShopProfile(DEFAULT_SHOP_PROFILE) };
-=======
-const loadStore = () => {
-    if (typeof window === "undefined") return { inv: DEMO_INVENTORY.map(normalizeInv), tx: DEMO_TX.map(normalizeTx), shop: normalizeShopProfile(DEFAULT_SHOP_PROFILE) };
-    try {
-        const raw = JSON.parse(window.localStorage.getItem(STORE_KEY) || "null");
-        if (raw?.inv && raw?.tx) return { inv: raw.inv.map(normalizeInv), tx: raw.tx.map(normalizeTx), shop: normalizeShopProfile(raw.shop || raw.shopProfile || DEFAULT_SHOP_PROFILE) };
-    } catch { }
-    return { inv: DEMO_INVENTORY.map(normalizeInv), tx: DEMO_TX.map(normalizeTx), shop: normalizeShopProfile(DEFAULT_SHOP_PROFILE) };
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
 };
 const normalizeSyncCfg = (cfg = {}) => ({
     scriptUrl: "",
@@ -1014,11 +981,7 @@ const makeInvoiceFile = async (sale, shop) => {
     const fileName = `${(sale.invoiceNo || sale.id || "invoice").toLowerCase()}.pdf`;
     return { blob, fileName, file: new File([blob], fileName, { type: "application/pdf" }) };
 };
-<<<<<<< HEAD
 const buildReportDoc = async ({ rows, summary, reportType, rangeLabel, shop, filtersLabel = "" }) => {
-=======
-const buildReportDoc = async ({ rows, summary, reportType, rangeLabel, shop }) => {
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
     const { jsPDF } = await import("jspdf");
     const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
     const pageWidth = doc.internal.pageSize.getWidth();
@@ -1031,11 +994,7 @@ const buildReportDoc = async ({ rows, summary, reportType, rangeLabel, shop }) =
     const title = reportType === "All" ? "Stock Activity Report" : `${reportType} Report`;
     const summaryCards = [
         { label: "Records", value: String(summary.records) },
-<<<<<<< HEAD
         { label: reportType === "Repair" ? "Repairs" : "Buy/Add", value: fmtMoney(reportType === "Repair" ? summary.repairTotal : summary.buyAddTotal) },
-=======
-        { label: "Buy/Add", value: fmtMoney(summary.buyAddTotal) },
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
         { label: "Sales", value: fmtMoney(summary.sellTotal) },
         { label: "Due", value: fmtMoney(summary.dueTotal) },
     ];
@@ -1043,11 +1002,7 @@ const buildReportDoc = async ({ rows, summary, reportType, rangeLabel, shop }) =
         { label: "Date", width: 26 },
         { label: "Type", width: 18 },
         { label: "Party", width: 42 },
-<<<<<<< HEAD
         { label: "Item", width: 68 },
-=======
-        { label: "Item", width: 70 },
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
         { label: "Amount", width: 28 },
     ];
 
@@ -1077,13 +1032,10 @@ const buildReportDoc = async ({ rows, summary, reportType, rangeLabel, shop }) =
         doc.setTextColor(...muted);
         doc.text(`Range: ${rangeLabel}`, 14, startY + 5.5);
         doc.text(`Generated: ${fmtDateTime(new Date())}`, pageWidth - 14, startY + 5.5, { align: "right" });
-<<<<<<< HEAD
         if (filtersLabel) {
             const filterLines = doc.splitTextToSize(`Filters: ${filtersLabel}`, pageWidth - 28);
             doc.text(filterLines, 14, startY + 11);
         }
-=======
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
     };
 
     const drawTableHeader = (y) => {
@@ -1118,11 +1070,7 @@ const buildReportDoc = async ({ rows, summary, reportType, rangeLabel, shop }) =
         cardX += 45;
     });
 
-<<<<<<< HEAD
     let y = filtersLabel ? 90 : 84;
-=======
-    let y = 84;
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
     drawTableHeader(y);
     y += 10;
     doc.setTextColor(...ink);
@@ -1172,18 +1120,12 @@ const buildReportDoc = async ({ rows, summary, reportType, rangeLabel, shop }) =
 
     return doc;
 };
-<<<<<<< HEAD
 const makeReportFile = async ({ rows, summary, reportType, rangeLabel, shop, filtersLabel = "" }) => {
     const doc = await buildReportDoc({ rows, summary, reportType, rangeLabel, shop, filtersLabel });
-=======
-const makeReportFile = async ({ rows, summary, reportType, rangeLabel, shop }) => {
-    const doc = await buildReportDoc({ rows, summary, reportType, rangeLabel, shop });
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
     const blob = doc.output("blob");
     const fileName = `report-${reportType.toLowerCase()}-${rangeLabel.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.pdf`;
     return { blob, fileName, file: new File([blob], fileName, { type: "application/pdf" }) };
 };
-<<<<<<< HEAD
 const buildStickerBarcodeDataUrl = async (value) => {
     if (!value || typeof document === "undefined") return null;
     const { default: JsBarcode } = await import("jsbarcode");
@@ -1311,85 +1253,10 @@ const buildStickerDoc = async (item, shop) => {
 
     doc.setFillColor(255, 255, 255);
     doc.rect(1.1, bottomBandY, 47.8, bottomBandH, "F");
-=======
-const buildStickerDoc = async (item, shop) => {
-    const { jsPDF } = await import("jspdf");
-    const shopProfile = normalizeShopProfile(shop || DEFAULT_SHOP_PROFILE);
-    const isUsedOrRefurb = item.condition === "Used" || item.condition === "Refurbished";
-    const hasWarrantyInfo = isUsedOrRefurb && item.warrantyType && item.warrantyType !== "No Warranty";
-    const stickerH = hasWarrantyInfo ? 34 : 30;
-    const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: [stickerH, 50] });
-    const accent = [20, 71, 120];
-    const ink = [28, 36, 44];
-    const muted = [95, 103, 112];
-    const paper = [255, 255, 255];
-    const brandLine = [item.brand, item.model].filter(Boolean).join(" ").trim();
-    const specLine = [item.storage || "", item.ram || "", item.color || ""].filter(Boolean).join("  |  ") || "Specs not set";
-    const brandLines = doc.splitTextToSize(brandLine || "Mobile", 45);
-
-    doc.setFillColor(...paper);
-    doc.rect(0, 0, 50, stickerH, "F");
-    doc.setDrawColor(210, 217, 224);
-    doc.roundedRect(0.8, 0.8, 48.4, stickerH - 1.6, 1.2, 1.2);
-
-    doc.setFillColor(...accent);
-    doc.rect(0, 0, 50, 5.2, "F");
-    doc.setTextColor(255, 255, 255);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(6.8);
-    doc.text((shopProfile.shopName || shopProfile.legalName || APP_NAME).slice(0, 28), 2.2, 3.55);
-
-    doc.setTextColor(...ink);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(7.6);
-    doc.text(brandLines, 2.2, 9.4);
-
-    doc.setFillColor(244, 247, 249);
-    doc.roundedRect(2.2, 12.8, 45.6, 4.8, 1, 1, "F");
-    doc.setTextColor(...muted);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(4.8);
-    doc.text(specLine.slice(0, 42), 3.2, 15.9);
-
-    if (item.condition) {
-        const badgeWidth = Math.min(18, Math.max(10, item.condition.length * 1.5 + 4));
-        doc.setFillColor(246, 250, 252);
-        doc.setDrawColor(...accent);
-        doc.roundedRect(50 - badgeWidth - 2.2, 6.1, badgeWidth, 4.3, 1.2, 1.2, "FD");
-        doc.setTextColor(...accent);
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(4.6);
-        doc.text(item.condition.toUpperCase(), 50 - badgeWidth / 2 - 2.2, 8.85, { align: "center" });
-    }
-
-    doc.setTextColor(...muted);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(4.6);
-    doc.text("IMEI 1", 2.2, 21.2);
-    doc.setTextColor(...ink);
-    doc.setFont("courier", "bold");
-    doc.setFontSize(6.6);
-    doc.text(item.imei || "-", 2.2, 24.3);
-
-    if (item.imei2) {
-        doc.setTextColor(...muted);
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(4.6);
-        doc.text("IMEI 2", 2.2, 27.0);
-        doc.setTextColor(...ink);
-        doc.setFont("courier", "bold");
-        doc.setFontSize(5.8);
-        doc.text(item.imei2, 12.2, 27.0);
-    }
-
-    const warranty = getWarrantyStatus(item);
-    const bottomY = item.imei2 ? 24.3 : 27.0;
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
 
     if (shopProfile.stickerShowPrice && (item.sellPrice || item.buyPrice)) {
         const price = item.sellPrice || item.buyPrice;
         doc.setFont("helvetica", "bold");
-<<<<<<< HEAD
         doc.setFontSize(6.8);
         doc.text(`${formatMoney(price)} RS`, 26, priceY, { align: "center", maxWidth: 26 });
     }
@@ -1418,34 +1285,6 @@ const buildStickerDoc = async (item, shop) => {
         doc.setDrawColor(...line);
         doc.roundedRect(43.2, 23.2, 5.1, 5.1, 0.5, 0.5);
         doc.addImage(logoDataUrl, "PNG", 43.65, 23.65, 4.2, 4.2);
-=======
-        doc.setFontSize(6);
-        doc.setTextColor(...accent);
-        doc.text(`Rs ${formatMoney(price)}`, 48, bottomY, { align: "right" });
-    }
-
-    if (hasWarrantyInfo) {
-        // Expand sticker height to fit warranty line
-        const wY = 29;
-        doc.setFillColor(240, 248, 240);
-        doc.rect(0, wY - 2.5, 50, 3.5, "F");
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(4.2);
-        if (warranty.active) {
-            doc.setTextColor(30, 130, 60);
-            const wLabel = `W: ${warranty.remaining}`;
-            doc.text(wLabel, 2.2, wY);
-        } else {
-            doc.setTextColor(160, 80, 40);
-            doc.text("WARRANTY EXPIRED", 2.2, wY);
-        }
-        if (item.purchaseDate) {
-            doc.setTextColor(...muted);
-            doc.setFont("helvetica", "normal");
-            doc.setFontSize(4);
-            doc.text(`Purch: ${fmtDate(item.purchaseDate)}`, 48, wY, { align: "right" });
-        }
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
     }
 
     return doc;
@@ -1456,7 +1295,6 @@ const makeStickerFile = async (item, shop) => {
     const fileName = `sticker-${(item.brand || "phone").toLowerCase()}-${(item.model || item.id || "item").toLowerCase().replace(/[^a-z0-9]+/g, "-")}.pdf`;
     return { blob, fileName, file: new File([blob], fileName, { type: "application/pdf" }) };
 };
-<<<<<<< HEAD
 const buildRepairStickerDoc = async (repair, shop) => {
     const { jsPDF } = await import("jspdf");
     const shopProfile = normalizeShopProfile(shop || DEFAULT_SHOP_PROFILE);
@@ -1524,8 +1362,6 @@ const makeRepairStickerFile = async (repair, shop) => {
     const fileName = `repair-${(repair.repairNo || repair.id || "ticket").toLowerCase().replace(/[^a-z0-9]+/g, "-")}.pdf`;
     return { blob, fileName, file: new File([blob], fileName, { type: "application/pdf" }) };
 };
-=======
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
 
 const S = `
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap');
@@ -2132,7 +1968,6 @@ function StorageInput({ value, onChange }) {
     );
 }
 
-<<<<<<< HEAD
 function RamInput({ value, onChange }) {
     const usingCustom = value && !RAM_PRESETS.includes(value);
     return (
@@ -2147,8 +1982,6 @@ function RamInput({ value, onChange }) {
     );
 }
 
-=======
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
 // ═══ MAIN ═══
 export default function App() {
     const AUTO_SYNC_RETRY_MS = 60000;
@@ -2166,11 +1999,7 @@ export default function App() {
     const [loginError, setLoginError] = useState("");
     const [loginBusy, setLoginBusy] = useState(false);
     const [authMode, setAuthMode] = useState("sign-in");
-<<<<<<< HEAD
     const [signupForm, setSignupForm] = useState({ shopName: "", mobileNumber: "", email: "", password: "", confirmPassword: "", profile: "general" });
-=======
-    const [signupForm, setSignupForm] = useState({ shopName: "", mobileNumber: "", email: "", password: "", confirmPassword: "" });
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
     const [signupError, setSignupError] = useState("");
     const [signupBusy, setSignupBusy] = useState(false);
     const [trialDays, setTrialDays] = useState(DEFAULT_TRIAL_DAYS);
@@ -2194,10 +2023,7 @@ export default function App() {
     const [pg, sPg] = useState("dashboard");
     const [inv, sInv] = useState(seed.current.inv);
     const [tx, sTx] = useState(seed.current.tx);
-<<<<<<< HEAD
     const [repairs, setRepairs] = useState(seed.current.repairs || []);
-=======
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
     const [shopCfg, sShopCfg] = useState(seed.current.shop);
     const [scs, setScs] = useState(false);
     const [st, sSt] = useState(null);
@@ -2214,36 +2040,24 @@ export default function App() {
     const [reportBrandFilter, setReportBrandFilter] = useState("All Brands");
     const [reportItemQuery, setReportItemQuery] = useState("");
     const [reportDueFilter, setReportDueFilter] = useState("All Status");
-<<<<<<< HEAD
     const [reportRepairStatusFilter, setReportRepairStatusFilter] = useState("All Repair Statuses");
     const [reportVisibleCount, setReportVisibleCount] = useState(REPORT_PAGE_SIZE);
     const [fc, sFc] = useState("All");
     const [fs, sFs] = useState("In Stock");
-=======
-    const [reportVisibleCount, setReportVisibleCount] = useState(REPORT_PAGE_SIZE);
-    const [fc, sFc] = useState("All");
-    const [fs, sFs] = useState("All");
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
     const [ei, sEi] = useState(null);
     const [bulkAdd, setBulkAdd] = useState(false);
     const [bulkImeis, setBulkImeis] = useState([]);
     const [bulkManualImei, setBulkManualImei] = useState("");
     const [bulkSaveBusy, setBulkSaveBusy] = useState(false);
     const [stockVisibleCount, setStockVisibleCount] = useState(STOCK_PAGE_SIZE);
-<<<<<<< HEAD
     const [repairQuery, setRepairQuery] = useState("");
-=======
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
     const [sf, sSf] = useState(false);
     const [nt, sNt] = useState(null);
     const [vm, sVm] = useState("grid");
     const [lb, sLb] = useState(null);
     const [di, sDi] = useState(null);
-<<<<<<< HEAD
     const [repairDetail, setRepairDetail] = useState(null);
     const [repairForm, setRepairForm] = useState(createEmptyRepairForm());
-=======
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
     const [confirmDel, setConfirmDel] = useState(null);
     const [canPersist] = useState(typeof window !== "undefined" && !!window.localStorage);
     const [ol, setOl] = useState(typeof navigator === "undefined" ? true : navigator.onLine);
@@ -2305,10 +2119,7 @@ export default function App() {
 
     const ef = useMemo(() => createEmptyForm(shopCfg), [shopCfg]);
     const [fm, sFm] = useState(ef);
-<<<<<<< HEAD
     const enabledModules = useMemo(() => getEnabledModules(shopCfg), [shopCfg]);
-=======
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
     const liveDeviceByImei = (imei) => inv.find(i => matchImei(i, imei) && i.status === "In Stock" && i.qty > 0);
     const activeSyncUrl = getPocketBaseUrl();
     const syncReady = !!(shopSession?.pbAuth?.token && (syncCfg.shopId || shopSession?.shopId));
@@ -2426,7 +2237,6 @@ export default function App() {
         setSignupBusy(true); setSignupError("");
         try {
             const data = await pocketbaseRegisterShopUser({ ...signupForm, mobileNumber, trialDays });
-<<<<<<< HEAD
             const initialProfile = resolveSignupProfile(signupForm.profile);
             const session = { loginId: data.record?.username || mobileNumber, shopId: data.shop.shopId, shopName: data.shop.shopName, scriptUrl: activeSyncUrl, syncKey: '', trialEndsAt: data.trialEndsAt || '', pbAuth: { token: data.token, record: data.record } };
             window.localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(session));
@@ -2436,15 +2246,6 @@ export default function App() {
             setLoginId(data.record?.username || mobileNumber);
             setLoginPassword("");
             setSignupForm({ shopName: "", mobileNumber: "", email: "", password: "", confirmPassword: "", profile: "general" });
-=======
-            const session = { loginId: data.record?.username || mobileNumber, shopId: data.shop.shopId, shopName: data.shop.shopName, scriptUrl: activeSyncUrl, syncKey: '', trialEndsAt: data.trialEndsAt || '', pbAuth: { token: data.token, record: data.record } };
-            window.localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(session));
-            applyShopSession(session);
-            setAuthReady(true);
-            setLoginId(data.record?.username || mobileNumber);
-            setLoginPassword("");
-            setSignupForm({ shopName: "", mobileNumber: "", email: "", password: "", confirmPassword: "" });
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
             notify(`Account created. Trial active for ${trialDays} days.`, "success");
         } catch (e) {
             setSignupError(e?.message || "Unable to create account.");
@@ -2622,16 +2423,12 @@ export default function App() {
     const setShopField = (k, v) => {
         setShopProfileDirty(true);
         shopProfileDirtyRef.current = true;
-<<<<<<< HEAD
         sShopCfg(p => {
             const next = { ...p, [k]: v };
             if (k === "businessMode" && v === "repair-pro") next.enabledModules = ["repair"];
             if (k === "enabledModules" && !Array.isArray(v)) next.enabledModules = p.enabledModules;
             return normalizeShopProfile(next);
         });
-=======
-        sShopCfg(p => normalizeShopProfile({ ...p, [k]: v }));
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
     };
     const markSyncConnected = useCallback((extra = {}) => {
         setSyncCfg(p => normalizeSyncCfg({ ...p, connected: true, ...extra }));
@@ -2676,7 +2473,6 @@ export default function App() {
     const uf = (k, v) => sFm(p => {
         const next = { ...p, [k]: v };
         if (k === "imei" || k === "imei2") next[k] = cleanImei(v);
-<<<<<<< HEAD
         if (k === "condition" && v === "New" && (!next.warrantyType || next.warrantyType === "No Warranty")) {
             next.warrantyType = "1 Year Warranty";
             if (!next.purchaseDate) next.purchaseDate = isoDate();
@@ -2685,8 +2481,6 @@ export default function App() {
             if (v !== "Testing Warranty") next.warrantyMonths = "";
             if (v !== "No Warranty" && !next.purchaseDate) next.purchaseDate = isoDate();
         }
-=======
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
         if (k === "amount" || k === "paidAmount") {
             const total = Number(k === "amount" ? v : next.amount) || 0;
             let paid = Number(k === "paidAmount" ? v : next.paidAmount) || 0;
@@ -2726,7 +2520,6 @@ export default function App() {
     const submitBulkManualImei = useCallback(() => {
         if (addBulkImei(bulkManualImei)) setBulkManualImei("");
     }, [addBulkImei, bulkManualImei]);
-<<<<<<< HEAD
     const setRepairField = useCallback((key, value) => {
         setRepairForm(current => ({
             ...current,
@@ -2748,8 +2541,6 @@ export default function App() {
         setRepairDetail(null);
         goPage("repair-form");
     }, []);
-=======
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
     const toForm = (item, extras = {}) => ({ ...ef, ...item, ...extras, buyPrice: String(item.buyPrice ?? extras.buyPrice ?? ""), sellPrice: String(item.sellPrice ?? extras.sellPrice ?? ""), qty: String(item.qty ?? extras.qty ?? 1), amount: String(item.amount ?? extras.amount ?? ""), paidAmount: String(item.paidAmount ?? extras.paidAmount ?? item.sellPrice ?? item.amount ?? ""), dueAmount: String(item.dueAmount ?? extras.dueAmount ?? 0) });
     useEffect(() => {
         try {
@@ -2862,7 +2653,6 @@ export default function App() {
     }, []);
     // ── sync refs for hardware barcode scanner ──
     useEffect(() => { pgRef.current = pg; }, [pg]);
-<<<<<<< HEAD
     useEffect(() => {
         if (shopCfg.businessMode === "repair-pro" && pg === "dashboard") sPg("repair");
     }, [pg, shopCfg.businessMode]);
@@ -2871,8 +2661,6 @@ export default function App() {
             sPg(shopCfg.businessMode === "repair-pro" ? "repair" : "dashboard");
         }
     }, [enabledModules, pg, shopCfg.businessMode]);
-=======
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
     useEffect(() => { fmRef.current = fm; }, [fm]);
     useEffect(() => { invRef.current = inv; }, [inv]);
     useEffect(() => { scsRef.current = scs; }, [scs]);
@@ -2926,10 +2714,7 @@ export default function App() {
                     skipNextDirtyMark.current = true;
                     sInv(appState.inv.map(normalizeInv));
                     sTx(appState.tx.map(normalizeTx));
-<<<<<<< HEAD
                     setRepairs(Array.isArray(appState.repairs) ? appState.repairs.map(normalizeRepair) : []);
-=======
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
                     sShopCfg(normalizeShopProfile(appState.shop || appState.shopProfile || DEFAULT_SHOP_PROFILE));
                 }
                 if (storedSyncMeta) setSyncMeta(normalizeSyncMeta(storedSyncMeta));
@@ -2943,13 +2728,8 @@ export default function App() {
     }, []);
     useEffect(() => {
         if (!storageReady) return;
-<<<<<<< HEAD
         void saveAppState({ inv, tx, repairs, shop: normalizeShopProfile(shopCfg) });
     }, [storageReady, inv, tx, repairs, shopCfg]);
-=======
-        void saveAppState({ inv, tx, shop: normalizeShopProfile(shopCfg) });
-    }, [storageReady, inv, tx, shopCfg]);
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
     useEffect(() => {
         if (!storageReady) return;
         void saveSyncState(syncMeta);
@@ -2972,11 +2752,7 @@ export default function App() {
             lastLocalChangeAt: new Date().toISOString(),
             syncError: "",
         }));
-<<<<<<< HEAD
     }, [storageReady, inv, tx, repairs, shopCfg, ol, updateSyncMeta]);
-=======
-    }, [storageReady, inv, tx, shopCfg, ol, updateSyncMeta]);
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
     useEffect(() => {
         if (typeof window === "undefined") return;
         const onOn = () => setOl(true), onOff = () => setOl(false);
@@ -3045,10 +2821,7 @@ export default function App() {
             skipNextDirtyMark.current = true;
             sInv(Array.isArray(bundle.inv) ? bundle.inv.map(normalizeInv) : []);
             sTx(Array.isArray(bundle.tx) ? bundle.tx.map(normalizeTx) : []);
-<<<<<<< HEAD
             setRepairs(Array.isArray(bundle.repairs) ? bundle.repairs.map(normalizeRepair) : []);
-=======
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
             const nextShopProfile = normalizeShopProfile(bundle.shop || DEFAULT_SHOP_PROFILE);
             if (!shopProfileDirtyRef.current) {
                 lastSavedShopProfileSignatureRef.current = JSON.stringify(nextShopProfile);
@@ -3147,14 +2920,11 @@ export default function App() {
 
     const handleScan = (imei, imei2) => {
         setScs(false); const ex = findDeviceByImei(inv, imei);
-<<<<<<< HEAD
         if (st === "repair") {
             setRepairField("imei", imei);
             notify("Repair IMEI scanned", "success");
             return;
         }
-=======
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
         if (st === "sell") {
             const live = liveDeviceByImei(imei);
             if (live) { sFm(toForm(live, { amount: live.sellPrice, paidAmount: live.sellPrice, dueAmount: 0, customerName: "", phone: "", notes: "" })); sPg("sell"); }
@@ -3240,10 +3010,7 @@ export default function App() {
         if (imeiError) { notify(imeiError, "error"); return; }
         if (!fm.model || !fm.brand) { notify("Brand and model are required!", "error"); return; }
         if (!(+fm.sellPrice > 0)) { notify("Sell price is required.", "error"); return; }
-<<<<<<< HEAD
         if (fm.warrantyType && fm.warrantyType !== "No Warranty" && !fm.purchaseDate) { notify("Purchase date is required when warranty is enabled.", "error"); return; }
-=======
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
         const nextItem = normalizeInv({ ...ei, ...fm, imei: fm.imei, imei2: fm.imei2, buyPrice: +fm.buyPrice, sellPrice: +fm.sellPrice, qty: ei?.status === "Sold" ? 0 : 1, photos: fm.photos || [], addedDate: ei?.addedDate || new Date().toISOString().slice(0, 10) });
         try {
             const savedRecord = await pocketbaseUpsertInventory(shopSession?.pbAuth, nextItem);
@@ -3274,10 +3041,7 @@ export default function App() {
         if (ei) { notify("Bulk add is only for new stock entries.", "error"); return; }
         if (!fm.model || !fm.brand) { notify("Brand and model are required!", "error"); return; }
         if (!(+fm.sellPrice > 0)) { notify("Sell price is required.", "error"); return; }
-<<<<<<< HEAD
         if (fm.warrantyType && fm.warrantyType !== "No Warranty" && !fm.purchaseDate) { notify("Purchase date is required when warranty is enabled.", "error"); return; }
-=======
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
         if (!bulkImeis.length) { notify("Scan at least one IMEI first.", "error"); return; }
         setBulkSaveBusy(true);
         try {
@@ -3287,11 +3051,7 @@ export default function App() {
             const savedTxs = [];
             let pendingPhotoFailures = 0;
             for (const imei of bulkImeis) {
-<<<<<<< HEAD
                 const item = normalizeInv({ id: genId(), imei, imei2: "", brand: fm.brand, model: fm.model, color: fm.color, ram: fm.ram, storage: fm.storage, batteryHealth: fm.batteryHealth, condition: fm.condition, buyPrice: +fm.buyPrice, sellPrice: +fm.sellPrice, status: "In Stock", qty: 1, addedDate, supplier: fm.supplier, photos: sharedPhotos, sellerName: "", sellerPhone: "", sellerAadhaarNumber: "", purchaseDate: fm.purchaseDate, sellerAgreementAccepted: false, sellerIdPhotoData: "", sellerPhotoData: "", sellerSignatureData: "", warrantyType: fm.warrantyType, warrantyMonths: fm.warrantyMonths });
-=======
-                const item = normalizeInv({ id: genId(), imei, imei2: "", brand: fm.brand, model: fm.model, color: fm.color, ram: fm.ram, storage: fm.storage, batteryHealth: fm.batteryHealth, condition: fm.condition, buyPrice: +fm.buyPrice, sellPrice: +fm.sellPrice, status: "In Stock", qty: 1, addedDate, supplier: fm.supplier, photos: sharedPhotos, sellerName: "", sellerPhone: "", sellerAadhaarNumber: "", purchaseDate: "", sellerAgreementAccepted: false, sellerIdPhotoData: "", sellerPhotoData: "", sellerSignatureData: "", warrantyType: fm.warrantyType, warrantyMonths: fm.warrantyMonths });
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
                 const savedRecord = await pocketbaseUpsertInventory(shopSession?.pbAuth, item);
                 const savedItemBase = normalizeInv({ ...item, id: savedRecord.id });
                 const uploadedPhotos = await uploadPendingPhotosForItem(savedRecord.id, savedItemBase.photos || []);
@@ -3315,7 +3075,6 @@ export default function App() {
             setBulkSaveBusy(false);
         }
     };
-<<<<<<< HEAD
     const saveRepair = async () => {
         if (!repairForm.customerName.trim()) { notify("Customer name is required.", "error"); return; }
         if (!repairForm.model.trim()) { notify("Device model is required.", "error"); return; }
@@ -3374,8 +3133,6 @@ export default function App() {
         }
         removeLocal();
     }, [notify, shopSession?.pbAuth]);
-=======
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
     const delInv = async (id) => {
         try {
             const item = inv.find(i => i.id === id);
@@ -3420,13 +3177,10 @@ export default function App() {
         if (imeiError) { notify(imeiError, "error"); return; }
         if (!fm.model || !fm.supplier) { notify("Fill required!", "error"); return; }
         if (!(+fm.sellPrice > 0)) { notify("Sell price is required.", "error"); return; }
-<<<<<<< HEAD
         if (fm.warrantyType && fm.warrantyType !== "No Warranty" && !fm.purchaseDate) {
             notify("Purchase date is required when warranty is enabled.", "error");
             return;
         }
-=======
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
         const requiresSellerVerification = fm.condition === "Used" || fm.condition === "Refurbished";
         if (requiresSellerVerification) {
             if (!fm.sellerName.trim() || !fm.sellerPhone.trim() || !fm.sellerAadhaarNumber.trim() || !fm.purchaseDate) {
@@ -3442,11 +3196,7 @@ export default function App() {
                 return;
             }
         }
-<<<<<<< HEAD
         const item = normalizeInv({ id: genId(), imei: fm.imei, imei2: fm.imei2, brand: fm.brand, model: fm.model, color: fm.color, ram: fm.ram, storage: fm.storage, batteryHealth: fm.batteryHealth, condition: fm.condition, buyPrice: +fm.buyPrice, sellPrice: +fm.sellPrice, status: "In Stock", qty: 1, addedDate: new Date().toISOString().slice(0, 10), supplier: fm.supplier, photos: fm.photos || [], sellerName: fm.sellerName, sellerPhone: fm.sellerPhone, sellerAadhaarNumber: fm.sellerAadhaarNumber, purchaseDate: fm.purchaseDate, sellerAgreementAccepted: fm.sellerAgreementAccepted, sellerIdPhotoData: fm.sellerIdPhotoData, sellerPhotoData: fm.sellerPhotoData, sellerSignatureData: fm.sellerSignatureData, warrantyType: fm.warrantyType, warrantyMonths: fm.warrantyMonths });
-=======
-        const item = normalizeInv({ id: genId(), imei: fm.imei, imei2: fm.imei2, brand: fm.brand, model: fm.model, color: fm.color, ram: fm.ram, storage: fm.storage, batteryHealth: fm.batteryHealth, condition: fm.condition, buyPrice: +fm.buyPrice, sellPrice: +fm.sellPrice, status: "In Stock", qty: 1, addedDate: new Date().toISOString().slice(0, 10), supplier: fm.supplier, photos: fm.photos || [], sellerName: fm.sellerName, sellerPhone: fm.sellerPhone, sellerAadhaarNumber: fm.sellerAadhaarNumber, purchaseDate: fm.purchaseDate, sellerAgreementAccepted: fm.sellerAgreementAccepted, sellerIdPhotoData: fm.sellerIdPhotoData, sellerPhotoData: fm.sellerPhotoData, sellerSignatureData: fm.sellerSignatureData });
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
         try {
             const savedRecord = await pocketbaseUpsertInventory(shopSession?.pbAuth, item);
             const savedItemBase = normalizeInv({ ...item, id: savedRecord.id });
@@ -3519,7 +3269,6 @@ export default function App() {
     const recycleBinItems = useMemo(() => inv.filter(i => i.status === "Deleted"), [inv]);
     const latestSell = useMemo(() => tx.find(t => t.type === "Sell") || null, [tx]);
     const latestInvoices = useMemo(() => tx.filter(t => t.type === "Sell").slice(0, 3), [tx]);
-<<<<<<< HEAD
     const repairRecords = useMemo(() => [...repairs].sort((a, b) => String(b.updatedAt || b.createdAt || "").localeCompare(String(a.updatedAt || a.createdAt || ""))), [repairs]);
     const filteredRepairRecords = useMemo(() => {
         const q = repairQuery.trim().toLowerCase();
@@ -3528,8 +3277,6 @@ export default function App() {
     }, [repairQuery, repairRecords]);
     const repairOpenCount = useMemo(() => repairs.filter(item => !["Delivered", "Cancelled"].includes(item.status)).length, [repairs]);
     const repairReadyCount = useMemo(() => repairs.filter(item => item.status === "Ready").length, [repairs]);
-=======
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
     const invoiceRecords = useMemo(() => {
         const q = iq.trim().toLowerCase();
         return tx.filter(t => t.type === "Sell").filter(t => {
@@ -3580,7 +3327,6 @@ export default function App() {
             billType: "",
             paymentMode: "",
         }));
-<<<<<<< HEAD
         const repairEntries = repairs.map(repair => {
             const amount = repair.finalCost || repair.estimatedCost || 0;
             const dueAmount = Math.max(amount - (repair.advance || 0), 0);
@@ -3607,20 +3353,12 @@ export default function App() {
         });
         return [...txEntries, ...legacyAdds, ...repairEntries].sort((a, b) => String(b.dateTime).localeCompare(String(a.dateTime)));
     }, [inv, repairs, tx]);
-=======
-        return [...txEntries, ...legacyAdds].sort((a, b) => String(b.dateTime).localeCompare(String(a.dateTime)));
-    }, [inv, tx]);
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
     const reportBrands = useMemo(() => ["All Brands", ...Array.from(new Set(reportEntries.map(row => row.item.split(" ")[0]).filter(Boolean)))], [reportEntries]);
     const reportRows = useMemo(() => reportEntries.filter(row => {
         if (reportType !== "All" && row.type !== reportType) return false;
         const rowDate = row.date || (row.dateTime ? row.dateTime.slice(0, 10) : "");
         if (!(rowDate >= reportRange.from && rowDate <= reportRange.to)) return false;
-<<<<<<< HEAD
         const effectiveBillFilter = reportType === "Buy" || reportType === "Add" || reportType === "Repair" ? "All Bills" : reportBillFilter;
-=======
-        const effectiveBillFilter = reportType === "Buy" || reportType === "Add" ? "All Bills" : reportBillFilter;
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
         if (effectiveBillFilter !== "All Bills") {
             if (row.type !== "Sell") return false;
             if (effectiveBillFilter === "GST" && row.billType !== "GST") return false;
@@ -3628,63 +3366,38 @@ export default function App() {
         }
         if (reportPaymentFilter !== "All Payments" && row.paymentMode !== reportPaymentFilter) return false;
         if (reportBrandFilter !== "All Brands" && !String(row.item || "").toLowerCase().startsWith(reportBrandFilter.toLowerCase())) return false;
-<<<<<<< HEAD
         if (reportRepairStatusFilter !== "All Repair Statuses" && row.type === "Repair" && row.status !== reportRepairStatusFilter) return false;
         const effectiveDueFilter = reportView === "Supplier Summary" ? "All Status" : reportDueFilter;
         if (effectiveDueFilter !== "All Status") {
             if (row.type !== "Sell" && row.type !== "Repair") return false;
-=======
-        const effectiveDueFilter = reportView === "Supplier Summary" ? "All Status" : reportDueFilter;
-        if (effectiveDueFilter !== "All Status") {
-            if (row.type !== "Sell") return false;
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
             if (effectiveDueFilter === "Due Only" && !(row.dueAmount > 0)) return false;
             if (effectiveDueFilter === "Paid Only" && row.dueAmount > 0) return false;
         }
         if (reportPartyQueryLower && ![row.party, row.phone].some(v => String(v || "").toLowerCase().includes(reportPartyQueryLower))) return false;
         if (reportItemQueryLower && ![row.item, row.invoiceNo, row.imei, row.imei2, row.extra].some(v => String(v || "").toLowerCase().includes(reportItemQueryLower))) return false;
         return true;
-<<<<<<< HEAD
     }), [reportEntries, reportRange.from, reportRange.to, reportType, reportView, reportBillFilter, reportPaymentFilter, reportBrandFilter, reportRepairStatusFilter, reportDueFilter, reportPartyQueryLower, reportItemQueryLower]);
     const reportSummary = useMemo(() => {
         const buyAddRows = reportRows.filter(row => row.type === "Buy" || row.type === "Add");
         const sellRows = reportRows.filter(row => row.type === "Sell");
         const repairRows = reportRows.filter(row => row.type === "Repair");
-=======
-    }), [reportEntries, reportRange.from, reportRange.to, reportType, reportView, reportBillFilter, reportPaymentFilter, reportBrandFilter, reportDueFilter, reportPartyQueryLower, reportItemQueryLower]);
-    const reportSummary = useMemo(() => {
-        const buyAddRows = reportRows.filter(row => row.type === "Buy" || row.type === "Add");
-        const sellRows = reportRows.filter(row => row.type === "Sell");
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
         return {
             records: reportRows.length,
             buyAddTotal: buyAddRows.reduce((sum, row) => sum + (row.amount || 0), 0),
             sellTotal: sellRows.reduce((sum, row) => sum + (row.amount || 0), 0),
-<<<<<<< HEAD
             repairTotal: repairRows.reduce((sum, row) => sum + (row.amount || 0), 0),
             dueTotal: [...sellRows, ...repairRows].reduce((sum, row) => sum + (row.dueAmount || 0), 0),
-=======
-            dueTotal: sellRows.reduce((sum, row) => sum + (row.dueAmount || 0), 0),
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
             profit: sellRows.reduce((sum, row) => sum + (row.profit || 0), 0),
         };
     }, [reportRows]);
     const customerLedgerRows = useMemo(() => {
         const groups = new Map();
-<<<<<<< HEAD
         reportRows.filter(row => row.type === "Sell" || row.type === "Repair").forEach((row) => {
-=======
-        reportRows.filter(row => row.type === "Sell").forEach((row) => {
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
             const key = (row.phone || row.party || `walkin-${row.id}`).toLowerCase();
             if (!groups.has(key)) {
                 groups.set(key, {
                     id: key,
-<<<<<<< HEAD
                     type: row.type === "Repair" ? "Repair" : "Sell",
-=======
-                    type: "Sell",
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
                     item: row.party || row.phone || "Walk-in customer",
                     label: row.phone || row.party || "Walk-in customer",
                     party: row.party || "Walk-in customer",
@@ -3737,7 +3450,6 @@ export default function App() {
     const activeReportSummary = reportView === "Transactions" ? reportSummary : {
         records: activeReportRows.length,
         buyAddTotal: reportView === "Supplier Summary" ? activeReportRows.reduce((s, row) => s + (row.amount || 0), 0) : 0,
-<<<<<<< HEAD
         sellTotal: reportView === "Customer Ledger" ? activeReportRows.filter(row => row.type === "Sell").reduce((s, row) => s + (row.amount || 0), 0) : 0,
         repairTotal: reportView === "Customer Ledger" ? activeReportRows.filter(row => row.type === "Repair").reduce((s, row) => s + (row.amount || 0), 0) : 0,
         dueTotal: reportView === "Customer Ledger" ? activeReportRows.reduce((s, row) => s + (row.dueAmount || 0), 0) : 0,
@@ -3763,15 +3475,6 @@ export default function App() {
     useEffect(() => {
         setReportVisibleCount(REPORT_PAGE_SIZE);
     }, [pg, reportView, reportType, reportPreset, reportFrom, reportTo, reportBillFilter, reportPaymentFilter, reportBrandFilter, reportRepairStatusFilter, reportDueFilter, reportPartyQueryLower, reportItemQueryLower]);
-=======
-        sellTotal: reportView === "Customer Ledger" ? activeReportRows.reduce((s, row) => s + (row.amount || 0), 0) : 0,
-        dueTotal: reportView === "Customer Ledger" ? activeReportRows.reduce((s, row) => s + (row.dueAmount || 0), 0) : 0,
-        profit: reportView === "Customer Ledger" ? activeReportRows.reduce((s, row) => s + (row.profit || 0), 0) : 0,
-    };
-    useEffect(() => {
-        setReportVisibleCount(REPORT_PAGE_SIZE);
-    }, [pg, reportView, reportType, reportPreset, reportFrom, reportTo, reportBillFilter, reportPaymentFilter, reportBrandFilter, reportDueFilter, reportPartyQueryLower, reportItemQueryLower]);
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
     useEffect(() => {
         if (typeof window === "undefined" || pg !== "reports" || !hasMoreReportRows) return;
         const target = reportLoadMoreRef.current;
@@ -3834,11 +3537,7 @@ export default function App() {
         notify("WhatsApp message opened. Send it so the customer appears in recent chats, then share the PDF.", "success");
     };
     const downloadReport = async () => {
-<<<<<<< HEAD
         const { blob, fileName } = await makeReportFile({ rows: activeReportRows, summary: activeReportSummary, reportType: reportView === "Transactions" ? reportType : reportView, rangeLabel: reportRange.label, shop: shopCfg, filtersLabel: reportFiltersLabel });
-=======
-        const { blob, fileName } = await makeReportFile({ rows: activeReportRows, summary: activeReportSummary, reportType: reportView === "Transactions" ? reportType : reportView, rangeLabel: reportRange.label, shop: shopCfg });
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
         dlBlob(blob, fileName);
         notify("Report PDF downloaded");
     };
@@ -3862,11 +3561,7 @@ export default function App() {
     };
     const previewReportPdf = async (autoPrint = false) => {
         const targetWindow = window.open("", "_blank");
-<<<<<<< HEAD
         const { blob } = await makeReportFile({ rows: activeReportRows, summary: activeReportSummary, reportType: reportView === "Transactions" ? reportType : reportView, rangeLabel: reportRange.label, shop: shopCfg, filtersLabel: reportFiltersLabel });
-=======
-        const { blob } = await makeReportFile({ rows: activeReportRows, summary: activeReportSummary, reportType: reportView === "Transactions" ? reportType : reportView, rangeLabel: reportRange.label, shop: shopCfg });
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
         openBlobInTab(blob, autoPrint, targetWindow);
         notify(autoPrint ? "Report PDF opened for printing." : "Report PDF preview opened.", "success");
     };
@@ -3877,7 +3572,6 @@ export default function App() {
         openBlobInTab(blob, true, targetWindow);
         notify("Sticker PDF opened for printing.", "success");
     };
-<<<<<<< HEAD
     const printRepairSticker = async (repair) => {
         if (!repair) return;
         const targetWindow = window.open("", "_blank");
@@ -3908,10 +3602,6 @@ export default function App() {
             { id: "settings", ic: Settings, l: "Settings" },
         ];
     }, [enabledModules, shopCfg.businessMode]);
-=======
-
-    const nav = [{ id: "dashboard", ic: Home, l: "Dashboard" }, { id: "add", ic: Plus, l: "Add" }, { id: "buy", ic: ArrowDownCircle, l: "Buy" }, { id: "sell", ic: ArrowUpCircle, l: "Sell" }, { id: "transactions", ic: FileText, l: "Invoices" }, { id: "reports", ic: BarChart3, l: "Reports" }, { id: "inventory", ic: Package, l: "Stock" }, { id: "recycle", ic: Trash, l: "Bin" }, { id: "settings", ic: Settings, l: "Settings" }];
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
     const adminTabs = [{ id: "overview", label: "Overview" }, { id: "users", label: "Users" }, { id: "trials", label: "Trials" }, { id: "shops", label: "Shops" }, { id: "settings", label: "Settings" }];
     const getTrialMeta = (trialEndsAt) => {
         const expiresAt = Date.parse(String(trialEndsAt || ""));
@@ -3925,10 +3615,7 @@ export default function App() {
 
     const condBadge = (c) => c === "New" ? "bn" : c === "Refurbished" ? "br" : "bu";
     const statBadge = (s) => s === "In Stock" ? "bi" : s === "Sold" ? "bso" : "bre";
-<<<<<<< HEAD
     const repairStatusTone = (status) => status === "Ready" || status === "Delivered" ? "bi" : status === "Cancelled" ? "bre" : "br";
-=======
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
 
     // ── LOGIN GATES ──────────────────────────────────────────────────────
     if (!authReady) return (
@@ -3977,12 +3664,9 @@ export default function App() {
                         </> : authMode === "sign-up" ? <>
                             <input className="gi lic-input" placeholder="Shop Name" value={signupForm.shopName} autoComplete="organization" onChange={e => { setSignupForm(f => ({ ...f, shopName: e.target.value })); setSignupError(""); }} />
                             <input className="gi lic-input" placeholder="Mobile Number" value={signupForm.mobileNumber} autoComplete="tel" inputMode="numeric" onChange={e => { const mobileNumber = cleanMobileNumber(e.target.value); setSignupForm(f => ({ ...f, mobileNumber })); setSignupError(""); }} />
-<<<<<<< HEAD
                             <select className="gs lic-input" value={signupForm.profile} onChange={e => { setSignupForm(f => ({ ...f, profile: e.target.value })); setSignupError(""); }}>
                                 {SIGNUP_PROFILE_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
                             </select>
-=======
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
                             <input className="gi lic-input" type="email" placeholder="Email" value={signupForm.email} autoComplete="email" onChange={e => { setSignupForm(f => ({ ...f, email: e.target.value })); setSignupError(""); }} />
                             <input className="gi lic-input" type="password" placeholder="Password" value={signupForm.password} autoComplete="new-password" onChange={e => { setSignupForm(f => ({ ...f, password: e.target.value })); setSignupError(""); }} />
                             <input className="gi lic-input" type="password" placeholder="Confirm Password" value={signupForm.confirmPassword} autoComplete="new-password" onChange={e => { setSignupForm(f => ({ ...f, confirmPassword: e.target.value })); setSignupError(""); }} onKeyDown={e => e.key === "Enter" && !signupBusy && handleShopSignup()} />
@@ -4195,20 +3879,13 @@ export default function App() {
                                 <F l="Brand" ic={Tag}><select className="gs" value={fm.brand} onChange={e => uf("brand", e.target.value)}>{BRANDS.map(b => <option key={b}>{b}</option>)}</select></F>
                                 <F l="Model" ic={Smartphone}><input className="gi" value={fm.model} onChange={e => uf("model", e.target.value)} placeholder="e.g. Galaxy S24 Ultra" /></F>
                                 <F l="Color" ic={Palette}><input className="gi" value={fm.color} onChange={e => uf("color", e.target.value)} placeholder="e.g. Black" /></F>
-<<<<<<< HEAD
                                 <F l="RAM (Optional)" ic={Layers}><RamInput value={fm.ram} onChange={v => uf("ram", v)} /></F>
-=======
-                                <F l="RAM (Optional)" ic={Layers}><input className="gi" value={fm.ram} onChange={e => uf("ram", e.target.value)} placeholder="e.g. 8GB" /></F>
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
                                 <F l="Storage" ic={HardDrive}><StorageInput value={fm.storage} onChange={v => uf("storage", v)} /></F>
                                 <F l="Battery Health (Optional)" ic={Battery}><input className="gi" value={fm.batteryHealth} onChange={e => uf("batteryHealth", e.target.value)} placeholder="e.g. 92%" /></F>
                                 <F l="Condition" ic={Layers}><select className="gs" value={fm.condition} onChange={e => uf("condition", e.target.value)}>{CONDITIONS.map(c => <option key={c}>{c}</option>)}</select></F>
                                 <F l="Warranty" ic={Shield}><select className="gs" value={fm.warrantyType || "No Warranty"} onChange={e => uf("warrantyType", e.target.value)}>{WARRANTY_TYPES.map(w => <option key={w}>{w}</option>)}</select></F>
                                 {fm.warrantyType === "Testing Warranty" && <F l="Warranty Period (Months)" ic={Clock}><input className="gi" type="number" min="1" max="36" value={fm.warrantyMonths} onChange={e => uf("warrantyMonths", e.target.value)} placeholder="e.g. 3" /></F>}
-<<<<<<< HEAD
                                 {fm.warrantyType !== "No Warranty" && <F l="Purchase Date" ic={Calendar}><input className="gi" type="date" value={fm.purchaseDate} onChange={e => uf("purchaseDate", e.target.value)} /></F>}
-=======
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
                                 <F l="Buy Price (Optional)" ic={IndianRupee}><input className="gi" type="number" value={fm.buyPrice} onChange={e => uf("buyPrice", e.target.value)} placeholder="₹0" /></F>
                                 <F l="Sell Price" ic={IndianRupee}><input className="gi" type="number" value={fm.sellPrice} onChange={e => uf("sellPrice", e.target.value)} placeholder="₹0" /></F>
                                 <F l="Serialized Stock" ic={Package}><div className="gi" style={{ display: "flex", alignItems: "center", minHeight: 48 }}>Each mobile saves as qty 1. Use Buy when you want to record supplier purchase details too.</div></F>
@@ -4317,16 +3994,11 @@ export default function App() {
                                     </div>
 
                                     {/* Bottom — Meta + Actions */}
-<<<<<<< HEAD
                                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, paddingTop: 8, borderTop: "1px solid rgba(255,255,255,.05)" }}>
                                         <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
                                             {it.status === "In Stock" && it.qty > 0 && <button className="hcard-ab" style={{ padding: 8, color: "var(--err)", border: "1px solid rgba(248,113,113,.35)", background: "rgba(248,113,113,.08)" }} onClick={e => { e.stopPropagation(); sFm(toForm(it, { amount: it.sellPrice, paidAmount: it.sellPrice, dueAmount: 0, customerName: "", phone: "", notes: "" })); sPg("sell"); sDi(null); }} aria-label="Sell item" title="Sell"><ArrowUpCircle size={15} /></button>}
                                             {it.lastInvoiceNo && <span style={{ color: "var(--t3)", fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.lastInvoiceNo}</span>}
                                         </div>
-=======
-                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 8, borderTop: "1px solid rgba(255,255,255,.05)" }}>
-                                        <span style={{ color: "var(--t3)", fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "50%" }}>{(() => { const d = daysInStock(it.addedDate); const c = d < 30 ? "var(--ok)" : d < 60 ? "var(--warn)" : "var(--err)"; return <span style={{ color: c, fontWeight: 600 }}>{d}d in stock</span>; })()}{it.lastInvoiceNo ? ` · ${it.lastInvoiceNo}` : ""}</span>
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
                                         <div className="hcard-actions">
                                             <button className="bg hcard-ab" style={{ padding: 8 }} onClick={e => { e.stopPropagation(); void printSticker(it); }}><Printer size={15} /></button>
                                             <button className="bg hcard-ab" style={{ padding: 8 }} onClick={e => { e.stopPropagation(); sDi(it); }}><Eye size={15} /></button>
@@ -4353,11 +4025,7 @@ export default function App() {
                                         <td style={{ padding: "12px 14px", color: "var(--t2)", fontSize: 13 }}>{fmtCurrency(it.buyPrice)}</td>
                                         <td style={{ padding: "12px 14px", color: "var(--ok)", fontSize: 13, fontWeight: 500 }}>{fmtCurrency(it.sellPrice)}</td>
                                         <td style={{ padding: "12px 14px" }}><span className={`ba ${statBadge(it.status)}`}>{it.status}</span></td>
-<<<<<<< HEAD
                                         <td style={{ padding: "12px 14px" }}><div style={{ display: "flex", gap: 4 }}>{it.status === "In Stock" && it.qty > 0 && <button style={{ padding: 6, color: "var(--err)", border: "1px solid rgba(248,113,113,.35)", background: "rgba(248,113,113,.08)", borderRadius: 10, display: "inline-flex", alignItems: "center", justifyContent: "center" }} onClick={() => { sFm(toForm(it, { amount: it.sellPrice, paidAmount: it.sellPrice, dueAmount: 0, customerName: "", phone: "", notes: "" })); sPg("sell"); sDi(null); }} aria-label="Sell item" title="Sell"><ArrowUpCircle size={14} /></button>}<button className="bg" style={{ padding: 6 }} onClick={() => void printSticker(it)}><Printer size={14} /></button><button className="bg" style={{ padding: 6 }} onClick={() => sDi(it)}><Eye size={14} /></button><button className="bg" style={{ padding: 6 }} onClick={() => editFromStock(it)}><Edit2 size={14} /></button><button className="bd" style={{ padding: 6 }} onClick={() => setConfirmDel(it)}><Trash2 size={14} /></button></div></td>
-=======
-                                        <td style={{ padding: "12px 14px" }}><div style={{ display: "flex", gap: 4 }}><button className="bg" style={{ padding: 6 }} onClick={() => void printSticker(it)}><Printer size={14} /></button><button className="bg" style={{ padding: 6 }} onClick={() => sDi(it)}><Eye size={14} /></button><button className="bg" style={{ padding: 6 }} onClick={() => editFromStock(it)}><Edit2 size={14} /></button><button className="bd" style={{ padding: 6 }} onClick={() => setConfirmDel(it)}><Trash2 size={14} /></button></div></td>
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
                                     </tr>)}</tbody>
                                 </table>
                             </div>}
@@ -4466,7 +4134,6 @@ export default function App() {
                                 <F l="Brand" ic={Tag}><select className="gs" value={fm.brand} onChange={e => uf("brand", e.target.value)}>{BRANDS.map(b => <option key={b}>{b}</option>)}</select></F>
                                 <F l="Model" ic={Smartphone}><input className="gi" value={fm.model} onChange={e => uf("model", e.target.value)} placeholder="Model" /></F>
                                 <F l="Color" ic={Palette}><input className="gi" value={fm.color} onChange={e => uf("color", e.target.value)} placeholder="Color" /></F>
-<<<<<<< HEAD
                                 <F l="RAM (Optional)" ic={Layers}><RamInput value={fm.ram} onChange={v => uf("ram", v)} /></F>
                                 <F l="Storage" ic={HardDrive}><StorageInput value={fm.storage} onChange={v => uf("storage", v)} /></F>
                                 <F l="Battery Health (Optional)" ic={Battery}><input className="gi" value={fm.batteryHealth} onChange={e => uf("batteryHealth", e.target.value)} placeholder="e.g. 92%" /></F>
@@ -4474,12 +4141,6 @@ export default function App() {
                                 <F l="Warranty" ic={Shield}><select className="gs" value={fm.warrantyType || "No Warranty"} onChange={e => uf("warrantyType", e.target.value)}>{WARRANTY_TYPES.map(w => <option key={w}>{w}</option>)}</select></F>
                                 {fm.warrantyType === "Testing Warranty" && <F l="Warranty Period (Months)" ic={Clock}><input className="gi" type="number" min="1" max="36" value={fm.warrantyMonths} onChange={e => uf("warrantyMonths", e.target.value)} placeholder="e.g. 3" /></F>}
                                 {(fm.warrantyType !== "No Warranty" || fm.condition === "Used" || fm.condition === "Refurbished") && <F l={(fm.condition === "Used" || fm.condition === "Refurbished") ? "Purchase Date *" : "Purchase Date"} ic={Calendar}><input className="gi" type="date" value={fm.purchaseDate} onChange={e => uf("purchaseDate", e.target.value)} /></F>}
-=======
-                                <F l="RAM (Optional)" ic={Layers}><input className="gi" value={fm.ram} onChange={e => uf("ram", e.target.value)} placeholder="e.g. 8GB" /></F>
-                                <F l="Storage" ic={HardDrive}><StorageInput value={fm.storage} onChange={v => uf("storage", v)} /></F>
-                                <F l="Battery Health (Optional)" ic={Battery}><input className="gi" value={fm.batteryHealth} onChange={e => uf("batteryHealth", e.target.value)} placeholder="e.g. 92%" /></F>
-                                <F l="Condition" ic={Layers}><select className="gs" value={fm.condition} onChange={e => uf("condition", e.target.value)}>{CONDITIONS.map(c => <option key={c}>{c}</option>)}</select></F>
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
                                 <F l="Buy Price" ic={IndianRupee}><input className="gi" type="number" value={fm.buyPrice} onChange={e => uf("buyPrice", e.target.value)} placeholder="₹" /></F>
                                 <F l="Sell Price" ic={IndianRupee}><input className="gi" type="number" value={fm.sellPrice} onChange={e => uf("sellPrice", e.target.value)} placeholder="₹" /></F>
                                 <F l="Serialized Stock" ic={Package}><div className="gi" style={{ display: "flex", alignItems: "center", minHeight: 48 }}>Mobile IMEI stock saves one handset per entry.</div></F>
@@ -4493,10 +4154,6 @@ export default function App() {
                                     <F l="Seller Name *" ic={User}><input className="gi" value={fm.sellerName} onChange={e => uf("sellerName", e.target.value)} placeholder="Seller full name" /></F>
                                     <F l="Seller Phone *" ic={Phone}><input className="gi" type="tel" value={fm.sellerPhone} onChange={e => uf("sellerPhone", e.target.value)} placeholder="Seller phone" /></F>
                                     <F l="Aadhaar Number *" ic={Hash}><input className="gi" value={fm.sellerAadhaarNumber} onChange={e => uf("sellerAadhaarNumber", e.target.value.replace(/[^\d]/g, "").slice(0, 12))} placeholder="12 digit Aadhaar" style={{ fontFamily: "'Space Mono',monospace" }} /></F>
-<<<<<<< HEAD
-=======
-                                    <F l="Purchase Date *" ic={Calendar}><input className="gi" type="date" value={fm.purchaseDate} onChange={e => uf("purchaseDate", e.target.value)} /></F>
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
                                 </div>
                                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 16, marginTop: 14 }}>
                                     <F l="Seller ID Photo *" ic={FileText}><SingleImageInput label="Seller ID" value={fm.sellerIdPhotoData} onChange={v => uf("sellerIdPhotoData", v)} /></F>
@@ -4581,7 +4238,6 @@ export default function App() {
                         </div>
                     </div>}
 
-<<<<<<< HEAD
                     {/* ═══ REPAIR ═══ */}
                     {pg === "repair" && !repairDetail && <div className="fi" style={{ maxWidth: 920 }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12, marginBottom: 24 }}>
@@ -4658,8 +4314,6 @@ export default function App() {
                         </div>
                     </div>}
 
-=======
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
                     {/* ═══ INVOICES ═══ */}
                     {pg === "transactions" && <div className="fi">
                         <div style={{ marginBottom: 28 }}><h1 style={{ color: "var(--t1)", fontSize: 28, fontWeight: 700 }}>Invoices</h1><p style={{ color: "var(--t3)", fontSize: 14, marginTop: 4 }}>{invoiceRecords.length} sales invoices</p></div>
@@ -4684,28 +4338,17 @@ export default function App() {
 
                     {/* ═══ REPORTS ═══ */}
                     {pg === "reports" && <div className="fi">
-<<<<<<< HEAD
                         <div style={{ marginBottom: 28 }}><h1 style={{ color: "var(--t1)", fontSize: 28, fontWeight: 700 }}>Reports</h1><p style={{ color: "var(--t3)", fontSize: 14, marginTop: 4 }}>Filter Buy, Sell, Add, and Repair records by date, GST, payment mode, brand, and party. View transaction reports, customer ledgers, or supplier purchase summaries and export them as PDF.</p></div>
-=======
-                        <div style={{ marginBottom: 28 }}><h1 style={{ color: "var(--t1)", fontSize: 28, fontWeight: 700 }}>Reports</h1><p style={{ color: "var(--t3)", fontSize: 14, marginTop: 4 }}>Filter Buy, Sell, and Add records by date, GST, payment mode, brand, and party. View transaction reports, customer ledgers, or supplier purchase summaries and export them as PDF.</p></div>
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
                         <div className="gc" style={{ marginBottom: 16 }}>
                             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 12 }}>
                                 <F l="Report View" ic={BarChart3}><select className="gs" value={reportView} onChange={e => setReportView(e.target.value)}>{REPORT_VIEWS.map(type => <option key={type}>{type}</option>)}</select></F>
                                 <F l="Report Type" ic={FileText}><select className="gs" value={reportType} onChange={e => setReportType(e.target.value)}>{REPORT_TYPES.map(type => <option key={type}>{type}</option>)}</select></F>
                                 <F l="Date Range" ic={Calendar}><select className="gs" value={reportPreset} onChange={e => setReportPreset(e.target.value)}>{REPORT_RANGE_PRESETS.map(type => <option key={type}>{type}</option>)}</select></F>
-<<<<<<< HEAD
                                 <F l="GST Filter" ic={Hash}><select className="gs" value={reportBillFilter} onChange={e => setReportBillFilter(e.target.value)} disabled={reportType === "Buy" || reportType === "Add" || reportType === "Repair" || reportView !== "Transactions"}>{REPORT_BILL_FILTERS.map(type => <option key={type}>{type}</option>)}</select></F>
                                 <F l="Payment Mode" ic={CreditCard}><select className="gs" value={reportPaymentFilter} onChange={e => setReportPaymentFilter(e.target.value)}>{["All Payments", ...PAYMENT_MODES].map(type => <option key={type}>{type}</option>)}</select></F>
                                 <F l="Brand" ic={Tag}><select className="gs" value={reportBrandFilter} onChange={e => setReportBrandFilter(e.target.value)}>{reportBrands.map(type => <option key={type}>{type}</option>)}</select></F>
                                 <F l="Due Status" ic={Banknote}><select className="gs" value={reportDueFilter} onChange={e => setReportDueFilter(e.target.value)} disabled={reportView === "Supplier Summary" || (reportType !== "All" && reportType !== "Sell" && reportType !== "Repair")}>{REPORT_DUE_FILTERS.map(type => <option key={type}>{type}</option>)}</select></F>
                                 <F l="Repair Status" ic={Wrench}><select className="gs" value={reportRepairStatusFilter} onChange={e => setReportRepairStatusFilter(e.target.value)} disabled={reportView !== "Transactions" || (reportType !== "All" && reportType !== "Repair")}>{["All Repair Statuses", ...REPAIR_STATUSES].map(type => <option key={type}>{type}</option>)}</select></F>
-=======
-                                <F l="GST Filter" ic={Hash}><select className="gs" value={reportBillFilter} onChange={e => setReportBillFilter(e.target.value)} disabled={reportType === "Buy" || reportType === "Add" || reportView !== "Transactions"}>{REPORT_BILL_FILTERS.map(type => <option key={type}>{type}</option>)}</select></F>
-                                <F l="Payment Mode" ic={CreditCard}><select className="gs" value={reportPaymentFilter} onChange={e => setReportPaymentFilter(e.target.value)}>{["All Payments", ...PAYMENT_MODES].map(type => <option key={type}>{type}</option>)}</select></F>
-                                <F l="Brand" ic={Tag}><select className="gs" value={reportBrandFilter} onChange={e => setReportBrandFilter(e.target.value)}>{reportBrands.map(type => <option key={type}>{type}</option>)}</select></F>
-                                <F l="Due Status" ic={Banknote}><select className="gs" value={reportDueFilter} onChange={e => setReportDueFilter(e.target.value)} disabled={reportView === "Supplier Summary" || (reportType !== "All" && reportType !== "Sell")}>{REPORT_DUE_FILTERS.map(type => <option key={type}>{type}</option>)}</select></F>
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
                                 <F l="Customer / Supplier" ic={Search}><input className="gi" value={reportPartyQuery} onChange={e => setReportPartyQuery(e.target.value)} placeholder="Search party, phone, invoice, IMEI" /></F>
                                 <F l="Brand / Model / IMEI" ic={Package}><input className="gi" value={reportItemQuery} onChange={e => setReportItemQuery(e.target.value)} placeholder="Search brand, model, invoice, IMEI" /></F>
                                 {reportPreset === "Custom" && <><F l="From" ic={Calendar}><input className="gi" type="date" value={reportFrom} onChange={e => setReportFrom(e.target.value)} /></F><F l="To" ic={Calendar}><input className="gi" type="date" value={reportTo} onChange={e => setReportTo(e.target.value)} /></F></>}
@@ -4717,20 +4360,12 @@ export default function App() {
                             </div>
                         </div>
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 14, marginBottom: 24 }}>
-<<<<<<< HEAD
                             {reportSummaryCards.map((s, i) =>
-=======
-                            {[{ l: "Records", v: activeReportSummary.records, c: "var(--t1)" }, { l: reportView === "Supplier Summary" ? "Purchases" : "Buy + Add", v: fmtCurrency(activeReportSummary.buyAddTotal), c: "var(--a2)" }, { l: reportView === "Customer Ledger" ? "Sales" : "Sales", v: fmtCurrency(activeReportSummary.sellTotal), c: "var(--a)" }, { l: "Due", v: fmtCurrency(activeReportSummary.dueTotal), c: "var(--warn)" }, { l: "Profit", v: fmtCurrency(activeReportSummary.profit), c: "var(--ok)" }].map((s, i) =>
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
                                 <div key={i} className="gc" style={{ textAlign: "center" }}><div style={{ color: "var(--t3)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>{s.l}</div><div style={{ color: s.c, fontSize: 22, fontWeight: 700 }}>{s.v}</div></div>
                             )}
                         </div>
                         <div className="gc">
-<<<<<<< HEAD
                             <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 14 }}><h3 style={{ color: "var(--t1)", fontSize: 15, fontWeight: 600 }}>Report Preview</h3><div style={{ color: "var(--t3)", fontSize: 13 }}>{reportView} · {reportType} · {reportRange.label}{reportFiltersLabel ? ` · ${reportFiltersLabel}` : ""}</div></div>
-=======
-                            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 14 }}><h3 style={{ color: "var(--t1)", fontSize: 15, fontWeight: 600 }}>Report Preview</h3><div style={{ color: "var(--t3)", fontSize: 13 }}>{reportView} · {reportType} · {reportRange.label}{reportType !== "Buy" && reportType !== "Add" && reportBillFilter !== "All Bills" && reportView === "Transactions" ? ` · ${reportBillFilter}` : ""}{reportDueFilter !== "All Status" ? ` · ${reportDueFilter}` : ""}{reportPaymentFilter !== "All Payments" ? ` · ${reportPaymentFilter}` : ""}{reportBrandFilter !== "All Brands" ? ` · ${reportBrandFilter}` : ""}{reportPartyQuery.trim() ? ` · ${reportPartyQuery.trim()}` : ""}{reportItemQuery.trim() ? ` · ${reportItemQuery.trim()}` : ""}</div></div>
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
                             <div style={{ display: "grid", gap: 12 }}>
                                 {activeReportRows.length === 0 && <div style={{ color: "var(--t2)", fontSize: 14 }}>No records found for this range.</div>}
                                 {activeReportRows.length > visibleReportRows.length && <div style={{ color: "var(--t3)", fontSize: 12 }}>Showing {visibleReportRows.length} of {activeReportRows.length} records</div>}
@@ -4739,11 +4374,7 @@ export default function App() {
                                     <div style={{ color: "var(--t1)", fontSize: 15, fontWeight: 600 }}>{row.item || row.label}</div>
                                     <div style={{ color: "var(--t2)", fontSize: 13 }}>{row.party || "-"}{row.phone ? ` · ${row.phone}` : ""}{row.paymentMode ? ` · ${row.paymentMode}` : ""}</div>
                                     <div style={{ color: "var(--t3)", fontSize: 12 }}>{fmtDateTime(row.lastDateTime || row.dateTime)}{row.extra ? ` · ${row.extra}` : ""}{reportView !== "Transactions" ? ` · ${row.records} records` : ""}</div>
-<<<<<<< HEAD
                                     <div style={{ color: "var(--t3)", fontSize: 12, fontFamily: "'Space Mono',monospace" }}>{reportView === "Transactions" ? (row.type === "Repair" ? `${row.imei ? `IMEI 1: ${row.imei}` : "No IMEI"} · Due ${fmtCurrency(row.dueAmount || 0)}` : row.imei ? `IMEI 1: ${row.imei}${row.imei2 ? ` · IMEI 2: ${row.imei2}` : ""}` : "No IMEI") : `Due ${fmtCurrency(row.dueAmount || 0)}${reportView === "Customer Ledger" ? ` · Profit ${fmtCurrency(row.profit || 0)}` : ""}`}</div>
-=======
-                                    <div style={{ color: "var(--t3)", fontSize: 12, fontFamily: "'Space Mono',monospace" }}>{reportView === "Transactions" ? (row.imei ? `IMEI 1: ${row.imei}${row.imei2 ? ` · IMEI 2: ${row.imei2}` : ""}` : "No IMEI") : `Due ${fmtCurrency(row.dueAmount || 0)}${reportView === "Customer Ledger" ? ` · Profit ${fmtCurrency(row.profit || 0)}` : ""}`}</div>
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
                                 </div>)}
                                 {hasMoreReportRows && <div ref={reportLoadMoreRef} style={{ height: 1 }} />}
                             </div>
@@ -4796,7 +4427,6 @@ export default function App() {
                                     <div style={{ color: "var(--t1)", fontSize: 14, fontWeight: 600, marginBottom: 6 }}>Invoice Output</div>
                                     <div style={{ color: "var(--t2)", fontSize: 13, lineHeight: 1.7 }}>PDFs are generated in professional A4 portrait format with your uploaded shop logo, shop address, customer details, handset specs, IMEIs, payment summary, and GST or regular invoice totals. On supported phones, the PDF can be shared directly to WhatsApp from the native share sheet.</div>
                                 </div>
-<<<<<<< HEAD
                                 <div className="gc" style={{ marginTop: 12, background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.06)" }}>
                                     <div style={{ color: "var(--t1)", fontSize: 14, fontWeight: 600, marginBottom: 10 }}>Business Mode</div>
                                     <div style={{ display: "grid", gap: 12 }}>
@@ -4820,8 +4450,6 @@ export default function App() {
                                         <div style={{ color: "var(--t3)", fontSize: 12, lineHeight: 1.6 }}>General mode can show Buy, Sell, and Repair together. Repair Pro keeps the app focused on repair jobs, while still allowing you to switch back here later.</div>
                                     </div>
                                 </div>
-=======
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
                             </div>
                         </div>
                         <div className="gc" style={{ marginBottom: 16 }}>

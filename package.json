@@ -13,10 +13,7 @@
     "@zxing/browser": "^0.1.5",
     "@zxing/library": "^0.21.3",
     "idb": "^8.0.3",
-<<<<<<< HEAD
     "jsbarcode": "^3.12.3",
-=======
->>>>>>> 94f4ee6323aacd286763cf95f5f96257baf6faf1
     "jspdf": "^4.2.1",
     "lucide-react": "^0.542.0",
     "pocketbase": "^0.26.8",
