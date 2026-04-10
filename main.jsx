@@ -3,7 +3,9 @@ import ReactDOM from 'react-dom/client'
 import { registerSW } from 'virtual:pwa-register'
 import App from './mobile-dukaan_2.jsx'
 
-registerSW({ immediate: true })
+if (import.meta.env.PROD) {
+  registerSW({ immediate: true })
+}
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

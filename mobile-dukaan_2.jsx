@@ -8,7 +8,7 @@ import {
     User, Phone, Calendar, Hash, Palette, HardDrive, Tag, Layers, LogOut,
     ChevronRight, CreditCard, Banknote, QrCode, LayoutGrid, List, Bell,
     ImagePlus, Images, ChevronLeft, ZoomIn, RotateCcw, Upload, Aperture, Battery,
-    Download, Share2, Lock, MapPin, Mail, Printer, Zap, Shield, Clock, Wrench,
+    Download, Share2, Lock, MapPin, Mail, Printer, Zap, Shield, Clock, Wrench, MessageCircle,
     Trash, ArchiveRestore
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, CartesianGrid, Legend, AreaChart, Area } from "recharts";
@@ -547,6 +547,18 @@ const makeWhatsAppUrl = (phone, text) => {
 };
 const getSaleShop = (sale, fallbackShop) => normalizeShopProfile(sale?.shopSnapshot || fallbackShop || DEFAULT_SHOP_PROFILE);
 const makeWhatsAppIntroText = () => "Thanks for shopping. You will receive your invoice shortly.";
+const makeRepairWhatsAppText = (repair, shop) => {
+    const amount = repair.finalCost || repair.estimatedCost || 0;
+    const due = Math.max(amount - (repair.advance || 0), 0);
+    const statusLine = repair.status === "Received"
+        ? "Your device has been received for repair."
+        : repair.status === "Ready"
+            ? "Your device repair is complete and ready for pickup."
+            : repair.status === "Delivered"
+                ? "Your repaired device has been delivered successfully."
+                : "Your repair request has been cancelled. Please contact us for help.";
+    return `${shop.shopName}\nRepair ID: ${repair.repairNo || "Repair Job"}\n${statusLine}\nDevice: ${[repair.brand, repair.model].filter(Boolean).join(" ") || "Device"}${repair.problem ? `\nIssue: ${repair.problem}` : ""}${repair.imei ? `\nIMEI: ${repair.imei}` : ""}${repair.receivedDate ? `\nReceived: ${fmtDate(repair.receivedDate)}` : ""}${amount ? `\nAmount: ${fmtMoney(amount)}` : ""}${repair.advance ? `\nAdvance: ${fmtMoney(repair.advance)}` : ""}${due ? `\nDue: ${fmtMoney(due)}` : ""}`;
+};
 const makeInvoiceText = (sale, shop) => `${shop.shopName} ${sale.invoiceNo || "Invoice"}\n${sale.billType === "GST" ? "GST Invoice" : "Invoice"}\n${sale.brand} ${sale.model}\nSpecs: ${fmtSpecs(sale.ram, sale.storage)}\nIMEI 1: ${sale.imei}${sale.imei2 ? `\nIMEI 2: ${sale.imei2}` : ""}\nTotal: ${fmtMoney(sale.totalAmount || sale.amount)}${sale.billType === "GST" ? `\nTaxable: ${fmtMoney(sale.taxableAmount)}\nGST: ${fmtMoney(sale.gstAmount)}` : ""}${sale.dueAmount ? `\nDue: ${fmtMoney(sale.dueAmount)}` : ""}`;
 const buildInvoiceDoc = async (sale, shop) => {
     const { jsPDF } = await import("jspdf");
@@ -2051,6 +2063,7 @@ export default function App() {
     const [bulkSaveBusy, setBulkSaveBusy] = useState(false);
     const [stockVisibleCount, setStockVisibleCount] = useState(STOCK_PAGE_SIZE);
     const [repairQuery, setRepairQuery] = useState("");
+    const [repairStatusFilter, setRepairStatusFilter] = useState("All Statuses");
     const [sf, sSf] = useState(false);
     const [nt, sNt] = useState(null);
     const [vm, sVm] = useState("grid");
@@ -2654,11 +2667,8 @@ export default function App() {
     // ── sync refs for hardware barcode scanner ──
     useEffect(() => { pgRef.current = pg; }, [pg]);
     useEffect(() => {
-        if (shopCfg.businessMode === "repair-pro" && pg === "dashboard") sPg("repair");
-    }, [pg, shopCfg.businessMode]);
-    useEffect(() => {
-        if ((pg === "add" && !enabledModules.some(module => module === "buy" || module === "sell")) || (pg === "buy" && !enabledModules.includes("buy")) || (pg === "sell" && !enabledModules.includes("sell")) || (pg === "repair" && !enabledModules.includes("repair")) || (pg === "repair-form" && !enabledModules.includes("repair"))) {
-            sPg(shopCfg.businessMode === "repair-pro" ? "repair" : "dashboard");
+        if ((pg === "add" && !enabledModules.some(module => module === "buy" || module === "sell")) || (pg === "buy" && !enabledModules.includes("buy")) || (pg === "sell" && !enabledModules.includes("sell")) || (pg === "repair" && !enabledModules.includes("repair")) || (pg === "repair-form" && !enabledModules.includes("repair")) || (shopCfg.businessMode === "repair-pro" && pg === "inventory")) {
+            sPg("dashboard");
         }
     }, [enabledModules, pg, shopCfg.businessMode]);
     useEffect(() => { fmRef.current = fm; }, [fm]);
@@ -3121,6 +3131,33 @@ export default function App() {
             notify(error?.message || "Unable to save repair.", "error");
         }
     };
+    const updateRepairStatus = useCallback(async (repair, nextStatus) => {
+        if (!repair || !nextStatus || repair.status === nextStatus) return;
+        const nextRepair = normalizeRepair({
+            ...repair,
+            status: nextStatus,
+            updatedAt: new Date().toISOString(),
+            deliveredDate: nextStatus === "Delivered" ? isoDate() : "",
+        });
+        try {
+            let savedRepair = nextRepair;
+            if (shopSession?.pbAuth?.token && shopSession?.pbAuth?.record?.shop) {
+                const saved = await pocketbaseUpsertRepair(shopSession.pbAuth, nextRepair);
+                savedRepair = normalizeRepair({
+                    ...nextRepair,
+                    id: saved.id,
+                    createdAt: saved.created || nextRepair.createdAt,
+                    updatedAt: saved.updated || nextRepair.updatedAt,
+                });
+            }
+            setRepairs(current => current.map(item => item.id === savedRepair.id ? savedRepair : item));
+            setRepairDetail(current => current?.id === savedRepair.id ? savedRepair : current);
+            setRepairForm(current => current?.id === savedRepair.id ? { ...current, status: savedRepair.status, updatedAt: savedRepair.updatedAt, deliveredDate: savedRepair.deliveredDate } : current);
+            notify(`Repair marked ${savedRepair.status}`, "success");
+        } catch (error) {
+            notify(error?.message || "Unable to update repair status.", "error");
+        }
+    }, [notify, shopSession?.pbAuth]);
     const deleteRepair = useCallback((repairId) => {
         const removeLocal = () => {
             setRepairs(current => current.filter(item => item.id !== repairId));
@@ -3272,11 +3309,35 @@ export default function App() {
     const repairRecords = useMemo(() => [...repairs].sort((a, b) => String(b.updatedAt || b.createdAt || "").localeCompare(String(a.updatedAt || a.createdAt || ""))), [repairs]);
     const filteredRepairRecords = useMemo(() => {
         const q = repairQuery.trim().toLowerCase();
-        if (!q) return repairRecords;
-        return repairRecords.filter(repair => [repair.repairNo, repair.customerName, repair.phone, repair.brand, repair.model, repair.color, repair.imei, repair.problem, repair.status].some(v => String(v || "").toLowerCase().includes(q)));
-    }, [repairQuery, repairRecords]);
+        return repairRecords.filter(repair => {
+            if (repairStatusFilter !== "All Statuses" && repair.status !== repairStatusFilter) return false;
+            if (!q) return true;
+            return [repair.repairNo, repair.customerName, repair.phone, repair.brand, repair.model, repair.color, repair.imei, repair.problem, repair.status].some(v => String(v || "").toLowerCase().includes(q));
+        });
+    }, [repairQuery, repairRecords, repairStatusFilter]);
     const repairOpenCount = useMemo(() => repairs.filter(item => !["Delivered", "Cancelled"].includes(item.status)).length, [repairs]);
     const repairReadyCount = useMemo(() => repairs.filter(item => item.status === "Ready").length, [repairs]);
+    const repairDeliveredCount = useMemo(() => repairs.filter(item => item.status === "Delivered").length, [repairs]);
+    const repairCancelledCount = useMemo(() => repairs.filter(item => item.status === "Cancelled").length, [repairs]);
+    const repairDueTotal = useMemo(() => repairs.reduce((sum, repair) => {
+        const amount = repair.finalCost || repair.estimatedCost || 0;
+        return sum + Math.max(amount - (repair.advance || 0), 0);
+    }, 0), [repairs]);
+    const repairAdvanceTotal = useMemo(() => repairs.reduce((sum, repair) => sum + (repair.advance || 0), 0), [repairs]);
+    const repairValueTotal = useMemo(() => repairs.reduce((sum, repair) => sum + (repair.finalCost || repair.estimatedCost || 0), 0), [repairs]);
+    const repairRecentJobs = useMemo(() => repairRecords.slice(0, 5), [repairRecords]);
+    const repairTodayStats = useMemo(() => {
+        const today = isoDate();
+        const received = repairs.filter(item => (item.receivedDate || "") === today).length;
+        const delivered = repairs.filter(item => (item.deliveredDate || "") === today).length;
+        return { received, delivered };
+    }, [repairs]);
+    const repairStatusCards = useMemo(() => ([
+        { l: "Received", v: repairs.filter(item => item.status === "Received").length, c: "var(--warn)" },
+        { l: "Ready", v: repairReadyCount, c: "var(--ok)" },
+        { l: "Delivered", v: repairDeliveredCount, c: "var(--a)" },
+        { l: "Cancelled", v: repairCancelledCount, c: "var(--err)" },
+    ]), [repairCancelledCount, repairDeliveredCount, repairReadyCount, repairs]);
     const invoiceRecords = useMemo(() => {
         const q = iq.trim().toLowerCase();
         return tx.filter(t => t.type === "Sell").filter(t => {
@@ -3536,6 +3597,12 @@ export default function App() {
         updateSaleMeta(sale.id, { whatsAppMessageAt: new Date().toISOString() });
         notify("WhatsApp message opened. Send it so the customer appears in recent chats, then share the PDF.", "success");
     };
+    const whatsappRepairMessage = (repair) => {
+        if (!repair) return;
+        if (!repair.phone) { notify("Add customer phone number before opening WhatsApp message.", "error"); return; }
+        window.open(makeWhatsAppUrl(repair.phone, makeRepairWhatsAppText(repair, shopCfg)), "_blank");
+        notify(`WhatsApp message opened for ${repair.status.toLowerCase()} update.`, "success");
+    };
     const downloadReport = async () => {
         const { blob, fileName } = await makeReportFile({ rows: activeReportRows, summary: activeReportSummary, reportType: reportView === "Transactions" ? reportType : reportView, rangeLabel: reportRange.label, shop: shopCfg, filtersLabel: reportFiltersLabel });
         dlBlob(blob, fileName);
@@ -3595,9 +3662,8 @@ export default function App() {
         ];
         if (shopCfg.businessMode !== "repair-pro") return generalNav;
         return [
-            { id: "repair", ic: Wrench, l: "Repair" },
             { id: "dashboard", ic: Home, l: "Dashboard" },
-            { id: "inventory", ic: Package, l: "Stock" },
+            { id: "repair", ic: Wrench, l: "Repair" },
             { id: "reports", ic: BarChart3, l: "Reports" },
             { id: "settings", ic: Settings, l: "Settings" },
         ];
@@ -3834,8 +3900,8 @@ export default function App() {
 
                 {/* Mobile Nav */}
                 <div className="mfd" aria-hidden="true" />
-                <div className="mn gl sh" style={{ position: "fixed", bottom: "calc(10px + env(safe-area-inset-bottom,0px))", left: 8, right: 8, zIndex: 50, display: "none", justifyContent: "flex-start", gap: 2, padding: "8px 6px", borderRadius: 20, overflowX: "auto", boxShadow: "0 10px 30px rgba(0,0,0,.28)" }}>
-                    {nav.map(n => <div key={n.id} onClick={() => goPage(n.id)} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, padding: "6px 12px", minWidth: 64, cursor: "pointer", color: pg === n.id ? "var(--a)" : "var(--t3)", transition: "color .2s" }}><n.ic size={20} /><span style={{ fontSize: 10, fontWeight: 500 }}>{n.l}</span></div>)}
+                <div className="mn gl sh" style={{ position: "fixed", bottom: "calc(10px + env(safe-area-inset-bottom,0px))", left: 8, right: 8, zIndex: 50, display: "none", justifyContent: shopCfg.businessMode === "repair-pro" ? "space-between" : "flex-start", gap: 2, padding: "8px 6px", borderRadius: 20, overflowX: shopCfg.businessMode === "repair-pro" ? "hidden" : "auto", boxShadow: "0 10px 30px rgba(0,0,0,.28)" }}>
+                    {nav.map(n => <div key={n.id} onClick={() => goPage(n.id)} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, padding: "6px 12px", minWidth: shopCfg.businessMode === "repair-pro" ? 0 : 64, flex: shopCfg.businessMode === "repair-pro" ? 1 : "0 0 auto", cursor: "pointer", color: pg === n.id ? "var(--a)" : "var(--t3)", transition: "color .2s" }}><n.ic size={20} /><span style={{ fontSize: 10, fontWeight: 500 }}>{n.l}</span></div>)}
                 </div>
 
                 {/* Main */}
@@ -3847,21 +3913,64 @@ export default function App() {
 
                     {/* ═══ DASHBOARD ═══ */}
                     {pg === "dashboard" && <div className="fi">
-                        <div style={{ marginBottom: 28 }}><h1 style={{ color: "var(--t1)", fontSize: 28, fontWeight: 700 }}>Dashboard</h1><p style={{ color: "var(--t3)", fontSize: 14, marginTop: 4 }}>Simple overview of stock, sales, dues, and latest invoices.</p></div>
-                        {stats.ts === 0 && <div className="gl" style={{ padding: "12px 16px", borderColor: "rgba(248,113,113,.3)", background: "rgba(248,113,113,.08)", display: "flex", alignItems: "center", gap: 10, borderRadius: "var(--rs)", marginBottom: 16 }}><AlertCircle size={16} color="var(--err)" /><span style={{ color: "var(--err)", fontWeight: 600, fontSize: 13 }}>Out of stock — add new inventory to continue selling.</span></div>}
-                        {stats.ts > 0 && stats.ts < 5 && <div className="gl" style={{ padding: "12px 16px", borderColor: "rgba(251,191,36,.3)", background: "rgba(251,191,36,.06)", display: "flex", alignItems: "center", gap: 10, borderRadius: "var(--rs)", marginBottom: 16 }}><AlertCircle size={16} color="var(--warn)" /><span style={{ color: "var(--warn)", fontWeight: 600, fontSize: 13 }}>Low stock — only {stats.ts} item{stats.ts !== 1 ? "s" : ""} left.</span></div>}
-                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 16, marginBottom: 28 }}>
-                            {[{ l: "In Stock", v: stats.ts, s: "ready to sell", ic: Package, c: "var(--a)", g: "sgc" }, { l: "Stock Value", v: fmtCurrency(stats.sv), s: "estimated value", ic: IndianRupee, c: "var(--a2)", g: "sgv" }, { l: "Sales", v: fmtCurrency(stats.tsl), s: `${tx.filter(t => t.type === "Sell").length} invoices`, ic: TrendingUp, c: "var(--a3)", g: "sgp" }, { l: "Due To Collect", v: fmtCurrency(tx.filter(t => t.type === "Sell").reduce((s, t) => s + (t.dueAmount || 0), 0)), s: "customer balance", ic: BarChart3, c: "var(--ok)", g: "sgg" }].map((s, i) =>
-                                <div key={i} className={`gc ${s.g}`}><div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}><span style={{ color: "var(--t3)", fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1 }}>{s.l}</span><s.ic size={18} style={{ color: s.c, opacity: .7 }} /></div><div style={{ color: "var(--t1)", fontSize: 26, fontWeight: 700, lineHeight: 1 }}>{s.v}</div><div style={{ color: "var(--t3)", fontSize: 12, marginTop: 4 }}>{s.s}</div></div>
-                            )}
-                        </div>
-                        <div className="gc"><h3 style={{ color: "var(--t1)", fontSize: 15, fontWeight: 600, marginBottom: 16 }}>Latest Invoices</h3>
-                            {latestInvoices.length === 0 && <div style={{ color: "var(--t2)", fontSize: 14 }}>No invoices yet. Start with Add, Buy, or Sell.</div>}
-                            {latestInvoices.map(t => <div key={t.id} className="tr" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, padding: "12px 8px", borderBottom: "1px solid rgba(255,255,255,.04)", flexWrap: "wrap" }}>
-                                <div style={{ minWidth: 0 }}><div style={{ color: "var(--t1)", fontSize: 14, fontWeight: 600 }}>{t.invoiceNo || "Invoice"}</div><div style={{ color: "var(--t3)", fontSize: 12, marginTop: 3 }}>{t.brand} {t.model} · {t.customerName || "Walk-in customer"}{t.phone ? ` · ${t.phone}` : ""}</div><div style={{ color: "var(--t3)", fontSize: 11, marginTop: 3 }}>{fmtDate(t.date)}{t.billType === "GST" ? " · GST" : ""}{t.whatsAppPdfAt ? " · Share PDF sent" : t.whatsAppMessageAt ? " · WhatsApp msg ready" : ""}</div></div>
-                                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}><div><div style={{ color: "var(--ok)", fontWeight: 600, fontSize: 14 }}>{fmtCurrency(t.totalAmount || t.amount)}</div>{t.type === "Sell" && t.costPrice > 0 && (() => { const p = (t.totalAmount || t.amount) - t.costPrice; return <div style={{ fontSize: 11, color: p >= 0 ? "var(--ok)" : "var(--err)", fontWeight: 600 }}>{p >= 0 ? "+" : ""}{fmtCurrency(p)} profit</div>; })()}</div><button className="bg" onClick={() => void downloadInvoice(t)}><Download size={14} /> PDF</button></div>
-                            </div>)}
-                        </div>
+                        {shopCfg.businessMode === "repair-pro" ? <>
+                            <div style={{ marginBottom: 28 }}><h1 style={{ color: "var(--t1)", fontSize: 28, fontWeight: 700, display: "flex", alignItems: "center", gap: 10 }}><Wrench size={28} style={{ color: "var(--warn)" }} /> Repair Dashboard</h1><p style={{ color: "var(--t3)", fontSize: 14, marginTop: 4 }}>Track open jobs, payouts, collections, and the latest repair activity in Repair Pro.</p></div>
+                            {repairOpenCount === 0 && <div className="gl" style={{ padding: "12px 16px", borderColor: "rgba(0,212,255,.28)", background: "rgba(0,212,255,.07)", display: "flex", alignItems: "center", gap: 10, borderRadius: "var(--rs)", marginBottom: 16 }}><AlertCircle size={16} color="var(--a)" /><span style={{ color: "var(--a)", fontWeight: 600, fontSize: 13 }}>No active repair jobs right now. Add a new repair to start tracking devices.</span></div>}
+                            <div className="gc" style={{ marginBottom: 16 }}>
+                                <h3 style={{ color: "var(--t1)", fontSize: 15, fontWeight: 600, marginBottom: 14 }}>Status Breakdown</h3>
+                                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 12 }}>
+                                    {repairStatusCards.map(card => <div key={card.l} className="tr" style={{ padding: "14px 12px", borderRadius: 14, border: "1px solid rgba(255,255,255,.06)", background: "rgba(255,255,255,.03)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", letterSpacing: .8, marginBottom: 8 }}>{card.l}</div><div style={{ color: card.c, fontSize: 24, fontWeight: 700, lineHeight: 1 }}>{card.v}</div></div>)}
+                                </div>
+                            </div>
+                            <div className="gc" style={{ marginBottom: 16 }}>
+                                <h3 style={{ color: "var(--t1)", fontSize: 15, fontWeight: 600, marginBottom: 14 }}>Quick Actions</h3>
+                                <div style={{ display: "grid", gap: 10 }}>
+                                    <button className="bp" onClick={() => openRepairForm()} style={{ justifyContent: "center" }}><Plus size={16} /> Add Repair Job</button>
+                                    <button className="bg" onClick={() => goPage("repair")} style={{ justifyContent: "center" }}><Wrench size={16} /> Open Repair Queue</button>
+                                    <button className="bg" onClick={() => goPage("reports")} style={{ justifyContent: "center" }}><BarChart3 size={16} /> View Repair Reports</button>
+                                </div>
+                            </div>
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 16, marginBottom: 28 }}>
+                                {[
+                                    { l: "Open Jobs", v: repairOpenCount, s: `${repairReadyCount} ready for pickup`, ic: Wrench, c: "var(--warn)", g: "sgc" },
+                                    { l: "Repair Value", v: fmtCurrency(repairValueTotal), s: `${repairRecords.length} total jobs`, ic: IndianRupee, c: "var(--a2)", g: "sgv" },
+                                    { l: "Advance Collected", v: fmtCurrency(repairAdvanceTotal), s: `${repairTodayStats.received} received today`, ic: TrendingUp, c: "var(--ok)", g: "sgp" },
+                                    { l: "Pending Due", v: fmtCurrency(repairDueTotal), s: `${repairTodayStats.delivered} delivered today`, ic: BarChart3, c: "var(--err)", g: "sgg" },
+                                ].map((s, i) =>
+                                    <div key={i} className={`gc ${s.g}`}><div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}><span style={{ color: "var(--t3)", fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1 }}>{s.l}</span><s.ic size={18} style={{ color: s.c, opacity: .7 }} /></div><div style={{ color: "var(--t1)", fontSize: 26, fontWeight: 700, lineHeight: 1 }}>{s.v}</div><div style={{ color: "var(--t3)", fontSize: 12, marginTop: 4 }}>{s.s}</div></div>
+                                )}
+                            </div>
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(min(320px,100%),1fr))", gap: 16, alignItems: "start" }}>
+                                <div className="gc">
+                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 16 }}><h3 style={{ color: "var(--t1)", fontSize: 15, fontWeight: 600 }}>Latest Repair Jobs</h3><button className="bp" onClick={() => openRepairForm()}><Plus size={15} /> Add Repair</button></div>
+                                    {repairRecentJobs.length === 0 && <div style={{ color: "var(--t2)", fontSize: 14 }}>No repair jobs yet. Add your first device to start the workflow.</div>}
+                                    {repairRecentJobs.map(repair => {
+                                        const amount = repair.finalCost || repair.estimatedCost || 0;
+                                        const due = Math.max(amount - (repair.advance || 0), 0);
+                                        return <div key={repair.id} className="tr" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, padding: "12px 8px", borderBottom: "1px solid rgba(255,255,255,.04)", flexWrap: "wrap" }}>
+                                            <div style={{ minWidth: 0 }}><div style={{ color: "var(--t1)", fontSize: 14, fontWeight: 600 }}>{repair.repairNo}</div><div style={{ color: "var(--t3)", fontSize: 12, marginTop: 3 }}>{repair.brand} {repair.model} · {repair.customerName || "Walk-in customer"}{repair.phone ? ` · ${repair.phone}` : ""}</div><div style={{ color: "var(--t3)", fontSize: 11, marginTop: 3 }}>{fmtDate(repair.updatedAt || repair.receivedDate)} · {repair.problem}{repair.imei ? ` · IMEI ${repair.imei}` : ""}</div></div>
+                                            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}><span className={`ba ${repairStatusTone(repair.status)}`}>{repair.status}</span><div><div style={{ color: "var(--ok)", fontWeight: 600, fontSize: 14 }}>{fmtCurrency(amount)}</div><div style={{ fontSize: 11, color: due > 0 ? "var(--warn)" : "var(--t3)", fontWeight: 600 }}>Due {fmtCurrency(due)}</div></div><button className="bg" onClick={() => setRepairDetail(repair)}><Eye size={14} /> View</button></div>
+                                        </div>;
+                                    })}
+                                </div>
+                            </div>
+                        </> : <>
+                            <div style={{ marginBottom: 28 }}><h1 style={{ color: "var(--t1)", fontSize: 28, fontWeight: 700 }}>Dashboard</h1><p style={{ color: "var(--t3)", fontSize: 14, marginTop: 4 }}>Simple overview of stock, sales, dues, and latest invoices.</p></div>
+                            {stats.ts === 0 && <div className="gl" style={{ padding: "12px 16px", borderColor: "rgba(248,113,113,.3)", background: "rgba(248,113,113,.08)", display: "flex", alignItems: "center", gap: 10, borderRadius: "var(--rs)", marginBottom: 16 }}><AlertCircle size={16} color="var(--err)" /><span style={{ color: "var(--err)", fontWeight: 600, fontSize: 13 }}>Out of stock — add new inventory to continue selling.</span></div>}
+                            {stats.ts > 0 && stats.ts < 5 && <div className="gl" style={{ padding: "12px 16px", borderColor: "rgba(251,191,36,.3)", background: "rgba(251,191,36,.06)", display: "flex", alignItems: "center", gap: 10, borderRadius: "var(--rs)", marginBottom: 16 }}><AlertCircle size={16} color="var(--warn)" /><span style={{ color: "var(--warn)", fontWeight: 600, fontSize: 13 }}>Low stock — only {stats.ts} item{stats.ts !== 1 ? "s" : ""} left.</span></div>}
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 16, marginBottom: 28 }}>
+                                {[{ l: "In Stock", v: stats.ts, s: "ready to sell", ic: Package, c: "var(--a)", g: "sgc" }, { l: "Stock Value", v: fmtCurrency(stats.sv), s: "estimated value", ic: IndianRupee, c: "var(--a2)", g: "sgv" }, { l: "Sales", v: fmtCurrency(stats.tsl), s: `${tx.filter(t => t.type === "Sell").length} invoices`, ic: TrendingUp, c: "var(--a3)", g: "sgp" }, { l: "Due To Collect", v: fmtCurrency(tx.filter(t => t.type === "Sell").reduce((s, t) => s + (t.dueAmount || 0), 0)), s: "customer balance", ic: BarChart3, c: "var(--ok)", g: "sgg" }].map((s, i) =>
+                                    <div key={i} className={`gc ${s.g}`}><div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}><span style={{ color: "var(--t3)", fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1 }}>{s.l}</span><s.ic size={18} style={{ color: s.c, opacity: .7 }} /></div><div style={{ color: "var(--t1)", fontSize: 26, fontWeight: 700, lineHeight: 1 }}>{s.v}</div><div style={{ color: "var(--t3)", fontSize: 12, marginTop: 4 }}>{s.s}</div></div>
+                                )}
+                            </div>
+                            <div className="gc"><h3 style={{ color: "var(--t1)", fontSize: 15, fontWeight: 600, marginBottom: 16 }}>Latest Invoices</h3>
+                                {latestInvoices.length === 0 && <div style={{ color: "var(--t2)", fontSize: 14 }}>No invoices yet. Start with Add, Buy, or Sell.</div>}
+                                {latestInvoices.map(t => <div key={t.id} className="tr" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, padding: "12px 8px", borderBottom: "1px solid rgba(255,255,255,.04)", flexWrap: "wrap" }}>
+                                    <div style={{ minWidth: 0 }}><div style={{ color: "var(--t1)", fontSize: 14, fontWeight: 600 }}>{t.invoiceNo || "Invoice"}</div><div style={{ color: "var(--t3)", fontSize: 12, marginTop: 3 }}>{t.brand} {t.model} · {t.customerName || "Walk-in customer"}{t.phone ? ` · ${t.phone}` : ""}</div><div style={{ color: "var(--t3)", fontSize: 11, marginTop: 3 }}>{fmtDate(t.date)}{t.billType === "GST" ? " · GST" : ""}{t.whatsAppPdfAt ? " · Share PDF sent" : t.whatsAppMessageAt ? " · WhatsApp msg ready" : ""}</div></div>
+                                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}><div><div style={{ color: "var(--ok)", fontWeight: 600, fontSize: 14 }}>{fmtCurrency(t.totalAmount || t.amount)}</div>{t.type === "Sell" && t.costPrice > 0 && (() => { const p = (t.totalAmount || t.amount) - t.costPrice; return <div style={{ fontSize: 11, color: p >= 0 ? "var(--ok)" : "var(--err)", fontWeight: 600 }}>{p >= 0 ? "+" : ""}{fmtCurrency(p)} profit</div>; })()}</div><button className="bg" onClick={() => void downloadInvoice(t)}><Download size={14} /> PDF</button></div>
+                                </div>)}
+                            </div>
+                        </>}
                     </div>}
 
                     {/* ═══ ADD ═══ */}
@@ -4245,7 +4354,13 @@ export default function App() {
                             <button className="bp" onClick={() => openRepairForm()}><Plus size={16} /> Add Repair</button>
                         </div>
                         <div className="gc" style={{ marginBottom: 16, padding: 16 }}>
-                            <div style={{ position: "relative" }}><Search size={16} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--t3)" }} /><input className="gi" placeholder="Search repair no, customer, phone, device, IMEI, problem..." value={repairQuery} onChange={e => setRepairQuery(e.target.value)} style={{ paddingLeft: 36 }} /></div>
+                            <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) auto", gap: 10, alignItems: "center" }}>
+                                <div style={{ position: "relative" }}><Search size={16} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--t3)" }} /><input className="gi" placeholder="Search repair no, customer, phone, device, IMEI, problem..." value={repairQuery} onChange={e => setRepairQuery(e.target.value)} style={{ paddingLeft: 36 }} /></div>
+                                <select className="gs" value={repairStatusFilter} onChange={e => setRepairStatusFilter(e.target.value)} style={{ width: "auto", minWidth: 150 }}>
+                                    <option>All Statuses</option>
+                                    {REPAIR_STATUSES.map(status => <option key={status}>{status}</option>)}
+                                </select>
+                            </div>
                         </div>
                         <div style={{ display: "grid", gap: 14 }}>
                             {filteredRepairRecords.length === 0 && <div className="gc" style={{ textAlign: "center", padding: 40 }}><Wrench size={40} style={{ color: "var(--t3)", marginBottom: 12 }} /><p style={{ color: "var(--t2)", fontSize: 15 }}>{repairQuery.trim() ? "No matching repair jobs" : "No repair jobs yet"}</p><p style={{ color: "var(--t3)", fontSize: 13, marginTop: 4 }}>{repairQuery.trim() ? "Try a different search term." : "Create your first repair entry to start tracking received devices."}</p></div>}
@@ -4255,7 +4370,9 @@ export default function App() {
                                         <div style={{ color: "var(--t1)", fontSize: 16, fontWeight: 700 }}>{repair.customerName || "Walk-in Customer"}</div>
                                         <div style={{ color: "var(--t3)", fontSize: 12, marginTop: 4 }}>{repair.repairNo} · {fmtDate(repair.receivedDate)}</div>
                                     </div>
-                                    <span className={`ba ${repairStatusTone(repair.status)}`}>{repair.status}</span>
+                                    <select className={`gs ${repairStatusTone(repair.status)}`} value={repair.status} onChange={e => void updateRepairStatus(repair, e.target.value)} style={{ width: "auto", minWidth: 0, maxWidth: 118, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: .5, padding: "5px 24px 5px 10px", borderRadius: 999, lineHeight: 1.1 }}>
+                                        {REPAIR_STATUSES.map(status => <option key={status} value={status}>{status}</option>)}
+                                    </select>
                                 </div>
                                 <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
                                     {repair.photos?.length > 0 && <div style={{ width: 72, height: 72, borderRadius: 10, overflow: "hidden", flexShrink: 0, cursor: "pointer" }} onClick={() => sLb({ photos: repair.photos, si: 0 })}><img src={getPhotoPreview(repair.photos[0])} style={{ width: "100%", height: "100%", objectFit: "cover" }} alt="" /></div>}
@@ -4267,10 +4384,11 @@ export default function App() {
                                 </div>
                                 <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
                                     <div style={{ color: "var(--t2)", fontSize: 13 }}>Estimate {fmtCurrency(repair.estimatedCost)} · Advance {fmtCurrency(repair.advance)}</div>
-                                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                                        <button className="bg" onClick={() => setRepairDetail(repair)}><Eye size={14} /> View</button>
-                                        <button className="bg" onClick={() => openRepairForm(repair)}><Edit2 size={14} /> Edit</button>
-                                        <button className="bg" onClick={() => void printRepairSticker(repair)}><Printer size={14} /> Sticker</button>
+                                    <div style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(0,1fr))", gap: 8, width: "100%" }}>
+                                        <button className="bg" onClick={() => setRepairDetail(repair)} style={{ justifyContent: "center", minWidth: 0 }}><Eye size={14} /> View</button>
+                                        <button className="bg" onClick={() => openRepairForm(repair)} style={{ justifyContent: "center", minWidth: 0 }}><Edit2 size={14} /> Edit</button>
+                                        <button className="bg" onClick={() => void printRepairSticker(repair)} style={{ justifyContent: "center", minWidth: 0 }}><Printer size={14} /> Sticker</button>
+                                        <button className="bg" onClick={() => whatsappRepairMessage(repair)} title="WhatsApp status update" style={{ justifyContent: "center", minWidth: 0, color: "#25D366", borderColor: "rgba(37,211,102,.28)", background: "rgba(37,211,102,.08)" }}><MessageCircle size={14} /></button>
                                     </div>
                                 </div>
                             </div>)}
