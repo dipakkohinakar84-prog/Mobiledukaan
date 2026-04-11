@@ -6,7 +6,7 @@ import {
     ArrowDownCircle, ArrowUpCircle, CheckCircle, AlertCircle, ChevronDown,
     Home, ClipboardList, ScanLine, Eye, FileText, RefreshCw, Wifi, WifiOff,
     User, Phone, Calendar, Hash, Palette, HardDrive, Tag, Layers, LogOut,
-    ChevronRight, CreditCard, Banknote, QrCode, LayoutGrid, List, Bell,
+    ChevronRight, CreditCard, Banknote, QrCode, Bell,
     ImagePlus, Images, ChevronLeft, ZoomIn, RotateCcw, Upload, Aperture, Battery,
     Download, Share2, Lock, MapPin, Mail, Printer, Zap, Shield, Clock, Wrench, MessageCircle,
     Trash, ArchiveRestore
@@ -1417,19 +1417,22 @@ body,#root{font-family:'Outfit',sans-serif}
 .stock-search{flex:1 1 200px;position:relative}
 .stock-view-toggle{display:flex;gap:4px}
 .stock-header{display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px;margin-bottom:24px}
+.stock-header>div:first-child{min-width:0}
 .stock-hero-actions{display:flex;gap:8px;flex-wrap:wrap}
+.stock-hero-actions .btn-label{display:inline}
 .stock-filter-card{margin-bottom:20px;padding:16px}
 .stock-search .gi{padding-left:36px}
 .hcard-actions{display:flex;gap:3px}
+.repair-status-select{width:auto;min-width:0;max-width:104px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.35px;padding:4px 20px 4px 8px;border-radius:999px;line-height:1}
 .stock-controls-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .mfd{position:fixed;left:0;right:0;bottom:0;height:156px;pointer-events:none;z-index:44;display:none}
 .mfd::before{content:'';position:absolute;left:0;right:0;bottom:0;height:136px;background:linear-gradient(180deg,rgba(10,10,26,0),rgba(10,10,26,.56) 48%,rgba(10,10,26,.9));opacity:.96}
 .mfd::after{content:'';position:absolute;left:12px;right:12px;bottom:calc(6px + env(safe-area-inset-bottom,0px));height:96px;border-radius:28px;background:radial-gradient(circle at 20% 18%,rgba(0,212,255,.16),transparent 42%),radial-gradient(circle at 82% 24%,rgba(139,92,246,.2),transparent 44%),rgba(255,255,255,.03);backdrop-filter:blur(26px);-webkit-backdrop-filter:blur(26px);filter:blur(12px);opacity:.95}
 @keyframes pu{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(52,211,153,.5)}50%{opacity:.8;box-shadow:0 0 0 8px rgba(52,211,153,0)}}
 @media(max-width:1024px){.ds{display:none!important}.mn{display:flex!important}.mfd{display:block!important}.mth{display:flex!important}.mc{margin-left:0!important;padding:calc(86px + env(safe-area-inset-top,0px)) 16px calc(130px + env(safe-area-inset-bottom,0px))!important}}
-@media(max-width:768px){.hcard{min-height:164px!important}.hcard-photo{width:108px!important;min-width:108px!important}.hcard-details{padding:11px 12px!important}.hcard-title{font-size:13px!important}.hcard-imei{font-size:10px!important}.hcard-price{padding:6px 8px!important;gap:6px!important;margin-bottom:10px!important}.action-row>*{width:100%;justify-content:center}.gi,.gs{font-size:16px!important}.stock-header{align-items:flex-start;margin-bottom:16px}.stock-hero-actions{width:100%;display:grid;grid-template-columns:1fr 1fr;gap:8px}.stock-hero-actions .bp{padding:11px 14px;font-size:13px;min-height:46px;justify-content:center}.stock-filter-card{margin-bottom:14px;padding:12px!important}.stock-tools{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:start}.stock-search{min-width:0}.stock-search .gi{padding:11px 14px 11px 34px}.stock-controls-row{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-start}.stock-controls-row .gs{flex:1 1 132px;min-width:0;padding:10px 11px;font-size:14px!important}.stock-view-toggle{flex:0 0 auto}.stock-view-toggle .bg{padding:8px 9px;min-width:38px}.hcard-ab,.hcard-actions .bg,.hcard-actions .bd{padding:8px!important;min-width:34px!important;min-height:34px!important}}
-@media(max-width:560px){.gc{padding:16px!important}.mth{padding-inline:12px!important}.mc{padding-inline:12px!important}.stock-tools{grid-template-columns:1fr}.stock-controls-row{display:grid;grid-template-columns:1fr 1fr auto;gap:8px}.stock-controls-row .gs{flex:initial;min-width:0}.stock-view-toggle{justify-self:end}.stock-header h1{font-size:24px!important}.stock-header p{font-size:13px!important}.stock-hero-actions .bp{min-height:42px;padding:10px 12px;font-size:12.5px}.hcard{flex-direction:row!important;align-items:stretch!important}.hcard-photo{width:112px!important;min-width:112px!important;height:auto!important;min-height:190px!important;border-right:1px solid rgba(255,255,255,.06)!important;border-bottom:none!important}.hcard-details{padding:12px!important}.hcard-price{gap:8px!important}.mfd::after{left:8px;right:8px}.hcard-ab,.hcard-actions .bg,.hcard-actions .bd{padding:9px!important;min-width:38px!important;min-height:38px!important}}
-@media(max-width:430px){.stock-controls-row{grid-template-columns:1fr 1fr auto}.stock-controls-row .gs{padding:9px 8px;font-size:13px!important}.stock-view-toggle .bg{padding:8px;min-width:34px}.hcard{flex-direction:row!important}.hcard-photo{width:96px!important;min-width:96px!important;min-height:176px!important}.hcard-details{padding:11px!important}.hcard-ab{padding:10px!important;min-width:40px!important;min-height:40px!important}}
+@media(max-width:768px){.hcard{min-height:164px!important}.hcard-photo{width:108px!important;min-width:108px!important}.hcard-details{padding:11px 12px!important}.hcard-title{font-size:13px!important}.hcard-imei{font-size:10px!important}.hcard-price{padding:6px 8px!important;gap:6px!important;margin-bottom:10px!important}.action-row>*{width:100%;justify-content:center}.gi,.gs{font-size:16px!important}.stock-header{display:grid!important;grid-template-columns:minmax(0,1fr) auto;align-items:start!important;margin-bottom:16px}.stock-hero-actions{width:auto;display:flex;gap:8px;justify-self:end}.stock-hero-actions .bp{padding:11px 14px;font-size:13px;min-height:46px;justify-content:center}.stock-filter-card{margin-bottom:14px;padding:12px!important}.stock-tools{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:start}.stock-search{min-width:0}.stock-search .gi{padding:11px 14px 11px 34px}.stock-controls-row{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-start}.stock-controls-row .gs{flex:1 1 132px;min-width:0;padding:10px 11px;font-size:14px!important}.stock-view-toggle{flex:0 0 auto}.stock-view-toggle .bg{padding:8px 9px;min-width:38px}.hcard-ab,.hcard-actions .bg,.hcard-actions .bd{padding:8px!important;min-width:34px!important;min-height:34px!important}}
+@media(max-width:560px){.gc{padding:16px!important}.mth{padding-inline:12px!important}.mc{padding-inline:12px!important}.stock-tools{grid-template-columns:1fr}.stock-controls-row{display:grid;grid-template-columns:1fr 1fr auto;gap:8px}.stock-controls-row .gs{flex:initial;min-width:0}.stock-view-toggle{justify-self:end}.stock-header h1{font-size:24px!important}.stock-header p{font-size:13px!important}.stock-hero-actions .btn-label{display:none}.stock-hero-actions .bp{width:42px;min-width:42px;height:42px;min-height:42px;padding:0}.hcard{flex-direction:row!important;align-items:stretch!important}.hcard-photo{width:112px!important;min-width:112px!important;height:auto!important;min-height:190px!important;border-right:1px solid rgba(255,255,255,.06)!important;border-bottom:none!important}.hcard-details{padding:12px!important}.hcard-price{gap:8px!important}.mfd::after{left:8px;right:8px}.hcard-ab,.hcard-actions .bg,.hcard-actions .bd{padding:9px!important;min-width:38px!important;min-height:38px!important}.repair-status-select{max-width:92px!important;font-size:9px!important;padding:3px 18px 3px 7px!important;letter-spacing:.25px!important}}
+@media(max-width:430px){.stock-controls-row{grid-template-columns:1fr 1fr auto}.stock-controls-row .gs{padding:9px 8px;font-size:13px!important}.stock-view-toggle .bg{padding:8px;min-width:34px}.hcard{flex-direction:row!important}.hcard-photo{width:96px!important;min-width:96px!important;min-height:176px!important}.hcard-details{padding:11px!important}.hcard-ab{padding:10px!important;min-width:40px!important;min-height:40px!important}.repair-status-select{max-width:84px!important;font-size:8.5px!important;padding:3px 16px 3px 6px!important;letter-spacing:.15px!important}}
 @media(max-height:760px){.co{padding-top:calc(10px + env(safe-area-inset-top,0px));padding-bottom:calc(12px + env(safe-area-inset-bottom,0px))}.cc{gap:10px}.cv{max-height:min(48vh,48dvh)}}
 @media(min-width:1025px){.mn,.mth,.mfd{display:none!important}}
 .so{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.92);display:flex;flex-direction:column;align-items:center;justify-content:center}
@@ -2066,7 +2069,6 @@ export default function App() {
     const [repairStatusFilter, setRepairStatusFilter] = useState("All Statuses");
     const [sf, sSf] = useState(false);
     const [nt, sNt] = useState(null);
-    const [vm, sVm] = useState("grid");
     const [lb, sLb] = useState(null);
     const [di, sDi] = useState(null);
     const [repairDetail, setRepairDetail] = useState(null);
@@ -2078,11 +2080,13 @@ export default function App() {
     const [syncBusy, setSyncBusy] = useState(false);
     const [profileSaveBusy, setProfileSaveBusy] = useState(false);
     const [shopProfileDirty, setShopProfileDirty] = useState(false);
+    const [settingsOpenSection, setSettingsOpenSection] = useState("shop-profile");
     const [syncEditMode, setSyncEditMode] = useState(false);
     const [storageReady, setStorageReady] = useState(false);
     const [syncMeta, setSyncMeta] = useState(() => normalizeSyncMeta());
     const [installEvt, setInstallEvt] = useState(null);
     const [installed, setInstalled] = useState(typeof window !== "undefined" && (window.matchMedia?.("(display-mode: standalone)")?.matches || window.navigator.standalone));
+    const [showInstallPopup, setShowInstallPopup] = useState(false);
     const [swReady, setSwReady] = useState(false);
     const [swUpdate, setSwUpdate] = useState(false);
     const stockLoadMoreRef = useRef(null);
@@ -2455,13 +2459,16 @@ export default function App() {
             const choice = await installEvt.userChoice;
             if (choice?.outcome !== "accepted") notify("Install cancelled", "warning");
             setInstallEvt(null);
+            setShowInstallPopup(false);
             return;
         }
         if (isIosInstall && !installed) {
             notify("On iPhone: open in Safari, tap Share, then Add to Home Screen.", "warning");
+            setShowInstallPopup(false);
             return;
         }
         notify("Install prompt is not available yet. Use HTTPS or keep using the app a bit longer.", "warning");
+        setShowInstallPopup(false);
     };
     const openAdminPanel = useCallback(() => {
         setShowAdminPanel(true);
@@ -2794,6 +2801,7 @@ export default function App() {
         const onInstalled = () => {
             setInstalled(true);
             setInstallEvt(null);
+            setShowInstallPopup(false);
             notify("App installed. You can now use it like a mobile app.", "success");
         };
         refreshInstalled();
@@ -2821,6 +2829,14 @@ export default function App() {
             window.removeEventListener("appinstalled", onInstalled);
         };
     }, []);
+    useEffect(() => {
+        if (!authReady || showAdminPanel) return;
+        if (installed) {
+            setShowInstallPopup(false);
+            return;
+        }
+        if (installEvt || isIosInstall) setShowInstallPopup(true);
+    }, [authReady, installEvt, installed, isIosInstall, showAdminPanel]);
 
     const loadPocketBaseData = useCallback(async (silent = false) => {
         if (showAdminPanel || !shopSession?.pbAuth?.token) return;
@@ -3682,6 +3698,35 @@ export default function App() {
     const condBadge = (c) => c === "New" ? "bn" : c === "Refurbished" ? "br" : "bu";
     const statBadge = (s) => s === "In Stock" ? "bi" : s === "Sold" ? "bso" : "bre";
     const repairStatusTone = (status) => status === "Ready" || status === "Delivered" ? "bi" : status === "Cancelled" ? "bre" : "br";
+    const SettingsSection = ({ id, title, summary, children, style = {} }) => {
+        const open = settingsOpenSection === id;
+        return <div className="gc" style={style}>
+            <button
+                type="button"
+                onClick={() => setSettingsOpenSection(current => current === id ? "" : id)}
+                aria-expanded={open}
+                style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, background: "transparent", border: "none", padding: 0, cursor: "pointer", textAlign: "left" }}
+            >
+                <div style={{ minWidth: 0 }}>
+                    <div style={{ color: "var(--t1)", fontSize: 15, fontWeight: 600 }}>{title}</div>
+                    {summary ? <div style={{ color: "var(--t3)", fontSize: 12, marginTop: 4, lineHeight: 1.5 }}>{summary}</div> : null}
+                </div>
+                <ChevronDown size={18} style={{ color: "var(--t3)", flexShrink: 0, transform: open ? "rotate(180deg)" : "rotate(0deg)", transition: "transform .2s ease" }} />
+            </button>
+            {open ? <div style={{ marginTop: 16 }}>{children}</div> : null}
+        </div>;
+    };
+    const InstallPopup = () => {
+        if (!showInstallPopup || installed || showAdminPanel || (!installEvt && !isIosInstall)) return null;
+        return <div className="so fi" style={{ zIndex: 920, background: "rgba(0,0,0,.78)" }}><div className="gc" style={{ maxWidth: 420, width: "92vw", position: "relative" }}>
+            <button className="bg" onClick={() => setShowInstallPopup(false)} style={{ position: "absolute", top: 14, right: 14, padding: 8, minWidth: 36, minHeight: 36, justifyContent: "center" }}><X size={16} /></button>
+            <div style={{ width: 54, height: 54, borderRadius: 16, background: "linear-gradient(135deg,#00D4FF,#8B5CF6)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16 }}><Download size={22} color="#fff" /></div>
+            <h3 style={{ color: "var(--t1)", fontSize: 20, fontWeight: 700, marginBottom: 8 }}>Install {APP_NAME}</h3>
+            <p style={{ color: "var(--t2)", fontSize: 14, lineHeight: 1.6, marginBottom: 16 }}>{isIosInstall ? "Add the app to your home screen for a faster full-screen experience and easier future access." : "Install the app for faster access, app-like full screen, and smoother offline usage."}</p>
+            {isIosInstall ? <div className="gc" style={{ marginBottom: 16, background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.06)" }}><div style={{ color: "var(--t1)", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>iPhone Steps</div><div style={{ color: "var(--t3)", fontSize: 13, lineHeight: 1.7 }}>1. Open this site in Safari<br />2. Tap Share<br />3. Choose Add to Home Screen</div></div> : <div className="gc" style={{ marginBottom: 16, background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.06)" }}><div style={{ color: "var(--t1)", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Ready to Install</div><div style={{ color: "var(--t3)", fontSize: 13, lineHeight: 1.7 }}>Tap install below to open the browser's native install prompt.</div></div>}
+            <div className="action-row" style={{ marginTop: 0 }}><button className="bp" onClick={() => void promptInstall()}><Download size={16} /> {isIosInstall ? "Show Install Steps" : "Install App"}</button><button className="bg" onClick={() => setShowInstallPopup(false)}>Not now</button></div>
+        </div></div>;
+    };
 
     // ── LOGIN GATES ──────────────────────────────────────────────────────
     if (!authReady) return (
@@ -3871,6 +3916,7 @@ export default function App() {
                     </>}
                 </div>
             </div>
+            <InstallPopup />
         </>
     );
     // ──────────────────────────────────────────────────────────────────────
@@ -3955,13 +4001,23 @@ export default function App() {
                                 </div>
                             </div>
                         </> : <>
-                            <div style={{ marginBottom: 28 }}><h1 style={{ color: "var(--t1)", fontSize: 28, fontWeight: 700 }}>Dashboard</h1><p style={{ color: "var(--t3)", fontSize: 14, marginTop: 4 }}>Simple overview of stock, sales, dues, and latest invoices.</p></div>
+                            <div style={{ marginBottom: 28 }}><h1 style={{ color: "var(--t1)", fontSize: 28, fontWeight: 700 }}>Dashboard</h1><p style={{ color: "var(--t3)", fontSize: 14, marginTop: 4 }}>Overview of stock, sales, dues, condition mix, and latest invoices.</p></div>
                             {stats.ts === 0 && <div className="gl" style={{ padding: "12px 16px", borderColor: "rgba(248,113,113,.3)", background: "rgba(248,113,113,.08)", display: "flex", alignItems: "center", gap: 10, borderRadius: "var(--rs)", marginBottom: 16 }}><AlertCircle size={16} color="var(--err)" /><span style={{ color: "var(--err)", fontWeight: 600, fontSize: 13 }}>Out of stock — add new inventory to continue selling.</span></div>}
                             {stats.ts > 0 && stats.ts < 5 && <div className="gl" style={{ padding: "12px 16px", borderColor: "rgba(251,191,36,.3)", background: "rgba(251,191,36,.06)", display: "flex", alignItems: "center", gap: 10, borderRadius: "var(--rs)", marginBottom: 16 }}><AlertCircle size={16} color="var(--warn)" /><span style={{ color: "var(--warn)", fontWeight: 600, fontSize: 13 }}>Low stock — only {stats.ts} item{stats.ts !== 1 ? "s" : ""} left.</span></div>}
                             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 16, marginBottom: 28 }}>
                                 {[{ l: "In Stock", v: stats.ts, s: "ready to sell", ic: Package, c: "var(--a)", g: "sgc" }, { l: "Stock Value", v: fmtCurrency(stats.sv), s: "estimated value", ic: IndianRupee, c: "var(--a2)", g: "sgv" }, { l: "Sales", v: fmtCurrency(stats.tsl), s: `${tx.filter(t => t.type === "Sell").length} invoices`, ic: TrendingUp, c: "var(--a3)", g: "sgp" }, { l: "Due To Collect", v: fmtCurrency(tx.filter(t => t.type === "Sell").reduce((s, t) => s + (t.dueAmount || 0), 0)), s: "customer balance", ic: BarChart3, c: "var(--ok)", g: "sgg" }].map((s, i) =>
                                     <div key={i} className={`gc ${s.g}`}><div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}><span style={{ color: "var(--t3)", fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1 }}>{s.l}</span><s.ic size={18} style={{ color: s.c, opacity: .7 }} /></div><div style={{ color: "var(--t1)", fontSize: 26, fontWeight: 700, lineHeight: 1 }}>{s.v}</div><div style={{ color: "var(--t3)", fontSize: 12, marginTop: 4 }}>{s.s}</div></div>
                                 )}
+                            </div>
+                            <div className="gc" style={{ marginBottom: 28 }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 16 }}><h3 style={{ color: "var(--t1)", fontSize: 15, fontWeight: 600 }}>Stock Condition Mix</h3><div style={{ color: "var(--t3)", fontSize: 12 }}>{stats.ts} live units</div></div>
+                                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 12 }}>
+                                    {[
+                                        { l: "Old", v: stats.cc.Used || 0, s: "used devices", c: "var(--warn)", bg: "rgba(251,191,36,.08)", bd: "rgba(251,191,36,.18)" },
+                                        { l: "New", v: stats.cc.New || 0, s: "fresh sealed stock", c: "var(--a)", bg: "rgba(0,212,255,.08)", bd: "rgba(0,212,255,.18)" },
+                                        { l: "Refurbished", v: stats.cc.Refurbished || 0, s: "renewed devices", c: "#A78BFA", bg: "rgba(167,139,250,.08)", bd: "rgba(167,139,250,.18)" },
+                                    ].map(card => <div key={card.l} className="tr" style={{ padding: "16px 14px", borderRadius: 14, border: `1px solid ${card.bd}`, background: card.bg }}><div style={{ color: "var(--t3)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: .9, marginBottom: 8 }}>{card.l}</div><div style={{ color: card.c, fontSize: 28, fontWeight: 700, lineHeight: 1 }}>{card.v}</div><div style={{ color: "var(--t3)", fontSize: 12, marginTop: 6 }}>{card.s}</div></div>)}
+                                </div>
                             </div>
                             <div className="gc"><h3 style={{ color: "var(--t1)", fontSize: 15, fontWeight: 600, marginBottom: 16 }}>Latest Invoices</h3>
                                 {latestInvoices.length === 0 && <div style={{ color: "var(--t2)", fontSize: 14 }}>No invoices yet. Start with Add, Buy, or Sell.</div>}
@@ -4032,9 +4088,9 @@ export default function App() {
 
                     {/* ═══ INVENTORY ═══ */}
                     {pg === "inventory" && !di && <div className="fi">
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12, marginBottom: 24 }}>
+                        <div className="stock-header">
                             <div><h1 style={{ color: "var(--t1)", fontSize: 28, fontWeight: 700 }}>Stock</h1><p style={{ color: "var(--t3)", fontSize: 14, marginTop: 4 }}>{fi.length} devices{fi.length > visibleFi.length ? ` · showing ${visibleFi.length}` : ""}</p></div>
-                            <div style={{ display: "flex", gap: 8 }}><button className="bp" onClick={() => openSc("add")}><Camera size={16} /> Scan</button><button className="bp" onClick={() => goPage("add")}><Plus size={16} /> Add Mobile</button></div>
+                            <div className="stock-hero-actions"><button className="bp" onClick={() => openSc("add")} title="Scan"><Camera size={16} /><span className="btn-label">Scan</span></button><button className="bp" onClick={() => goPage("add")} title="Add Mobile"><Plus size={16} /><span className="btn-label">Add Mobile</span></button></div>
                         </div>
                         <div className="gc stock-filter-card">
                             <div className="stock-tools">
@@ -4042,13 +4098,12 @@ export default function App() {
                                 <div className="stock-controls-row">
                                     <select className="gs" value={fc} onChange={e => sFc(e.target.value)} style={{ width: "auto", minWidth: 120 }}><option value="All">Condition</option>{CONDITIONS.map(c => <option key={c} value={c}>{c}</option>)}</select>
                                     <select className="gs" value={fs} onChange={e => sFs(e.target.value)} style={{ width: "auto", minWidth: 120 }}><option value="All">Status</option>{STATUSES.map(s => <option key={s} value={s}>{s}</option>)}</select>
-                                    <div className="stock-view-toggle"><button className="bg" style={{ padding: 10, color: vm === "grid" ? "var(--a)" : undefined }} onClick={() => sVm("grid")}><LayoutGrid size={16} /></button><button className="bg" style={{ padding: 10, color: vm === "list" ? "var(--a)" : undefined }} onClick={() => sVm("list")}><List size={16} /></button></div>
                                 </div>
                             </div>
                         </div>
 
                         {/* Grid — Horizontal Cards */}
-                        {vm === "grid" ? <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(min(420px,100%),1fr))", gap: 14 }}>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(min(420px,100%),1fr))", gap: 14 }}>
                             {visibleFi.map(it => <div key={it.id} className="gc hcard" style={{ padding: 0, overflow: "hidden", display: "flex", flexDirection: "row", minHeight: 210, borderLeft: `3px solid ${it.status === "In Stock" ? "var(--a)" : "rgba(255,255,255,.12)"}` }}>
                                 {/* LEFT — Portrait Photo */}
                                 <div className="hcard-photo" style={{ width: 160, minWidth: 160, flexShrink: 0, position: "relative", cursor: "pointer", overflow: "hidden", borderRight: "1px solid rgba(255,255,255,.06)" }}
@@ -4118,26 +4173,6 @@ export default function App() {
                                 </div>
                             </div>)}
                         </div>
-                            : <div className="gc" style={{ padding: 0, overflow: "auto" }}>
-                                <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 900 }}>
-                                    <thead><tr style={{ borderBottom: "1px solid rgba(255,255,255,.08)" }}>
-                                        {["Photo", "IMEIs", "Device", "Cond.", "Specs", "Buy", "Sell", "Status", ""].map(h => <th key={h} style={{ padding: "12px 14px", color: "var(--t3)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1, textAlign: "left" }}>{h}</th>)}
-                                    </tr></thead>
-                                    <tbody>{visibleFi.map(it => <tr key={it.id} className="tr" style={{ borderBottom: "1px solid rgba(255,255,255,.03)" }}>
-                                        <td style={{ padding: "8px 14px" }}><div style={{ width: 44, height: 44, borderRadius: 8, overflow: "hidden", cursor: "pointer", border: "1px solid var(--gbo)" }} onClick={() => it.photos?.length ? sLb({ photos: it.photos, si: 0 }) : null}>
-                                            {it.photos?.length > 0 ? <img src={getPhotoPreview(it.photos[0])} loading="lazy" decoding="async" style={{ width: "100%", height: "100%", objectFit: "cover" }} alt="" /> : <div style={{ width: "100%", height: "100%", background: BRAND_GRADIENTS[it.brand] || BRAND_GRADIENTS.Other, display: "flex", alignItems: "center", justifyContent: "center" }}><Smartphone size={18} style={{ opacity: .4, color: "#fff" }} /></div>}
-                                        </div></td>
-                                        <td style={{ padding: "12px 14px", fontFamily: "'Space Mono',monospace", fontSize: 11, color: "var(--t2)" }}><div>{it.imei}</div>{it.imei2 && <div style={{ color: "var(--t3)", fontSize: 10, marginTop: 3 }}>{it.imei2}</div>}</td>
-                                        <td style={{ padding: "12px 14px" }}><div style={{ color: "var(--t1)", fontSize: 13, fontWeight: 500 }}>{it.brand} {it.model}</div><div style={{ color: "var(--t3)", fontSize: 11 }}>{it.color}</div></td>
-                                        <td style={{ padding: "12px 14px" }}><span className={`ba ${condBadge(it.condition)}`}>{it.condition}</span></td>
-                                        <td style={{ padding: "12px 14px", color: "var(--t2)", fontSize: 13 }}>{fmtSpecs(it.ram, it.storage)}{it.batteryHealth ? ` · Battery ${it.batteryHealth}` : ""}</td>
-                                        <td style={{ padding: "12px 14px", color: "var(--t2)", fontSize: 13 }}>{fmtCurrency(it.buyPrice)}</td>
-                                        <td style={{ padding: "12px 14px", color: "var(--ok)", fontSize: 13, fontWeight: 500 }}>{fmtCurrency(it.sellPrice)}</td>
-                                        <td style={{ padding: "12px 14px" }}><span className={`ba ${statBadge(it.status)}`}>{it.status}</span></td>
-                                        <td style={{ padding: "12px 14px" }}><div style={{ display: "flex", gap: 4 }}>{it.status === "In Stock" && it.qty > 0 && <button style={{ padding: 6, color: "var(--err)", border: "1px solid rgba(248,113,113,.35)", background: "rgba(248,113,113,.08)", borderRadius: 10, display: "inline-flex", alignItems: "center", justifyContent: "center" }} onClick={() => { sFm(toForm(it, { amount: it.sellPrice, paidAmount: it.sellPrice, dueAmount: 0, customerName: "", phone: "", notes: "" })); sPg("sell"); sDi(null); }} aria-label="Sell item" title="Sell"><ArrowUpCircle size={14} /></button>}<button className="bg" style={{ padding: 6 }} onClick={() => void printSticker(it)}><Printer size={14} /></button><button className="bg" style={{ padding: 6 }} onClick={() => sDi(it)}><Eye size={14} /></button><button className="bg" style={{ padding: 6 }} onClick={() => editFromStock(it)}><Edit2 size={14} /></button><button className="bd" style={{ padding: 6 }} onClick={() => setConfirmDel(it)}><Trash2 size={14} /></button></div></td>
-                                    </tr>)}</tbody>
-                                </table>
-                            </div>}
                         {hasMoreStock && <div ref={stockLoadMoreRef} style={{ height: 1, marginTop: 16 }} />}
                         {fi.length === 0 && <div className="gc" style={{ textAlign: "center", padding: 48 }}><Package size={40} style={{ color: "var(--t3)", marginBottom: 12 }} /><p style={{ color: "var(--t2)", fontSize: 15 }}>No devices found</p></div>}
                     </div>}
@@ -4370,7 +4405,7 @@ export default function App() {
                                         <div style={{ color: "var(--t1)", fontSize: 16, fontWeight: 700 }}>{repair.customerName || "Walk-in Customer"}</div>
                                         <div style={{ color: "var(--t3)", fontSize: 12, marginTop: 4 }}>{repair.repairNo} · {fmtDate(repair.receivedDate)}</div>
                                     </div>
-                                    <select className={`gs ${repairStatusTone(repair.status)}`} value={repair.status} onChange={e => void updateRepairStatus(repair, e.target.value)} style={{ width: "auto", minWidth: 0, maxWidth: 118, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: .5, padding: "5px 24px 5px 10px", borderRadius: 999, lineHeight: 1.1 }}>
+                                    <select className={`gs repair-status-select ${repairStatusTone(repair.status)}`} value={repair.status} onChange={e => void updateRepairStatus(repair, e.target.value)}>
                                         {REPAIR_STATUSES.map(status => <option key={status} value={status}>{status}</option>)}
                                     </select>
                                 </div>
@@ -4503,8 +4538,7 @@ export default function App() {
                     {pg === "settings" && <div className="fi" style={{ maxWidth: 980 }}>
                         <div style={{ marginBottom: 28 }}><h1 style={{ color: "var(--t1)", fontSize: 28, fontWeight: 700, display: "flex", alignItems: "center", gap: 10 }}><Settings size={28} style={{ color: "var(--a)" }} /> Shop Profile & Invoice</h1><p style={{ color: "var(--t3)", fontSize: 14, marginTop: 4 }}>Configure your shop details for professional A4 portrait invoices and keep everything updated automatically across logged-in devices.</p></div>
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(300px,1fr))", gap: 16, marginBottom: 16 }}>
-                            <div className="gc">
-                                <h3 style={{ color: "var(--t1)", fontSize: 15, fontWeight: 600, marginBottom: 14 }}>Shop Profile & Invoice Logo</h3>
+                            <SettingsSection id="shop-profile" title="Shop Profile & Invoice Logo" summary={shopProfileDirty ? "Unsaved changes" : (shopCfg.shopName || "Shop details and invoice branding") }>
                                 <div style={{ display: "grid", gap: 12 }}>
                                     <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
                                         <div style={{ width: 78, height: 78, borderRadius: 16, overflow: "hidden", border: "1px solid var(--gbo)", background: "rgba(255,255,255,.03)", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -4529,9 +4563,8 @@ export default function App() {
                                         <F l="State / Code" ic={MapPin}><div style={{ display: "grid", gridTemplateColumns: "1fr 92px", gap: 8 }}><input className="gi" value={shopCfg.state} onChange={e => setShopField("state", e.target.value)} placeholder="State" /><input className="gi" value={shopCfg.stateCode} onChange={e => setShopField("stateCode", e.target.value)} placeholder="Code" /></div></F>
                                     </div>
                                 </div>
-                            </div>
-                            <div className="gc">
-                                <h3 style={{ color: "var(--t1)", fontSize: 15, fontWeight: 600, marginBottom: 14 }}>Invoice Preferences</h3>
+                            </SettingsSection>
+                            <SettingsSection id="invoice-preferences" title="Invoice Preferences" summary={`${shopCfg.defaultBillType || "NON GST"} · GST ${shopCfg.defaultGstRate || 0}% · ${shopCfg.invoicePrefix || "INV"}`}>
                                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12 }}>
                                     <F l="Invoice Prefix" ic={Hash}><input className="gi" value={shopCfg.invoicePrefix} onChange={e => setShopField("invoicePrefix", e.target.value)} placeholder="INV" style={{ fontFamily: "'Space Mono',monospace" }} /></F>
                                     <F l="Default Bill Type" ic={FileText}><select className="gs" value={shopCfg.defaultBillType} onChange={e => setShopField("defaultBillType", e.target.value)}>{BILL_TYPES.map(type => <option key={type}>{type}</option>)}</select></F>
@@ -4568,10 +4601,9 @@ export default function App() {
                                         <div style={{ color: "var(--t3)", fontSize: 12, lineHeight: 1.6 }}>General mode can show Buy, Sell, and Repair together. Repair Pro keeps the app focused on repair jobs, while still allowing you to switch back here later.</div>
                                     </div>
                                 </div>
-                            </div>
+                            </SettingsSection>
                         </div>
-                        <div className="gc" style={{ marginBottom: 16 }}>
-                            <h3 style={{ color: "var(--t1)", fontSize: 15, fontWeight: 600, marginBottom: 14 }}>Data Status</h3>
+                        <SettingsSection id="data-status" title="Data Status" summary={syncReady ? "Connected and changes update automatically" : "Waiting for login or setup"} style={{ marginBottom: 16 }}>
                             {shopSession && <div className="gc" style={{ marginBottom: 12, background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.06)" }}><div style={{ color: "var(--t1)", fontSize: 14, fontWeight: 600, marginBottom: 4 }}>Automatic updates active</div><div style={{ color: "var(--t2)", fontSize: 13, lineHeight: 1.6 }}>Changes on one logged-in device appear automatically on the others.</div></div>}
                             {showSyncAdvanced ? <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 12 }}>
                                 <F l="Shop ID" ic={Hash}><input className="gi" value={syncCfg.shopId} onChange={e => setSyncField("shopId", e.target.value)} placeholder="main-shop" style={{ fontFamily: "'Space Mono',monospace" }} /></F>
@@ -4582,9 +4614,8 @@ export default function App() {
                                 <div style={{ padding: 12, borderRadius: 12, background: "rgba(255,255,255,.03)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 4 }}>Automatic Updates</div><div style={{ color: syncCfg.autoSync ? "var(--ok)" : "var(--t1)", fontWeight: 700, marginBottom: 4 }}>{syncCfg.autoSync ? "Enabled" : "Disabled"}</div><div style={{ color: "var(--t2)", fontSize: 13, lineHeight: 1.6 }}>{syncCfg.autoSync ? "Changes update across devices automatically." : "Automatic updates paused on this device."}</div></div>
                             </div>}
                             <div style={{ marginTop: 10, color: "var(--t3)", fontSize: 13 }}>Changes are saved automatically and appear on other logged-in devices.</div>
-                        </div>
-                        <div className="gc" style={{ marginBottom: 16 }}>
-                            <h3 style={{ color: "var(--t1)", fontSize: 15, fontWeight: 600, marginBottom: 14 }}>App Install & Offline</h3>
+                        </SettingsSection>
+                        <SettingsSection id="install-offline" title="App Install & Offline" summary={`${installed ? "Installed" : "Not installed"} · ${swReady ? "Offline cache active" : "Offline cache preparing"}`} style={{ marginBottom: 16 }}>
                             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 12 }}>
                                 <div style={{ padding: 12, borderRadius: 12, background: "rgba(255,255,255,.03)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 4 }}>Install Status</div><div style={{ color: installed ? "var(--ok)" : "var(--t1)", fontWeight: 600 }}>{installed ? "Installed" : installEvt ? "Ready to install" : isIosInstall ? "Use Add to Home Screen" : "Install prompt not ready"}</div></div>
                                 <div style={{ padding: 12, borderRadius: 12, background: "rgba(255,255,255,.03)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 4 }}>Offline Cache</div><div style={{ color: swReady ? "var(--ok)" : "var(--warn)", fontWeight: 600 }}>{swReady ? "Offline cache active" : "Preparing offline cache"}</div></div>
@@ -4594,8 +4625,9 @@ export default function App() {
                                 {!installed && <button className="bp" onClick={() => void promptInstall()}><Download size={16} /> Install App</button>}
                                 <button className="bg" onClick={() => notify(isIosInstall ? "iPhone: Safari -> Share -> Add to Home Screen." : "For best install and file-sharing support, open the app from an HTTPS deployment.", "warning")}><Smartphone size={16} /> Install Help</button>
                             </div>
-                        </div>
-                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(250px,1fr))", gap: 16 }}>
+                        </SettingsSection>
+                        <SettingsSection id="sync-status" title="Sync Status" summary={`${ol ? "Online" : "Offline"} · ${syncStateLabel}`}>
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(250px,1fr))", gap: 16 }}>
                             <div className="gc"><h3 style={{ color: "var(--t1)", fontSize: 15, fontWeight: 600, marginBottom: 12 }}>Sync Status</h3>
                                 <div style={{ display: "grid", gap: 10 }}>
                                     <div style={{ padding: 12, borderRadius: 12, background: "rgba(255,255,255,.03)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 4 }}>Connection</div><div style={{ color: ol ? "var(--ok)" : "var(--warn)", fontWeight: 600 }}>{ol ? "Online" : "Offline"} · {syncReady ? "Connected" : "Waiting for setup"}</div></div>
@@ -4607,9 +4639,12 @@ export default function App() {
                             </div>
 
                         </div>
+                        </SettingsSection>
                     </div>}
 
                 </div>
+
+                <InstallPopup />
 
                 {confirmDel && <div className="so fi" style={{ zIndex: 999 }}><div style={{ background: "var(--c)", borderRadius: 16, padding: 28, maxWidth: 380, width: "90vw", textAlign: "center", border: "1px solid var(--gbo)" }}>
                     <div style={{ width: 48, height: 48, borderRadius: "50%", background: "rgba(239,68,68,.15)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}><AlertCircle size={24} color="var(--err)" /></div>
