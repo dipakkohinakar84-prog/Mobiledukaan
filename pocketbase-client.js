@@ -174,6 +174,25 @@ function parseEnabledModulesCsv(value = '') {
   return Array.from(new Set(modules)).length ? Array.from(new Set(modules)) : DEFAULT_ENABLED_MODULES
 }
 
+const REPAIR_PAYMENT_NOTE_RE = /\n?\[\[paymentStatus:(Paid|Unpaid)\]\]/gi
+
+function stripRepairPaymentMeta(value = '') {
+  return String(value || '').replace(REPAIR_PAYMENT_NOTE_RE, '').trim()
+}
+
+function getRepairPaymentStatus(paymentStatus = '', notes = '') {
+  const normalized = String(paymentStatus || '').trim()
+  if (normalized === 'Paid' || normalized === 'Unpaid') return normalized
+  const match = String(notes || '').match(/\[\[paymentStatus:(Paid|Unpaid)\]\]/i)
+  return match?.[1] || 'Unpaid'
+}
+
+function serializeRepairNotes(notes = '', paymentStatus = 'Unpaid') {
+  const cleanNotes = stripRepairPaymentMeta(notes)
+  const normalizedStatus = getRepairPaymentStatus(paymentStatus)
+  return cleanNotes ? `${cleanNotes}\n[[paymentStatus:${normalizedStatus}]]` : `[[paymentStatus:${normalizedStatus}]]`
+}
+
 function repairFileToRef(pb, record, fileName) {
   return {
     id: `${record.id}:${fileName}`,
@@ -596,9 +615,10 @@ function repairRecordToItem(pb, record) {
     advance: Number(record.advance || 0),
     finalCost: Number(record.finalCost || 0),
     status: record.status || 'Received',
+    paymentStatus: getRepairPaymentStatus(record.paymentStatus, record.notes),
     receivedDate: record.receivedDate || '',
     deliveredDate: record.deliveredDate || '',
-    notes: record.notes || '',
+    notes: stripRepairPaymentMeta(record.notes),
     photos: photoList.map((fileName) => repairFileToRef(pb, record, fileName)),
     createdAt: record.created || '',
     updatedAt: record.updated || '',
@@ -655,7 +675,7 @@ function repairItemToRecord(item, shopRecordId) {
     status: item.status || 'Received',
     receivedDate: item.receivedDate || '',
     deliveredDate: item.deliveredDate || '',
-    notes: item.notes || '',
+    notes: serializeRepairNotes(item.notes, item.paymentStatus),
   }
 }
 

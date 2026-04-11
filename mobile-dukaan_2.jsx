@@ -36,6 +36,7 @@ const RAM_PRESETS = ["2GB", "4GB", "6GB", "8GB", "12GB", "16GB", "20GB", "24GB"]
 const BUSINESS_MODES = ["general", "repair-pro"];
 const GENERAL_MODULES = ["buy", "sell", "repair"];
 const REPAIR_STATUSES = ["Received", "Ready", "Delivered", "Cancelled"];
+const REPAIR_PAYMENT_STATUSES = ["Unpaid", "Paid"];
 const SIGNUP_PROFILE_OPTIONS = [
     { value: "general", label: "Business Pro" },
     { value: "repair-pro", label: "Repair Pro" },
@@ -256,6 +257,14 @@ const fmtSpecs = (ram = "", storage = "") => [String(ram || "").trim(), String(s
 const roundMoney = (n) => Math.round((Number(n || 0) + Number.EPSILON) * 100) / 100;
 const formatMoney = (n) => Number(roundMoney(n)).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtMoney = (n) => `Rs ${formatMoney(n)}`;
+const REPAIR_PAYMENT_NOTE_RE = /\n?\[\[paymentStatus:(Paid|Unpaid)\]\]/gi;
+const stripRepairPaymentMeta = (value = "") => String(value || "").replace(REPAIR_PAYMENT_NOTE_RE, "").trim();
+const getRepairPaymentStatus = (paymentStatus = "", notes = "") => {
+    const normalized = String(paymentStatus || "").trim();
+    if (REPAIR_PAYMENT_STATUSES.includes(normalized)) return normalized;
+    const match = String(notes || "").match(/\[\[paymentStatus:(Paid|Unpaid)\]\]/i);
+    return match?.[1] || "Unpaid";
+};
 const amountInWords = (num) => {
     const n = Math.abs(roundMoney(num));
     if (n === 0) return "Rupees Zero Only";
@@ -472,9 +481,10 @@ const normalizeRepair = (it = {}) => ({
     advance: Number(it.advance || 0),
     finalCost: Number(it.finalCost || 0),
     status: REPAIR_STATUSES.includes(String(it.status || "").trim()) ? String(it.status).trim() : "Received",
+    paymentStatus: getRepairPaymentStatus(it.paymentStatus, it.notes),
     receivedDate: it.receivedDate || isoDate(),
     deliveredDate: it.deliveredDate || "",
-    notes: String(it.notes || "").trim(),
+    notes: stripRepairPaymentMeta(it.notes),
     photos: Array.isArray(it.photos) ? it.photos.map(normalizePhotoRef) : [],
     createdAt: it.createdAt || new Date().toISOString(),
     updatedAt: it.updatedAt || new Date().toISOString(),
@@ -493,6 +503,7 @@ const createEmptyRepairForm = () => ({
     advance: "",
     finalCost: "",
     status: "Received",
+    paymentStatus: "Unpaid",
     receivedDate: isoDate(),
     deliveredDate: "",
     notes: "",
@@ -3174,6 +3185,32 @@ export default function App() {
             notify(error?.message || "Unable to update repair status.", "error");
         }
     }, [notify, shopSession?.pbAuth]);
+    const updateRepairPaymentStatus = useCallback(async (repair, nextPaymentStatus) => {
+        if (!repair || !nextPaymentStatus || repair.paymentStatus === nextPaymentStatus) return;
+        const nextRepair = normalizeRepair({
+            ...repair,
+            paymentStatus: nextPaymentStatus,
+            updatedAt: new Date().toISOString(),
+        });
+        try {
+            let savedRepair = nextRepair;
+            if (shopSession?.pbAuth?.token && shopSession?.pbAuth?.record?.shop) {
+                const saved = await pocketbaseUpsertRepair(shopSession.pbAuth, nextRepair);
+                savedRepair = normalizeRepair({
+                    ...nextRepair,
+                    id: saved.id,
+                    createdAt: saved.created || nextRepair.createdAt,
+                    updatedAt: saved.updated || nextRepair.updatedAt,
+                });
+            }
+            setRepairs(current => current.map(item => item.id === savedRepair.id ? savedRepair : item));
+            setRepairDetail(current => current?.id === savedRepair.id ? savedRepair : current);
+            setRepairForm(current => current?.id === savedRepair.id ? { ...current, paymentStatus: savedRepair.paymentStatus, updatedAt: savedRepair.updatedAt } : current);
+            notify(`Repair marked ${savedRepair.paymentStatus.toLowerCase()}`, "success");
+        } catch (error) {
+            notify(error?.message || "Unable to update repair payment status.", "error");
+        }
+    }, [notify, shopSession?.pbAuth]);
     const deleteRepair = useCallback((repairId) => {
         const removeLocal = () => {
             setRepairs(current => current.filter(item => item.id !== repairId));
@@ -3698,6 +3735,7 @@ export default function App() {
     const condBadge = (c) => c === "New" ? "bn" : c === "Refurbished" ? "br" : "bu";
     const statBadge = (s) => s === "In Stock" ? "bi" : s === "Sold" ? "bso" : "bre";
     const repairStatusTone = (status) => status === "Ready" || status === "Delivered" ? "bi" : status === "Cancelled" ? "bre" : "br";
+    const repairPaymentTone = (status) => status === "Paid" ? "bi" : "br";
     const SettingsSection = ({ id, title, summary, children, style = {} }) => {
         const open = settingsOpenSection === id;
         return <div className="gc" style={style}>
@@ -4405,9 +4443,14 @@ export default function App() {
                                         <div style={{ color: "var(--t1)", fontSize: 16, fontWeight: 700 }}>{repair.customerName || "Walk-in Customer"}</div>
                                         <div style={{ color: "var(--t3)", fontSize: 12, marginTop: 4 }}>{repair.repairNo} · {fmtDate(repair.receivedDate)}</div>
                                     </div>
-                                    <select className={`gs repair-status-select ${repairStatusTone(repair.status)}`} value={repair.status} onChange={e => void updateRepairStatus(repair, e.target.value)}>
-                                        {REPAIR_STATUSES.map(status => <option key={status} value={status}>{status}</option>)}
-                                    </select>
+                                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                                        <select className={`gs repair-status-select ${repairStatusTone(repair.status)}`} value={repair.status} onChange={e => void updateRepairStatus(repair, e.target.value)}>
+                                            {REPAIR_STATUSES.map(status => <option key={status} value={status}>{status}</option>)}
+                                        </select>
+                                        <select className={`gs repair-status-select ${repairPaymentTone(repair.paymentStatus)}`} value={repair.paymentStatus} onChange={e => void updateRepairPaymentStatus(repair, e.target.value)}>
+                                            {REPAIR_PAYMENT_STATUSES.map(status => <option key={status} value={status}>{status}</option>)}
+                                        </select>
+                                    </div>
                                 </div>
                                 <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
                                     {repair.photos?.length > 0 && <div style={{ width: 72, height: 72, borderRadius: 10, overflow: "hidden", flexShrink: 0, cursor: "pointer" }} onClick={() => sLb({ photos: repair.photos, si: 0 })}><img src={getPhotoPreview(repair.photos[0])} style={{ width: "100%", height: "100%", objectFit: "cover" }} alt="" /></div>}
@@ -4418,7 +4461,7 @@ export default function App() {
                                     </div>
                                 </div>
                                 <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-                                    <div style={{ color: "var(--t2)", fontSize: 13 }}>Estimate {fmtCurrency(repair.estimatedCost)} · Advance {fmtCurrency(repair.advance)}</div>
+                                <div style={{ color: "var(--t2)", fontSize: 13 }}>Estimate {fmtCurrency(repair.estimatedCost)} · Advance {fmtCurrency(repair.advance)} · {repair.paymentStatus}</div>
                                     <div style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(0,1fr))", gap: 8, width: "100%" }}>
                                         <button className="bg" onClick={() => setRepairDetail(repair)} style={{ justifyContent: "center", minWidth: 0 }}><Eye size={14} /> View</button>
                                         <button className="bg" onClick={() => openRepairForm(repair)} style={{ justifyContent: "center", minWidth: 0 }}><Edit2 size={14} /> Edit</button>
@@ -4438,7 +4481,7 @@ export default function App() {
                         <div className="gc" style={{ display: "grid", gap: 14 }}>
                             {repairDetail.photos?.length > 0 && <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>{repairDetail.photos.map((photo, index) => <div key={photo.id || index} style={{ width: 120, height: 120, borderRadius: 12, overflow: "hidden", cursor: "pointer" }} onClick={() => sLb({ photos: repairDetail.photos, si: index })}><img src={getPhotoPreview(photo)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /></div>)}</div>}
                             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 12 }}>
-                                {[{ l: "Customer", v: repairDetail.customerName || "—", ic: User }, { l: "Phone", v: repairDetail.phone || "—", ic: Phone }, { l: "Device", v: [repairDetail.brand, repairDetail.model].filter(Boolean).join(" ") || "—", ic: Smartphone }, { l: "Color", v: repairDetail.color || "—", ic: Palette }, { l: "IMEI", v: repairDetail.imei || "—", ic: Hash }, { l: "Status", v: repairDetail.status, ic: Tag }, { l: "Estimate", v: fmtCurrency(repairDetail.estimatedCost), ic: IndianRupee }, { l: "Advance", v: fmtCurrency(repairDetail.advance), ic: Banknote }, { l: "Received", v: fmtDate(repairDetail.receivedDate), ic: Calendar }].map((d, i) => <div key={i} className="gc" style={{ background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.06)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 6 }}>{d.l}</div><div style={{ color: "var(--t1)", fontWeight: 600, display: "flex", gap: 8, alignItems: "center" }}><d.ic size={14} /> {d.v}</div></div>)}
+                                {[{ l: "Customer", v: repairDetail.customerName || "—", ic: User }, { l: "Phone", v: repairDetail.phone || "—", ic: Phone }, { l: "Device", v: [repairDetail.brand, repairDetail.model].filter(Boolean).join(" ") || "—", ic: Smartphone }, { l: "Color", v: repairDetail.color || "—", ic: Palette }, { l: "IMEI", v: repairDetail.imei || "—", ic: Hash }, { l: "Status", v: repairDetail.status, ic: Tag }, { l: "Payment", v: repairDetail.paymentStatus || "Unpaid", ic: Banknote }, { l: "Estimate", v: fmtCurrency(repairDetail.estimatedCost), ic: IndianRupee }, { l: "Advance", v: fmtCurrency(repairDetail.advance), ic: Banknote }, { l: "Received", v: fmtDate(repairDetail.receivedDate), ic: Calendar }].map((d, i) => <div key={i} className="gc" style={{ background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.06)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 6 }}>{d.l}</div><div style={{ color: "var(--t1)", fontWeight: 600, display: "flex", gap: 8, alignItems: "center" }}><d.ic size={14} /> {d.v}</div></div>)}
                             </div>
                             <div className="gc" style={{ background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.06)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 6 }}>Problem</div><div style={{ color: "var(--t1)", lineHeight: 1.7 }}>{repairDetail.problem}</div>{repairDetail.notes ? <div style={{ color: "var(--t3)", lineHeight: 1.7, marginTop: 10 }}>Notes: {repairDetail.notes}</div> : null}</div>
                             <div className="action-row"><button className="bp" onClick={() => openRepairForm(repairDetail)}><Edit2 size={16} /> Edit Repair</button><button className="bg" onClick={() => void printRepairSticker(repairDetail)}><Printer size={16} /> Print Sticker</button><button className="bd" onClick={() => deleteRepair(repairDetail.id)}><Trash2 size={16} /> Delete</button></div>
