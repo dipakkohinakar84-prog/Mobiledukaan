@@ -251,6 +251,13 @@ const hasImei = (v = "") => cleanImei(v).length === 15;
 const fmtCurrencyAscii = (n) => "Rs " + Number(n || 0).toLocaleString("en-IN");
 const fmtDateTime = (d) => new Date(d).toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 const isoDate = (d = new Date()) => new Date(d).toISOString().slice(0, 10);
+const normalizeDateInput = (value, fallback = "") => {
+    const raw = String(value || "").trim();
+    if (!raw) return fallback;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+    const parsed = new Date(raw);
+    return Number.isNaN(parsed.getTime()) ? fallback : isoDate(parsed);
+};
 const pdfSafe = (v = "") => String(v ?? "").replace(/[^\x20-\x7E]/g, " ").replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
 const isPresetStorage = (v = "") => STORAGE_PRESETS.includes(String(v || "").trim());
 const fmtSpecs = (ram = "", storage = "") => [String(ram || "").trim(), String(storage || "").trim()].filter(Boolean).join(" / ") || "-";
@@ -410,13 +417,13 @@ const normalizeInv = (it = {}) => ({
     status: it.status || "In Stock",
     deletedAt: it.deletedAt || "",
     qty: (it.status === "Sold" || it.status === "Deleted") ? 0 : 1,
-    addedDate: it.addedDate || new Date().toISOString().slice(0, 10),
+    addedDate: normalizeDateInput(it.addedDate, new Date().toISOString().slice(0, 10)),
     supplier: it.supplier || "",
     photos: Array.isArray(it.photos) ? it.photos.map(normalizePhotoRef) : [],
     sellerName: it.sellerName || "",
     sellerPhone: it.sellerPhone || "",
     sellerAadhaarNumber: it.sellerAadhaarNumber || "",
-    purchaseDate: it.purchaseDate || "",
+    purchaseDate: normalizeDateInput(it.purchaseDate, ""),
     sellerAgreementAccepted: !!it.sellerAgreementAccepted,
     sellerIdPhotoData: it.sellerIdPhotoData || it.sellerIdPhotoUrl || "",
     sellerPhotoData: it.sellerPhotoData || it.sellerPhotoUrl || "",
@@ -482,8 +489,8 @@ const normalizeRepair = (it = {}) => ({
     finalCost: Number(it.finalCost || 0),
     status: REPAIR_STATUSES.includes(String(it.status || "").trim()) ? String(it.status).trim() : "Received",
     paymentStatus: getRepairPaymentStatus(it.paymentStatus, it.notes),
-    receivedDate: it.receivedDate || isoDate(),
-    deliveredDate: it.deliveredDate || "",
+    receivedDate: normalizeDateInput(it.receivedDate, isoDate()),
+    deliveredDate: normalizeDateInput(it.deliveredDate, ""),
     notes: stripRepairPaymentMeta(it.notes),
     photos: Array.isArray(it.photos) ? it.photos.map(normalizePhotoRef) : [],
     createdAt: it.createdAt || new Date().toISOString(),
@@ -2554,7 +2561,7 @@ export default function App() {
     const setRepairField = useCallback((key, value) => {
         setRepairForm(current => ({
             ...current,
-            [key]: key === "imei" ? cleanImei(value) : value,
+            [key]: key === "imei" ? cleanImei(value) : key === "receivedDate" || key === "deliveredDate" ? normalizeDateInput(value, "") : value,
         }));
     }, []);
     const openRepairForm = useCallback((repair = null) => {
@@ -2565,6 +2572,8 @@ export default function App() {
                 estimatedCost: repair.estimatedCost ? String(repair.estimatedCost) : "",
                 advance: repair.advance ? String(repair.advance) : "",
                 finalCost: repair.finalCost ? String(repair.finalCost) : "",
+                receivedDate: normalizeDateInput(repair.receivedDate, isoDate()),
+                deliveredDate: normalizeDateInput(repair.deliveredDate, ""),
             });
         } else {
             setRepairForm(createEmptyRepairForm());
@@ -3179,7 +3188,7 @@ export default function App() {
             }
             setRepairs(current => current.map(item => item.id === savedRepair.id ? savedRepair : item));
             setRepairDetail(current => current?.id === savedRepair.id ? savedRepair : current);
-            setRepairForm(current => current?.id === savedRepair.id ? { ...current, status: savedRepair.status, updatedAt: savedRepair.updatedAt, deliveredDate: savedRepair.deliveredDate } : current);
+            setRepairForm(current => current?.id === savedRepair.id ? { ...current, status: savedRepair.status, updatedAt: savedRepair.updatedAt, receivedDate: normalizeDateInput(savedRepair.receivedDate, isoDate()), deliveredDate: normalizeDateInput(savedRepair.deliveredDate, "") } : current);
             notify(`Repair marked ${savedRepair.status}`, "success");
         } catch (error) {
             notify(error?.message || "Unable to update repair status.", "error");

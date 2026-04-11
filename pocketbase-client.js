@@ -416,14 +416,27 @@ export async function pocketbaseUpsertRepair(shopAuth, repair) {
   const shopRecordId = shopAuth?.record?.shop
   if (!shopRecordId) throw new Error('PocketBase shop session is missing shop relation.')
   const payload = repairItemToRecord(repair, shopRecordId)
-  const localPhotos = (repair?.photos || []).filter((photo) => String(photo?.previewDataUrl || '').startsWith('data:'))
-  if (!localPhotos.length) {
+  const currentPhotos = Array.isArray(repair?.photos) ? repair.photos : []
+  const localPhotos = currentPhotos.filter((photo) => String(photo?.previewDataUrl || '').startsWith('data:'))
+  let deletedPhotoNames = []
+
+  if (isPocketbaseId(repair?.id)) {
+    const existing = await pb.collection(COLLECTIONS.repairs).getOne(repair.id)
+    const existingPhotoNames = Array.isArray(existing?.photos) ? existing.photos.filter(Boolean) : (existing?.photos ? [existing.photos] : [])
+    const keptPhotoNames = currentPhotos.map((photo) => String(photo?.fileId || photo?.fileName || '')).filter(Boolean)
+    deletedPhotoNames = existingPhotoNames.filter((fileName) => !keptPhotoNames.includes(fileName))
+  }
+
+  if (!localPhotos.length && !deletedPhotoNames.length) {
     return isPocketbaseId(repair?.id)
       ? pb.collection(COLLECTIONS.repairs).update(repair.id, payload)
       : pb.collection(COLLECTIONS.repairs).create(payload)
   }
   const form = new FormData()
   Object.entries(payload).forEach(([key, value]) => form.append(key, value == null ? '' : String(value)))
+  for (const fileName of deletedPhotoNames) {
+    form.append('photos-', fileName)
+  }
   for (const photo of localPhotos) {
     const file = await dataUrlToFile(photo.previewDataUrl, photo.fileName || `${repair.repairNo || repair.id || Date.now()}.jpg`, photo.mimeType || inferMimeTypeFromDataUrl(photo.previewDataUrl))
     form.append(isPocketbaseId(repair?.id) ? 'photos+' : 'photos', file)
