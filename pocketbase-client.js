@@ -174,23 +174,89 @@ function parseEnabledModulesCsv(value = '') {
   return Array.from(new Set(modules)).length ? Array.from(new Set(modules)) : DEFAULT_ENABLED_MODULES
 }
 
-const REPAIR_PAYMENT_NOTE_RE = /\n?\[\[paymentStatus:(Paid|Unpaid)\]\]/gi
+const SHOP_PARTS_SUPPLIERS_META_RE = /\n?\[\[partsSuppliers:([^\]]*)\]\]/i
+const LEGACY_REPAIR_PAYMENT_NOTE_RE = /\n?\[\[paymentStatus:(Paid|Unpaid)\]\]/gi
+const REPAIR_META_RE = /\n?\[\[repairMeta:([^\]]*)\]\]/i
+
+function decodeMetaPayload(value = '') {
+  try {
+    return JSON.parse(decodeURIComponent(String(value || '')))
+  } catch {
+    return null
+  }
+}
+
+function normalizePartsSupplier(item = {}) {
+  return {
+    id: String(item.id || ''),
+    name: String(item.name || item.label || '').trim(),
+    phone: String(item.phone || '').replace(/\D/g, '').slice(-10),
+    address: String(item.address || '').trim(),
+    notes: String(item.notes || '').trim(),
+    createdAt: String(item.createdAt || ''),
+    updatedAt: String(item.updatedAt || ''),
+  }
+}
+
+function parsePartsSuppliersMeta(value = '') {
+  const match = String(value || '').match(SHOP_PARTS_SUPPLIERS_META_RE)
+  const parsed = decodeMetaPayload(match?.[1] || '')
+  return Array.isArray(parsed) ? parsed.map(normalizePartsSupplier).filter((item) => item.name) : []
+}
+
+function stripPartsSuppliersMeta(value = '') {
+  return String(value || '').replace(SHOP_PARTS_SUPPLIERS_META_RE, '').trim()
+}
+
+function serializePartsSuppliersMeta(terms = '', partsSuppliers = []) {
+  const cleanTerms = stripPartsSuppliersMeta(terms)
+  const normalizedSuppliers = Array.isArray(partsSuppliers) ? partsSuppliers.map(normalizePartsSupplier).filter((item) => item.name) : []
+  if (!normalizedSuppliers.length) return cleanTerms
+  const payload = encodeURIComponent(JSON.stringify(normalizedSuppliers))
+  return cleanTerms ? `${cleanTerms}\n[[partsSuppliers:${payload}]]` : `[[partsSuppliers:${payload}]]`
+}
+
+function parseRepairMeta(notes = '') {
+  const metaMatch = String(notes || '').match(REPAIR_META_RE)
+  const parsed = decodeMetaPayload(metaMatch?.[1] || '') || {}
+  const legacyMatch = String(notes || '').match(/\[\[paymentStatus:(Paid|Unpaid)\]\]/i)
+  if (!parsed.paymentStatus && legacyMatch?.[1]) parsed.paymentStatus = legacyMatch[1]
+  return parsed
+}
 
 function stripRepairPaymentMeta(value = '') {
-  return String(value || '').replace(REPAIR_PAYMENT_NOTE_RE, '').trim()
+  return String(value || '').replace(REPAIR_META_RE, '').replace(LEGACY_REPAIR_PAYMENT_NOTE_RE, '').trim()
 }
 
 function getRepairPaymentStatus(paymentStatus = '', notes = '') {
   const normalized = String(paymentStatus || '').trim()
-  if (normalized === 'Paid' || normalized === 'Unpaid') return normalized
-  const match = String(notes || '').match(/\[\[paymentStatus:(Paid|Unpaid)\]\]/i)
-  return match?.[1] || 'Unpaid'
+  if (normalized === 'Paid' || normalized === 'Unpaid' || normalized === 'Advance') return normalized
+  return parseRepairMeta(notes).paymentStatus || 'Unpaid'
 }
 
-function serializeRepairNotes(notes = '', paymentStatus = 'Unpaid') {
+function getRepairPartCost(partCost = 0, notes = '') {
+  const direct = Number(partCost || 0)
+  if (direct > 0) return direct
+  return Number(parseRepairMeta(notes).partCost || 0)
+}
+
+function getRepairPartSupplierId(partSupplierId = '', notes = '') {
+  return String(partSupplierId || parseRepairMeta(notes).partSupplierId || '').trim()
+}
+
+function getRepairPartSupplierName(partSupplierName = '', notes = '') {
+  return String(partSupplierName || parseRepairMeta(notes).partSupplierName || '').trim()
+}
+
+function serializeRepairNotes(notes = '', paymentStatus = 'Unpaid', partCost = 0, partSupplierId = '', partSupplierName = '') {
   const cleanNotes = stripRepairPaymentMeta(notes)
-  const normalizedStatus = getRepairPaymentStatus(paymentStatus)
-  return cleanNotes ? `${cleanNotes}\n[[paymentStatus:${normalizedStatus}]]` : `[[paymentStatus:${normalizedStatus}]]`
+  const payload = encodeURIComponent(JSON.stringify({
+    paymentStatus: getRepairPaymentStatus(paymentStatus),
+    partCost: Number(partCost || 0),
+    partSupplierId: String(partSupplierId || '').trim(),
+    partSupplierName: String(partSupplierName || '').trim(),
+  }))
+  return cleanNotes ? `${cleanNotes}\n[[repairMeta:${payload}]]` : `[[repairMeta:${payload}]]`
 }
 
 function repairFileToRef(pb, record, fileName) {
@@ -627,6 +693,9 @@ function repairRecordToItem(pb, record) {
     estimatedCost: Number(record.estimatedCost || 0),
     advance: Number(record.advance || 0),
     finalCost: Number(record.finalCost || 0),
+    partCost: getRepairPartCost(record.partCost, record.notes),
+    partSupplierId: getRepairPartSupplierId(record.partSupplierId, record.notes),
+    partSupplierName: getRepairPartSupplierName(record.partSupplierName, record.notes),
     status: record.status || 'Received',
     paymentStatus: getRepairPaymentStatus(record.paymentStatus, record.notes),
     receivedDate: record.receivedDate || '',
@@ -688,7 +757,7 @@ function repairItemToRecord(item, shopRecordId) {
     status: item.status || 'Received',
     receivedDate: item.receivedDate || '',
     deliveredDate: item.deliveredDate || '',
-    notes: serializeRepairNotes(item.notes, item.paymentStatus),
+    notes: serializeRepairNotes(item.notes, item.paymentStatus, item.partCost, item.partSupplierId, item.partSupplierName),
   }
 }
 
@@ -750,9 +819,10 @@ async function shopRecordToProfile(pb, shop) {
     hsnCode: shop.hsnCode || '8517',
     stickerShowPrice: shop.stickerShowPrice === undefined ? true : !!shop.stickerShowPrice,
     footer: shop.footer || '',
-    terms: shop.terms || '',
+    terms: stripPartsSuppliersMeta(shop.terms || ''),
     businessMode: shop.businessMode || 'general',
     enabledModules: parseEnabledModulesCsv(shop.enabledModulesCsv || ''),
+    partsSuppliers: parsePartsSuppliersMeta(shop.terms || ''),
   }
 }
 
@@ -774,7 +844,7 @@ function shopProfileToRecord(profile, currentShop = {}) {
     hsnCode: profile.hsnCode || '8517',
     stickerShowPrice: profile.stickerShowPrice === undefined ? true : !!profile.stickerShowPrice,
     footer: profile.footer || '',
-    terms: profile.terms || '',
+    terms: serializePartsSuppliersMeta(profile.terms || '', profile.partsSuppliers),
     businessMode: profile.businessMode || 'general',
     enabledModulesCsv: Array.isArray(profile.enabledModules) ? profile.enabledModules.join(',') : String(profile.enabledModulesCsv || ''),
   }

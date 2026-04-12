@@ -36,7 +36,10 @@ const RAM_PRESETS = ["2GB", "4GB", "6GB", "8GB", "12GB", "16GB", "20GB", "24GB"]
 const BUSINESS_MODES = ["general", "repair-pro"];
 const GENERAL_MODULES = ["buy", "sell", "repair"];
 const REPAIR_STATUSES = ["Received", "Ready", "Delivered", "Cancelled"];
-const REPAIR_PAYMENT_STATUSES = ["Unpaid", "Paid"];
+const REPAIR_PAYMENT_STATUSES = ["Unpaid", "Advance", "Paid"];
+const SHOP_PARTS_SUPPLIERS_META_RE = /\n?\[\[partsSuppliers:([^\]]*)\]\]/i;
+const LEGACY_REPAIR_PAYMENT_META_RE = /\n?\[\[paymentStatus:(Paid|Unpaid)\]\]/gi;
+const REPAIR_META_RE = /\n?\[\[repairMeta:([^\]]*)\]\]/i;
 const SIGNUP_PROFILE_OPTIONS = [
     { value: "general", label: "Business Pro" },
     { value: "repair-pro", label: "Repair Pro" },
@@ -115,6 +118,7 @@ const DEFAULT_SHOP_PROFILE = {
     terms: "Goods once sold will be serviced as per shop policy.",
     businessMode: "general",
     enabledModules: GENERAL_MODULES,
+    partsSuppliers: [],
 };
 const STORAGE_PRESETS = ["32GB", "64GB", "128GB", "256GB", "512GB", "1TB"];
 const CUSTOM_STORAGE = "__custom__";
@@ -258,19 +262,62 @@ const normalizeDateInput = (value, fallback = "") => {
     const parsed = new Date(raw);
     return Number.isNaN(parsed.getTime()) ? fallback : isoDate(parsed);
 };
+const decodeMetaPayload = (value = "") => {
+    try {
+        return JSON.parse(decodeURIComponent(String(value || "")));
+    } catch {
+        return null;
+    }
+};
+const normalizePartSupplier = (item = {}) => ({
+    id: String(item.id || genId()),
+    name: String(item.name || item.label || "").trim(),
+    phone: cleanMobileNumber(item.phone || ""),
+    address: String(item.address || "").trim(),
+    notes: String(item.notes || "").trim(),
+    createdAt: String(item.createdAt || new Date().toISOString()),
+    updatedAt: String(item.updatedAt || new Date().toISOString()),
+});
+const parsePartsSuppliersMeta = (text = "") => {
+    const match = String(text || "").match(SHOP_PARTS_SUPPLIERS_META_RE);
+    const parsed = decodeMetaPayload(match?.[1] || "");
+    return Array.isArray(parsed) ? parsed.map(normalizePartSupplier).filter(item => item.name) : [];
+};
+const stripPartsSuppliersMeta = (text = "") => String(text || "").replace(SHOP_PARTS_SUPPLIERS_META_RE, "").trim();
+const parseRepairMeta = (notes = "") => {
+    const metaMatch = String(notes || "").match(REPAIR_META_RE);
+    const parsed = decodeMetaPayload(metaMatch?.[1] || "") || {};
+    const legacyPaymentMatch = String(notes || "").match(/\[\[paymentStatus:(Paid|Unpaid)\]\]/i);
+    if (!parsed.paymentStatus && legacyPaymentMatch?.[1]) parsed.paymentStatus = legacyPaymentMatch[1];
+    return parsed;
+};
+const stripRepairMeta = (notes = "") => String(notes || "").replace(REPAIR_META_RE, "").replace(LEGACY_REPAIR_PAYMENT_META_RE, "").trim();
 const pdfSafe = (v = "") => String(v ?? "").replace(/[^\x20-\x7E]/g, " ").replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
 const isPresetStorage = (v = "") => STORAGE_PRESETS.includes(String(v || "").trim());
 const fmtSpecs = (ram = "", storage = "") => [String(ram || "").trim(), String(storage || "").trim()].filter(Boolean).join(" / ") || "-";
 const roundMoney = (n) => Math.round((Number(n || 0) + Number.EPSILON) * 100) / 100;
 const formatMoney = (n) => Number(roundMoney(n)).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtMoney = (n) => `Rs ${formatMoney(n)}`;
-const REPAIR_PAYMENT_NOTE_RE = /\n?\[\[paymentStatus:(Paid|Unpaid)\]\]/gi;
-const stripRepairPaymentMeta = (value = "") => String(value || "").replace(REPAIR_PAYMENT_NOTE_RE, "").trim();
+const stripRepairPaymentMeta = (value = "") => stripRepairMeta(value);
 const getRepairPaymentStatus = (paymentStatus = "", notes = "") => {
     const normalized = String(paymentStatus || "").trim();
     if (REPAIR_PAYMENT_STATUSES.includes(normalized)) return normalized;
-    const match = String(notes || "").match(/\[\[paymentStatus:(Paid|Unpaid)\]\]/i);
-    return match?.[1] || "Unpaid";
+    return parseRepairMeta(notes).paymentStatus || "Unpaid";
+};
+const getRepairPartCost = (partCost = 0, notes = "") => {
+    const direct = Number(partCost || 0);
+    if (direct > 0) return direct;
+    return Number(parseRepairMeta(notes).partCost || 0);
+};
+const getRepairPartSupplierId = (partSupplierId = "", notes = "") => String(partSupplierId || parseRepairMeta(notes).partSupplierId || "").trim();
+const getRepairPartSupplierName = (partSupplierName = "", notes = "") => String(partSupplierName || parseRepairMeta(notes).partSupplierName || "").trim();
+const resolveRepairPaymentStatus = (paymentStatus, advance = 0, amount = 0) => {
+    const normalized = REPAIR_PAYMENT_STATUSES.includes(String(paymentStatus || "").trim()) ? String(paymentStatus).trim() : "Unpaid";
+    const advanceAmount = Number(advance || 0);
+    const totalAmount = Number(amount || 0);
+    if (totalAmount > 0 && advanceAmount >= totalAmount) return "Paid";
+    if (advanceAmount > 0) return normalized === "Paid" ? "Paid" : "Advance";
+    return normalized === "Advance" || normalized === "Paid" ? "Unpaid" : normalized;
 };
 const amountInWords = (num) => {
     const n = Math.abs(roundMoney(num));
@@ -321,11 +368,12 @@ const normalizeShopProfile = (cfg = {}) => ({
     hsnCode: pickText(cfg.hsnCode, DEFAULT_SHOP_PROFILE.hsnCode),
     stickerShowPrice: cfg.stickerShowPrice === undefined ? true : !!cfg.stickerShowPrice,
     footer: pickText(cfg.footer, DEFAULT_SHOP_PROFILE.footer),
-    terms: pickText(cfg.terms, DEFAULT_SHOP_PROFILE.terms),
+    terms: stripPartsSuppliersMeta(pickText(cfg.terms, DEFAULT_SHOP_PROFILE.terms)),
     businessMode: BUSINESS_MODES.includes(String(cfg.businessMode || "").trim()) ? String(cfg.businessMode).trim() : DEFAULT_SHOP_PROFILE.businessMode,
     enabledModules: Array.from(new Set((Array.isArray(cfg.enabledModules) ? cfg.enabledModules : GENERAL_MODULES).map(v => String(v || "").trim()).filter(v => GENERAL_MODULES.includes(v)))).length
         ? Array.from(new Set((Array.isArray(cfg.enabledModules) ? cfg.enabledModules : GENERAL_MODULES).map(v => String(v || "").trim()).filter(v => GENERAL_MODULES.includes(v))))
         : GENERAL_MODULES,
+    partsSuppliers: (Array.isArray(cfg.partsSuppliers) ? cfg.partsSuppliers : parsePartsSuppliersMeta(cfg.terms)).map(normalizePartSupplier).filter(item => item.name),
 });
 const resolveSignupProfile = (value = "general") => {
     if (value === "buy") return { businessMode: "general", enabledModules: ["buy"] };
@@ -487,6 +535,9 @@ const normalizeRepair = (it = {}) => ({
     estimatedCost: Number(it.estimatedCost || 0),
     advance: Number(it.advance || 0),
     finalCost: Number(it.finalCost || 0),
+    partCost: Number(getRepairPartCost(it.partCost, it.notes) || 0),
+    partSupplierId: getRepairPartSupplierId(it.partSupplierId, it.notes),
+    partSupplierName: getRepairPartSupplierName(it.partSupplierName, it.notes),
     status: REPAIR_STATUSES.includes(String(it.status || "").trim()) ? String(it.status).trim() : "Received",
     paymentStatus: getRepairPaymentStatus(it.paymentStatus, it.notes),
     receivedDate: normalizeDateInput(it.receivedDate, isoDate()),
@@ -509,6 +560,9 @@ const createEmptyRepairForm = () => ({
     estimatedCost: "",
     advance: "",
     finalCost: "",
+    partCost: "",
+    partSupplierId: "",
+    partSupplierName: "",
     status: "Received",
     paymentStatus: "Unpaid",
     receivedDate: isoDate(),
@@ -516,6 +570,7 @@ const createEmptyRepairForm = () => ({
     notes: "",
     photos: [],
 });
+const createEmptyPartSupplier = () => ({ id: "", name: "", phone: "", address: "", notes: "" });
 const loadStore = () => {
     if (typeof window === "undefined") return { inv: DEMO_INVENTORY.map(normalizeInv), tx: DEMO_TX.map(normalizeTx), repairs: [], shop: normalizeShopProfile(DEFAULT_SHOP_PROFILE) };
     try {
@@ -567,7 +622,7 @@ const getSaleShop = (sale, fallbackShop) => normalizeShopProfile(sale?.shopSnaps
 const makeWhatsAppIntroText = () => "Thanks for shopping. You will receive your invoice shortly.";
 const makeRepairWhatsAppText = (repair, shop) => {
     const amount = repair.finalCost || repair.estimatedCost || 0;
-    const due = Math.max(amount - (repair.advance || 0), 0);
+    const due = repair.paymentStatus === "Paid" ? 0 : Math.max(amount - (repair.advance || 0), 0);
     const statusLine = repair.status === "Received"
         ? "Your device has been received for repair."
         : repair.status === "Ready"
@@ -1443,13 +1498,17 @@ body,#root{font-family:'Outfit',sans-serif}
 .hcard-actions{display:flex;gap:3px}
 .repair-status-select{width:auto;min-width:0;max-width:104px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.35px;padding:4px 20px 4px 8px;border-radius:999px;line-height:1}
 .stock-controls-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.parts-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:14px}
+.parts-stat-card{padding:14px}
+.parts-sheet-wrap{z-index:930;background:rgba(0,0,0,.78);padding:20px}
+.parts-sheet{width:min(520px,92vw);max-height:min(88vh,88dvh);overflow:auto}
 .mfd{position:fixed;left:0;right:0;bottom:0;height:156px;pointer-events:none;z-index:44;display:none}
 .mfd::before{content:'';position:absolute;left:0;right:0;bottom:0;height:136px;background:linear-gradient(180deg,rgba(10,10,26,0),rgba(10,10,26,.56) 48%,rgba(10,10,26,.9));opacity:.96}
 .mfd::after{content:'';position:absolute;left:12px;right:12px;bottom:calc(6px + env(safe-area-inset-bottom,0px));height:96px;border-radius:28px;background:radial-gradient(circle at 20% 18%,rgba(0,212,255,.16),transparent 42%),radial-gradient(circle at 82% 24%,rgba(139,92,246,.2),transparent 44%),rgba(255,255,255,.03);backdrop-filter:blur(26px);-webkit-backdrop-filter:blur(26px);filter:blur(12px);opacity:.95}
 @keyframes pu{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(52,211,153,.5)}50%{opacity:.8;box-shadow:0 0 0 8px rgba(52,211,153,0)}}
 @media(max-width:1024px){.ds{display:none!important}.mn{display:flex!important}.mfd{display:block!important}.mth{display:flex!important}.mc{margin-left:0!important;padding:calc(86px + env(safe-area-inset-top,0px)) 16px calc(130px + env(safe-area-inset-bottom,0px))!important}}
-@media(max-width:768px){.hcard{min-height:164px!important}.hcard-photo{width:108px!important;min-width:108px!important}.hcard-details{padding:11px 12px!important}.hcard-title{font-size:13px!important}.hcard-imei{font-size:10px!important}.hcard-price{padding:6px 8px!important;gap:6px!important;margin-bottom:10px!important}.action-row>*{width:100%;justify-content:center}.gi,.gs{font-size:16px!important}.stock-header{display:grid!important;grid-template-columns:minmax(0,1fr) auto;align-items:start!important;margin-bottom:16px}.stock-hero-actions{width:auto;display:flex;gap:8px;justify-self:end}.stock-hero-actions .bp{padding:11px 14px;font-size:13px;min-height:46px;justify-content:center}.stock-filter-card{margin-bottom:14px;padding:12px!important}.stock-tools{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:start}.stock-search{min-width:0}.stock-search .gi{padding:11px 14px 11px 34px}.stock-controls-row{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-start}.stock-controls-row .gs{flex:1 1 132px;min-width:0;padding:10px 11px;font-size:14px!important}.stock-view-toggle{flex:0 0 auto}.stock-view-toggle .bg{padding:8px 9px;min-width:38px}.hcard-ab,.hcard-actions .bg,.hcard-actions .bd{padding:8px!important;min-width:34px!important;min-height:34px!important}}
-@media(max-width:560px){.gc{padding:16px!important}.mth{padding-inline:12px!important}.mc{padding-inline:12px!important}.stock-tools{grid-template-columns:1fr}.stock-controls-row{display:grid;grid-template-columns:1fr 1fr auto;gap:8px}.stock-controls-row .gs{flex:initial;min-width:0}.stock-view-toggle{justify-self:end}.stock-header h1{font-size:24px!important}.stock-header p{font-size:13px!important}.stock-hero-actions .btn-label{display:none}.stock-hero-actions .bp{width:42px;min-width:42px;height:42px;min-height:42px;padding:0}.hcard{flex-direction:row!important;align-items:stretch!important}.hcard-photo{width:112px!important;min-width:112px!important;height:auto!important;min-height:190px!important;border-right:1px solid rgba(255,255,255,.06)!important;border-bottom:none!important}.hcard-details{padding:12px!important}.hcard-price{gap:8px!important}.mfd::after{left:8px;right:8px}.hcard-ab,.hcard-actions .bg,.hcard-actions .bd{padding:9px!important;min-width:38px!important;min-height:38px!important}.repair-status-select{max-width:92px!important;font-size:9px!important;padding:3px 18px 3px 7px!important;letter-spacing:.25px!important}}
+@media(max-width:768px){.hcard{min-height:164px!important}.hcard-photo{width:108px!important;min-width:108px!important}.hcard-details{padding:11px 12px!important}.hcard-title{font-size:13px!important}.hcard-imei{font-size:10px!important}.hcard-price{padding:6px 8px!important;gap:6px!important;margin-bottom:10px!important}.action-row>*{width:100%;justify-content:center}.gi,.gs{font-size:16px!important}.stock-header{display:grid!important;grid-template-columns:minmax(0,1fr) auto;align-items:start!important;margin-bottom:16px}.stock-hero-actions{width:auto;display:flex;gap:8px;justify-self:end}.stock-hero-actions .bp{padding:11px 14px;font-size:13px;min-height:46px;justify-content:center}.stock-filter-card{margin-bottom:14px;padding:12px!important}.stock-tools{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:start}.stock-search{min-width:0}.stock-search .gi{padding:11px 14px 11px 34px}.stock-controls-row{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-start}.stock-controls-row .gs{flex:1 1 132px;min-width:0;padding:10px 11px;font-size:14px!important}.stock-view-toggle{flex:0 0 auto}.stock-view-toggle .bg{padding:8px 9px;min-width:38px}.hcard-ab,.hcard-actions .bg,.hcard-actions .bd{padding:8px!important;min-width:34px!important;min-height:34px!important}.parts-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){.gc{padding:16px!important}.mth{padding-inline:12px!important}.mc{padding-inline:12px!important}.stock-tools{grid-template-columns:1fr}.stock-controls-row{display:grid;grid-template-columns:1fr 1fr auto;gap:8px}.stock-controls-row .gs{flex:initial;min-width:0}.stock-view-toggle{justify-self:end}.stock-header h1{font-size:24px!important}.stock-header p{font-size:13px!important}.stock-hero-actions .btn-label{display:none}.stock-hero-actions .bp{width:42px;min-width:42px;height:42px;min-height:42px;padding:0}.hcard{flex-direction:row!important;align-items:stretch!important}.hcard-photo{width:112px!important;min-width:112px!important;height:auto!important;min-height:190px!important;border-right:1px solid rgba(255,255,255,.06)!important;border-bottom:none!important}.hcard-details{padding:12px!important}.hcard-price{gap:8px!important}.mfd::after{left:8px;right:8px}.hcard-ab,.hcard-actions .bg,.hcard-actions .bd{padding:9px!important;min-width:38px!important;min-height:38px!important}.repair-status-select{max-width:92px!important;font-size:9px!important;padding:3px 18px 3px 7px!important;letter-spacing:.25px!important}.parts-stat-card{padding:12px!important}.parts-sheet-wrap{align-items:stretch!important;justify-content:flex-end!important;padding:0!important}.parts-sheet{width:100vw!important;max-width:none!important;max-height:min(86vh,86dvh)!important;border-bottom-left-radius:0!important;border-bottom-right-radius:0!important;padding:18px 16px calc(18px + env(safe-area-inset-bottom,0px))!important}}
 @media(max-width:430px){.stock-controls-row{grid-template-columns:1fr 1fr auto}.stock-controls-row .gs{padding:9px 8px;font-size:13px!important}.stock-view-toggle .bg{padding:8px;min-width:34px}.hcard{flex-direction:row!important}.hcard-photo{width:96px!important;min-width:96px!important;min-height:176px!important}.hcard-details{padding:11px!important}.hcard-ab{padding:10px!important;min-width:40px!important;min-height:40px!important}.repair-status-select{max-width:84px!important;font-size:8.5px!important;padding:3px 16px 3px 6px!important;letter-spacing:.15px!important}}
 @media(max-height:760px){.co{padding-top:calc(10px + env(safe-area-inset-top,0px));padding-bottom:calc(12px + env(safe-area-inset-bottom,0px))}.cc{gap:10px}.cv{max-height:min(48vh,48dvh)}}
 @media(min-width:1025px){.mn,.mth,.mfd{display:none!important}}
@@ -2085,6 +2144,10 @@ export default function App() {
     const [stockVisibleCount, setStockVisibleCount] = useState(STOCK_PAGE_SIZE);
     const [repairQuery, setRepairQuery] = useState("");
     const [repairStatusFilter, setRepairStatusFilter] = useState("All Statuses");
+    const [partsQuery, setPartsQuery] = useState("");
+    const [partSupplierForm, setPartSupplierForm] = useState(createEmptyPartSupplier());
+    const [showPartSupplierSheet, setShowPartSupplierSheet] = useState(false);
+    const [partsSaveBusy, setPartsSaveBusy] = useState(false);
     const [sf, sSf] = useState(false);
     const [nt, sNt] = useState(null);
     const [lb, sLb] = useState(null);
@@ -2572,6 +2635,7 @@ export default function App() {
                 estimatedCost: repair.estimatedCost ? String(repair.estimatedCost) : "",
                 advance: repair.advance ? String(repair.advance) : "",
                 finalCost: repair.finalCost ? String(repair.finalCost) : "",
+                partCost: repair.partCost ? String(repair.partCost) : "",
                 receivedDate: normalizeDateInput(repair.receivedDate, isoDate()),
                 deliveredDate: normalizeDateInput(repair.deliveredDate, ""),
             });
@@ -2581,6 +2645,28 @@ export default function App() {
         setRepairDetail(null);
         goPage("repair-form");
     }, []);
+    const setPartSupplierField = useCallback((key, value) => {
+        setPartSupplierForm(current => ({ ...current, [key]: key === "phone" ? cleanMobileNumber(value) : value }));
+    }, []);
+    const resetPartSupplierForm = useCallback(() => setPartSupplierForm(createEmptyPartSupplier()), []);
+    const closePartSupplierSheet = () => {
+        resetPartSupplierForm();
+        setShowPartSupplierSheet(false);
+    };
+    const openPartSupplierSheet = (supplier = null) => {
+        if (supplier) {
+            setPartSupplierForm({
+                id: supplier.id,
+                name: supplier.name || "",
+                phone: supplier.phone || "",
+                address: supplier.address || "",
+                notes: supplier.notes || "",
+            });
+        } else {
+            resetPartSupplierForm();
+        }
+        setShowPartSupplierSheet(true);
+    };
     const toForm = (item, extras = {}) => ({ ...ef, ...item, ...extras, buyPrice: String(item.buyPrice ?? extras.buyPrice ?? ""), sellPrice: String(item.sellPrice ?? extras.sellPrice ?? ""), qty: String(item.qty ?? extras.qty ?? 1), amount: String(item.amount ?? extras.amount ?? ""), paidAmount: String(item.paidAmount ?? extras.paidAmount ?? item.sellPrice ?? item.amount ?? ""), dueAmount: String(item.dueAmount ?? extras.dueAmount ?? 0) });
     useEffect(() => {
         try {
@@ -2694,7 +2780,7 @@ export default function App() {
     // ── sync refs for hardware barcode scanner ──
     useEffect(() => { pgRef.current = pg; }, [pg]);
     useEffect(() => {
-        if ((pg === "add" && !enabledModules.some(module => module === "buy" || module === "sell")) || (pg === "buy" && !enabledModules.includes("buy")) || (pg === "sell" && !enabledModules.includes("sell")) || (pg === "repair" && !enabledModules.includes("repair")) || (pg === "repair-form" && !enabledModules.includes("repair")) || (shopCfg.businessMode === "repair-pro" && pg === "inventory")) {
+        if ((pg === "add" && !enabledModules.some(module => module === "buy" || module === "sell")) || (pg === "buy" && !enabledModules.includes("buy")) || (pg === "sell" && !enabledModules.includes("sell")) || (pg === "repair" && !enabledModules.includes("repair")) || (pg === "repair-form" && !enabledModules.includes("repair")) || (shopCfg.businessMode === "repair-pro" && pg === "inventory") || (shopCfg.businessMode !== "repair-pro" && pg === "parts")) {
             sPg("dashboard");
         }
     }, [enabledModules, pg, shopCfg.businessMode]);
@@ -2935,6 +3021,22 @@ export default function App() {
             unsubscribeFromShopData();
         };
     }, [storageReady, syncCfg.autoSync, shopSession?.pbAuth?.token, shopSession?.pbAuth?.record?.shop, showAdminPanel]);
+    const saveShopProfileSnapshot = useCallback(async (profileInput, { successMessage = "", clearDirty = false } = {}) => {
+        if (!shopSession?.pbAuth?.token || !shopSession?.pbAuth?.record?.shop) {
+            throw new Error('Login required before saving shop profile.');
+        }
+        const profile = normalizeShopProfile(profileInput);
+        await pocketbaseUpdateShopProfile(shopSession.pbAuth, profile);
+        lastSavedShopProfileSignatureRef.current = JSON.stringify(profile);
+        if (clearDirty) {
+            setShopProfileDirty(false);
+            shopProfileDirtyRef.current = false;
+        }
+        markSyncConnected({ lastStatus: successMessage || 'Shop profile saved' });
+        updateSyncMeta(current => ({ ...current, pendingSync: false, syncState: ol ? 'synced' : 'offline', syncError: '' }));
+        if (successMessage) notify(successMessage, 'success');
+        return profile;
+    }, [markSyncConnected, notify, ol, shopSession?.pbAuth, updateSyncMeta]);
     const saveShopProfile = async () => {
         if (!shopSession?.pbAuth?.token || !shopSession?.pbAuth?.record?.shop) {
             notify('Login required before saving shop profile.', 'error');
@@ -2948,13 +3050,7 @@ export default function App() {
         }
         setProfileSaveBusy(true);
         try {
-            await pocketbaseUpdateShopProfile(shopSession.pbAuth, profile);
-            lastSavedShopProfileSignatureRef.current = signature;
-            setShopProfileDirty(false);
-            shopProfileDirtyRef.current = false;
-            markSyncConnected({ lastStatus: 'Shop profile saved' });
-            updateSyncMeta(current => ({ ...current, pendingSync: false, syncState: ol ? 'synced' : 'offline', syncError: '' }));
-            notify('Shop profile saved.', 'success');
+            await saveShopProfileSnapshot(profile, { successMessage: 'Shop profile saved.', clearDirty: true });
         } catch (err) {
             const msg = err?.message || 'Unable to save shop profile.';
             updateSyncMeta(current => ({ ...current, syncState: 'error', syncError: msg }));
@@ -3125,12 +3221,19 @@ export default function App() {
         if (!repairForm.customerName.trim()) { notify("Customer name is required.", "error"); return; }
         if (!repairForm.model.trim()) { notify("Device model is required.", "error"); return; }
         if (!repairForm.problem.trim()) { notify("Problem details are required.", "error"); return; }
+        const linkedPartSupplier = partSuppliersById.get(repairForm.partSupplierId);
+        const amount = Number(repairForm.finalCost || repairForm.estimatedCost || 0);
+        const nextPaymentStatus = resolveRepairPaymentStatus(repairForm.paymentStatus, repairForm.advance, amount);
+        const collectedAmount = nextPaymentStatus === "Paid" ? amount : Number(repairForm.advance || 0);
         const base = normalizeRepair({
             ...repairForm,
             repairNo: repairForm.repairNo || `RPR-${String(Date.now()).slice(-6)}`,
             estimatedCost: Number(repairForm.estimatedCost || 0),
-            advance: Number(repairForm.advance || 0),
+            advance: collectedAmount,
             finalCost: Number(repairForm.finalCost || 0),
+            partCost: Number(repairForm.partCost || 0),
+            partSupplierName: linkedPartSupplier?.name || repairForm.partSupplierName || "",
+            paymentStatus: nextPaymentStatus,
             updatedAt: new Date().toISOString(),
         });
         try {
@@ -3194,11 +3297,18 @@ export default function App() {
             notify(error?.message || "Unable to update repair status.", "error");
         }
     }, [notify, shopSession?.pbAuth]);
-    const updateRepairPaymentStatus = useCallback(async (repair, nextPaymentStatus) => {
+    const updateRepairPaymentStatus = async (repair, nextPaymentStatus) => {
         if (!repair || !nextPaymentStatus || repair.paymentStatus === nextPaymentStatus) return;
+        const amount = repairAmount(repair);
+        if (nextPaymentStatus === "Advance" && !(Number(repair.advance || 0) > 0)) {
+            notify("Enter an advance amount in Edit before marking this repair as Advance.", "warning");
+            return;
+        }
+        const nextAdvance = nextPaymentStatus === "Paid" ? amount : nextPaymentStatus === "Unpaid" ? 0 : Number(repair.advance || 0);
         const nextRepair = normalizeRepair({
             ...repair,
-            paymentStatus: nextPaymentStatus,
+            advance: nextAdvance,
+            paymentStatus: resolveRepairPaymentStatus(nextPaymentStatus, nextAdvance, amount),
             updatedAt: new Date().toISOString(),
         });
         try {
@@ -3214,12 +3324,12 @@ export default function App() {
             }
             setRepairs(current => current.map(item => item.id === savedRepair.id ? savedRepair : item));
             setRepairDetail(current => current?.id === savedRepair.id ? savedRepair : current);
-            setRepairForm(current => current?.id === savedRepair.id ? { ...current, paymentStatus: savedRepair.paymentStatus, updatedAt: savedRepair.updatedAt } : current);
+            setRepairForm(current => current?.id === savedRepair.id ? { ...current, advance: savedRepair.advance ? String(savedRepair.advance) : "", paymentStatus: savedRepair.paymentStatus, updatedAt: savedRepair.updatedAt } : current);
             notify(`Repair marked ${savedRepair.paymentStatus.toLowerCase()}`, "success");
         } catch (error) {
             notify(error?.message || "Unable to update repair payment status.", "error");
         }
-    }, [notify, shopSession?.pbAuth]);
+    };
     const deleteRepair = useCallback((repairId) => {
         const removeLocal = () => {
             setRepairs(current => current.filter(item => item.id !== repairId));
@@ -3232,6 +3342,46 @@ export default function App() {
         }
         removeLocal();
     }, [notify, shopSession?.pbAuth]);
+    const savePartSupplier = async () => {
+        const normalizedSupplier = normalizePartSupplier({ ...partSupplierForm, updatedAt: new Date().toISOString() });
+        if (!normalizedSupplier.name) {
+            notify("Supplier name is required.", "error");
+            return;
+        }
+        const nextSuppliers = normalizedSupplier.id && partSuppliers.some(item => item.id === normalizedSupplier.id)
+            ? partSuppliers.map(item => item.id === normalizedSupplier.id ? { ...normalizedSupplier, createdAt: item.createdAt || normalizedSupplier.createdAt } : item)
+            : [{ ...normalizedSupplier, createdAt: new Date().toISOString() }, ...partSuppliers];
+        const nextProfile = normalizeShopProfile({ ...shopCfg, partsSuppliers: nextSuppliers });
+        setPartsSaveBusy(true);
+        sShopCfg(nextProfile);
+        try {
+            await saveShopProfileSnapshot(nextProfile, { successMessage: normalizedSupplier.id && partSuppliers.some(item => item.id === normalizedSupplier.id) ? "Supplier updated." : "Supplier added." });
+            closePartSupplierSheet();
+        } catch (error) {
+            notify(error?.message || "Unable to save supplier.", "error");
+        } finally {
+            setPartsSaveBusy(false);
+        }
+    };
+    const editPartSupplier = (supplier) => openPartSupplierSheet(supplier);
+    const deletePartSupplier = async (supplier) => {
+        const linkedRepairs = repairs.filter(repair => repair.partSupplierId === supplier.id || (!repair.partSupplierId && repair.partSupplierName === supplier.name)).length;
+        if (linkedRepairs > 0) {
+            notify("This supplier is linked to existing repairs and cannot be deleted.", "warning");
+            return;
+        }
+        const nextProfile = normalizeShopProfile({ ...shopCfg, partsSuppliers: partSuppliers.filter(item => item.id !== supplier.id) });
+        setPartsSaveBusy(true);
+        sShopCfg(nextProfile);
+        try {
+            await saveShopProfileSnapshot(nextProfile, { successMessage: "Supplier deleted." });
+            if (partSupplierForm.id === supplier.id) closePartSupplierSheet();
+        } catch (error) {
+            notify(error?.message || "Unable to delete supplier.", "error");
+        } finally {
+            setPartsSaveBusy(false);
+        }
+    };
     const delInv = async (id) => {
         try {
             const item = inv.find(i => i.id === id);
@@ -3342,6 +3492,15 @@ export default function App() {
         const bc = {}; is.forEach(i => { bc[i.brand] = (bc[i.brand] || 0) + (i.qty || 0); }); const cc = { New: 0, Refurbished: 0, Used: 0 }; is.forEach(i => { cc[i.condition] = (cc[i.condition] || 0) + (i.qty || 0); });
         return { ts, sv, tb, tsl, pr, bc, cc };
     }, [inv, tx]);
+    const partSuppliers = useMemo(() => (shopCfg.partsSuppliers || []).map(normalizePartSupplier).filter(item => item.name), [shopCfg.partsSuppliers]);
+    const partSuppliersById = useMemo(() => new Map(partSuppliers.map(item => [item.id, item])), [partSuppliers]);
+    const getRepairPartSupplierLabel = useCallback((repair) => {
+        if (!repair) return "";
+        return partSuppliersById.get(repair.partSupplierId)?.name || repair.partSupplierName || "";
+    }, [partSuppliersById]);
+    const repairAmount = useCallback((repair) => Number(repair?.finalCost || repair?.estimatedCost || 0), []);
+    const repairDueAmount = useCallback((repair) => repair?.paymentStatus === "Paid" ? 0 : Math.max(repairAmount(repair) - Number(repair?.advance || 0), 0), [repairAmount]);
+    const repairProfitAmount = useCallback((repair) => repairAmount(repair) - Number(repair?.partCost || 0), [repairAmount]);
 
     const fi = useMemo(() => inv.filter(i => {
         if (i.status === "Deleted") return false;
@@ -3374,19 +3533,20 @@ export default function App() {
         return repairRecords.filter(repair => {
             if (repairStatusFilter !== "All Statuses" && repair.status !== repairStatusFilter) return false;
             if (!q) return true;
-            return [repair.repairNo, repair.customerName, repair.phone, repair.brand, repair.model, repair.color, repair.imei, repair.problem, repair.status].some(v => String(v || "").toLowerCase().includes(q));
+            return [repair.repairNo, repair.customerName, repair.phone, repair.brand, repair.model, repair.color, repair.imei, repair.problem, repair.status, repair.paymentStatus, getRepairPartSupplierLabel(repair)].some(v => String(v || "").toLowerCase().includes(q));
         });
-    }, [repairQuery, repairRecords, repairStatusFilter]);
+    }, [getRepairPartSupplierLabel, repairQuery, repairRecords, repairStatusFilter]);
     const repairOpenCount = useMemo(() => repairs.filter(item => !["Delivered", "Cancelled"].includes(item.status)).length, [repairs]);
     const repairReadyCount = useMemo(() => repairs.filter(item => item.status === "Ready").length, [repairs]);
     const repairDeliveredCount = useMemo(() => repairs.filter(item => item.status === "Delivered").length, [repairs]);
     const repairCancelledCount = useMemo(() => repairs.filter(item => item.status === "Cancelled").length, [repairs]);
-    const repairDueTotal = useMemo(() => repairs.reduce((sum, repair) => {
-        const amount = repair.finalCost || repair.estimatedCost || 0;
-        return sum + Math.max(amount - (repair.advance || 0), 0);
-    }, 0), [repairs]);
+    const repairDueTotal = useMemo(() => repairs.reduce((sum, repair) => sum + repairDueAmount(repair), 0), [repairDueAmount, repairs]);
     const repairAdvanceTotal = useMemo(() => repairs.reduce((sum, repair) => sum + (repair.advance || 0), 0), [repairs]);
-    const repairValueTotal = useMemo(() => repairs.reduce((sum, repair) => sum + (repair.finalCost || repair.estimatedCost || 0), 0), [repairs]);
+    const repairValueTotal = useMemo(() => repairs.reduce((sum, repair) => sum + repairAmount(repair), 0), [repairAmount, repairs]);
+    const repairPartsTotal = useMemo(() => repairs.reduce((sum, repair) => sum + Number(repair.partCost || 0), 0), [repairs]);
+    const repairProfitTotal = useMemo(() => repairs.reduce((sum, repair) => sum + repairProfitAmount(repair), 0), [repairProfitAmount, repairs]);
+    const repairNetProfit = useMemo(() => repairs.filter(repair => repair.paymentStatus === "Paid").reduce((sum, repair) => sum + repairProfitAmount(repair), 0), [repairProfitAmount, repairs]);
+    const repairPaidIncome = useMemo(() => repairs.filter(repair => repair.paymentStatus === "Paid").reduce((sum, repair) => sum + repairAmount(repair), 0), [repairAmount, repairs]);
     const repairRecentJobs = useMemo(() => repairRecords.slice(0, 5), [repairRecords]);
     const repairTodayStats = useMemo(() => {
         const today = isoDate();
@@ -3400,6 +3560,18 @@ export default function App() {
         { l: "Delivered", v: repairDeliveredCount, c: "var(--a)" },
         { l: "Cancelled", v: repairCancelledCount, c: "var(--err)" },
     ]), [repairCancelledCount, repairDeliveredCount, repairReadyCount, repairs]);
+    const partsSupplierRows = useMemo(() => {
+        const q = partsQuery.trim().toLowerCase();
+        return partSuppliers.map(supplier => {
+            const supplierRepairs = repairs.filter(repair => repair.partSupplierId === supplier.id || (!repair.partSupplierId && repair.partSupplierName && repair.partSupplierName === supplier.name));
+            return {
+                ...supplier,
+                repairsCount: supplierRepairs.length,
+                totalValue: supplierRepairs.reduce((sum, repair) => sum + Number(repair.partCost || 0), 0),
+                lastDateTime: supplierRepairs.reduce((latest, repair) => String(repair.updatedAt || repair.createdAt || "").localeCompare(String(latest)) > 0 ? (repair.updatedAt || repair.createdAt || "") : latest, ""),
+            };
+        }).filter(supplier => !q || [supplier.name, supplier.phone, supplier.address, supplier.notes].some(value => String(value || "").toLowerCase().includes(q))).sort((a, b) => String(b.lastDateTime || "").localeCompare(String(a.lastDateTime || "")));
+    }, [partSuppliers, partsQuery, repairs]);
     const invoiceRecords = useMemo(() => {
         const q = iq.trim().toLowerCase();
         return tx.filter(t => t.type === "Sell").filter(t => {
@@ -3451,9 +3623,10 @@ export default function App() {
             paymentMode: "",
         }));
         const repairEntries = repairs.map(repair => {
-            const amount = repair.finalCost || repair.estimatedCost || 0;
-            const dueAmount = Math.max(amount - (repair.advance || 0), 0);
+            const amount = repairAmount(repair);
+            const dueAmount = repairDueAmount(repair);
             const issue = repair.problem ? `Issue: ${repair.problem}` : "";
+            const partSupplierLabel = getRepairPartSupplierLabel(repair);
             return {
                 id: `repair-${repair.id}`,
                 type: "Repair",
@@ -3463,19 +3636,19 @@ export default function App() {
                 party: repair.customerName || "Walk-in customer",
                 phone: repair.phone || "",
                 item: `${repair.brand} ${repair.model}`.trim() || "Repair Job",
-                extra: [repair.status, issue].filter(Boolean).join(" · "),
+                extra: [repair.status, repair.paymentStatus, repair.partCost ? `Part ${fmtCurrency(repair.partCost)}` : "", partSupplierLabel ? `Supplier: ${partSupplierLabel}` : "", issue].filter(Boolean).join(" · "),
                 imei: repair.imei,
                 imei2: "",
                 amount,
                 dueAmount,
-                profit: 0,
+                profit: repairProfitAmount(repair),
                 invoiceNo: repair.repairNo || "",
                 billType: "",
-                paymentMode: "",
+                paymentMode: repair.paymentStatus,
             };
         });
         return [...txEntries, ...legacyAdds, ...repairEntries].sort((a, b) => String(b.dateTime).localeCompare(String(a.dateTime)));
-    }, [inv, repairs, tx]);
+    }, [getRepairPartSupplierLabel, inv, repairAmount, repairDueAmount, repairProfitAmount, repairs, tx]);
     const reportBrands = useMemo(() => ["All Brands", ...Array.from(new Set(reportEntries.map(row => row.item.split(" ")[0]).filter(Boolean)))], [reportEntries]);
     const reportRows = useMemo(() => reportEntries.filter(row => {
         if (reportType !== "All" && row.type !== reportType) return false;
@@ -3510,7 +3683,7 @@ export default function App() {
             sellTotal: sellRows.reduce((sum, row) => sum + (row.amount || 0), 0),
             repairTotal: repairRows.reduce((sum, row) => sum + (row.amount || 0), 0),
             dueTotal: [...sellRows, ...repairRows].reduce((sum, row) => sum + (row.dueAmount || 0), 0),
-            profit: sellRows.reduce((sum, row) => sum + (row.profit || 0), 0),
+            profit: [...sellRows, ...repairRows].reduce((sum, row) => sum + (row.profit || 0), 0),
         };
     }, [reportRows]);
     const customerLedgerRows = useMemo(() => {
@@ -3726,6 +3899,7 @@ export default function App() {
         return [
             { id: "dashboard", ic: Home, l: "Dashboard" },
             { id: "repair", ic: Wrench, l: "Repair" },
+            { id: "parts", ic: Package, l: "Parts" },
             { id: "reports", ic: BarChart3, l: "Reports" },
             { id: "settings", ic: Settings, l: "Settings" },
         ];
@@ -3744,7 +3918,7 @@ export default function App() {
     const condBadge = (c) => c === "New" ? "bn" : c === "Refurbished" ? "br" : "bu";
     const statBadge = (s) => s === "In Stock" ? "bi" : s === "Sold" ? "bso" : "bre";
     const repairStatusTone = (status) => status === "Ready" || status === "Delivered" ? "bi" : status === "Cancelled" ? "bre" : "br";
-    const repairPaymentTone = (status) => status === "Paid" ? "bi" : "br";
+    const repairPaymentTone = (status) => status === "Paid" ? "bi" : status === "Advance" ? "bu" : "br";
     const SettingsSection = ({ id, title, summary, children, style = {} }) => {
         const open = settingsOpenSection === id;
         return <div className="gc" style={style}>
@@ -4014,35 +4188,35 @@ export default function App() {
                                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 12 }}>
                                     {repairStatusCards.map(card => <div key={card.l} className="tr" style={{ padding: "14px 12px", borderRadius: 14, border: "1px solid rgba(255,255,255,.06)", background: "rgba(255,255,255,.03)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", letterSpacing: .8, marginBottom: 8 }}>{card.l}</div><div style={{ color: card.c, fontSize: 24, fontWeight: 700, lineHeight: 1 }}>{card.v}</div></div>)}
                                 </div>
+                                <div style={{ color: "var(--t3)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: .8, marginTop: 16, marginBottom: 10 }}>Financial Snapshot</div>
+                                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 12 }}>
+                                    {[
+                                        { l: "Total Income", v: fmtCurrency(repairValueTotal), c: "var(--a2)" },
+                                        { l: "Profit", v: fmtCurrency(repairProfitTotal), c: "var(--ok)" },
+                                        { l: "Net Profit", v: fmtCurrency(repairNetProfit), c: "var(--a)" },
+                                        { l: "Pending Due", v: fmtCurrency(repairDueTotal), c: "var(--err)" },
+                                    ].map(card => <div key={card.l} className="tr" style={{ padding: "14px 12px", borderRadius: 14, border: "1px solid rgba(255,255,255,.06)", background: "rgba(255,255,255,.03)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", letterSpacing: .8, marginBottom: 8 }}>{card.l}</div><div style={{ color: card.c, fontSize: 22, fontWeight: 700, lineHeight: 1.1 }}>{card.v}</div></div>)}
+                                </div>
                             </div>
                             <div className="gc" style={{ marginBottom: 16 }}>
                                 <h3 style={{ color: "var(--t1)", fontSize: 15, fontWeight: 600, marginBottom: 14 }}>Quick Actions</h3>
                                 <div style={{ display: "grid", gap: 10 }}>
                                     <button className="bp" onClick={() => openRepairForm()} style={{ justifyContent: "center" }}><Plus size={16} /> Add Repair Job</button>
                                     <button className="bg" onClick={() => goPage("repair")} style={{ justifyContent: "center" }}><Wrench size={16} /> Open Repair Queue</button>
+                                    <button className="bg" onClick={() => goPage("parts")} style={{ justifyContent: "center" }}><Package size={16} /> Open Parts</button>
                                     <button className="bg" onClick={() => goPage("reports")} style={{ justifyContent: "center" }}><BarChart3 size={16} /> View Repair Reports</button>
                                 </div>
-                            </div>
-                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 16, marginBottom: 28 }}>
-                                {[
-                                    { l: "Open Jobs", v: repairOpenCount, s: `${repairReadyCount} ready for pickup`, ic: Wrench, c: "var(--warn)", g: "sgc" },
-                                    { l: "Repair Value", v: fmtCurrency(repairValueTotal), s: `${repairRecords.length} total jobs`, ic: IndianRupee, c: "var(--a2)", g: "sgv" },
-                                    { l: "Advance Collected", v: fmtCurrency(repairAdvanceTotal), s: `${repairTodayStats.received} received today`, ic: TrendingUp, c: "var(--ok)", g: "sgp" },
-                                    { l: "Pending Due", v: fmtCurrency(repairDueTotal), s: `${repairTodayStats.delivered} delivered today`, ic: BarChart3, c: "var(--err)", g: "sgg" },
-                                ].map((s, i) =>
-                                    <div key={i} className={`gc ${s.g}`}><div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}><span style={{ color: "var(--t3)", fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1 }}>{s.l}</span><s.ic size={18} style={{ color: s.c, opacity: .7 }} /></div><div style={{ color: "var(--t1)", fontSize: 26, fontWeight: 700, lineHeight: 1 }}>{s.v}</div><div style={{ color: "var(--t3)", fontSize: 12, marginTop: 4 }}>{s.s}</div></div>
-                                )}
                             </div>
                             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(min(320px,100%),1fr))", gap: 16, alignItems: "start" }}>
                                 <div className="gc">
                                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 16 }}><h3 style={{ color: "var(--t1)", fontSize: 15, fontWeight: 600 }}>Latest Repair Jobs</h3><button className="bp" onClick={() => openRepairForm()}><Plus size={15} /> Add Repair</button></div>
                                     {repairRecentJobs.length === 0 && <div style={{ color: "var(--t2)", fontSize: 14 }}>No repair jobs yet. Add your first device to start the workflow.</div>}
                                     {repairRecentJobs.map(repair => {
-                                        const amount = repair.finalCost || repair.estimatedCost || 0;
-                                        const due = Math.max(amount - (repair.advance || 0), 0);
+                                        const amount = repairAmount(repair);
+                                        const due = repairDueAmount(repair);
                                         return <div key={repair.id} className="tr" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, padding: "12px 8px", borderBottom: "1px solid rgba(255,255,255,.04)", flexWrap: "wrap" }}>
-                                            <div style={{ minWidth: 0 }}><div style={{ color: "var(--t1)", fontSize: 14, fontWeight: 600 }}>{repair.repairNo}</div><div style={{ color: "var(--t3)", fontSize: 12, marginTop: 3 }}>{repair.brand} {repair.model} · {repair.customerName || "Walk-in customer"}{repair.phone ? ` · ${repair.phone}` : ""}</div><div style={{ color: "var(--t3)", fontSize: 11, marginTop: 3 }}>{fmtDate(repair.updatedAt || repair.receivedDate)} · {repair.problem}{repair.imei ? ` · IMEI ${repair.imei}` : ""}</div></div>
-                                            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}><span className={`ba ${repairStatusTone(repair.status)}`}>{repair.status}</span><div><div style={{ color: "var(--ok)", fontWeight: 600, fontSize: 14 }}>{fmtCurrency(amount)}</div><div style={{ fontSize: 11, color: due > 0 ? "var(--warn)" : "var(--t3)", fontWeight: 600 }}>Due {fmtCurrency(due)}</div></div><button className="bg" onClick={() => setRepairDetail(repair)}><Eye size={14} /> View</button></div>
+                                            <div style={{ minWidth: 0 }}><div style={{ color: "var(--t1)", fontSize: 14, fontWeight: 600 }}>{repair.repairNo}</div><div style={{ color: "var(--t3)", fontSize: 12, marginTop: 3 }}>{repair.brand} {repair.model} · {repair.customerName || "Walk-in customer"}{repair.phone ? ` · ${repair.phone}` : ""}</div><div style={{ color: "var(--t3)", fontSize: 11, marginTop: 3 }}>{fmtDate(repair.updatedAt || repair.receivedDate)} · {repair.problem}{repair.imei ? ` · IMEI ${repair.imei}` : ""}{repair.partCost ? ` · Part ${fmtCurrency(repair.partCost)}` : ""}{getRepairPartSupplierLabel(repair) ? ` · ${getRepairPartSupplierLabel(repair)}` : ""}</div></div>
+                                            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}><span className={`ba ${repairStatusTone(repair.status)}`}>{repair.status}</span><span className={`ba ${repairPaymentTone(repair.paymentStatus)}`}>{repair.paymentStatus}</span><div><div style={{ color: "var(--ok)", fontWeight: 600, fontSize: 14 }}>{fmtCurrency(amount)}</div><div style={{ fontSize: 11, color: due > 0 ? "var(--warn)" : "var(--t3)", fontWeight: 600 }}>Due {fmtCurrency(due)}</div></div><button className="bg" onClick={() => setRepairDetail(repair)}><Eye size={14} /> View</button></div>
                                         </div>;
                                     })}
                                 </div>
@@ -4470,7 +4644,7 @@ export default function App() {
                                     </div>
                                 </div>
                                 <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-                                <div style={{ color: "var(--t2)", fontSize: 13 }}>Estimate {fmtCurrency(repair.estimatedCost)} · Advance {fmtCurrency(repair.advance)} · {repair.paymentStatus}</div>
+                                    <div style={{ color: "var(--t2)", fontSize: 13 }}>Estimate {fmtCurrency(repair.estimatedCost)} · Advance {fmtCurrency(repair.advance)}{repair.partCost ? ` · Part ${fmtCurrency(repair.partCost)}` : ""}{getRepairPartSupplierLabel(repair) ? ` · ${getRepairPartSupplierLabel(repair)}` : ""} · {repair.paymentStatus}</div>
                                     <div style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(0,1fr))", gap: 8, width: "100%" }}>
                                         <button className="bg" onClick={() => setRepairDetail(repair)} style={{ justifyContent: "center", minWidth: 0 }}><Eye size={14} /> View</button>
                                         <button className="bg" onClick={() => openRepairForm(repair)} style={{ justifyContent: "center", minWidth: 0 }}><Edit2 size={14} /> Edit</button>
@@ -4490,7 +4664,7 @@ export default function App() {
                         <div className="gc" style={{ display: "grid", gap: 14 }}>
                             {repairDetail.photos?.length > 0 && <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>{repairDetail.photos.map((photo, index) => <div key={photo.id || index} style={{ width: 120, height: 120, borderRadius: 12, overflow: "hidden", cursor: "pointer" }} onClick={() => sLb({ photos: repairDetail.photos, si: index })}><img src={getPhotoPreview(photo)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /></div>)}</div>}
                             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 12 }}>
-                                {[{ l: "Customer", v: repairDetail.customerName || "—", ic: User }, { l: "Phone", v: repairDetail.phone || "—", ic: Phone }, { l: "Device", v: [repairDetail.brand, repairDetail.model].filter(Boolean).join(" ") || "—", ic: Smartphone }, { l: "Color", v: repairDetail.color || "—", ic: Palette }, { l: "IMEI", v: repairDetail.imei || "—", ic: Hash }, { l: "Status", v: repairDetail.status, ic: Tag }, { l: "Payment", v: repairDetail.paymentStatus || "Unpaid", ic: Banknote }, { l: "Estimate", v: fmtCurrency(repairDetail.estimatedCost), ic: IndianRupee }, { l: "Advance", v: fmtCurrency(repairDetail.advance), ic: Banknote }, { l: "Received", v: fmtDate(repairDetail.receivedDate), ic: Calendar }].map((d, i) => <div key={i} className="gc" style={{ background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.06)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 6 }}>{d.l}</div><div style={{ color: "var(--t1)", fontWeight: 600, display: "flex", gap: 8, alignItems: "center" }}><d.ic size={14} /> {d.v}</div></div>)}
+                                {[{ l: "Customer", v: repairDetail.customerName || "—", ic: User }, { l: "Phone", v: repairDetail.phone || "—", ic: Phone }, { l: "Device", v: [repairDetail.brand, repairDetail.model].filter(Boolean).join(" ") || "—", ic: Smartphone }, { l: "Color", v: repairDetail.color || "—", ic: Palette }, { l: "IMEI", v: repairDetail.imei || "—", ic: Hash }, { l: "Status", v: repairDetail.status, ic: Tag }, { l: "Payment", v: repairDetail.paymentStatus || "Unpaid", ic: Banknote }, { l: "Estimate", v: fmtCurrency(repairDetail.estimatedCost), ic: IndianRupee }, { l: "Advance", v: fmtCurrency(repairDetail.advance), ic: Banknote }, { l: "Part Cost", v: fmtCurrency(repairDetail.partCost), ic: IndianRupee }, { l: "Part Supplier", v: getRepairPartSupplierLabel(repairDetail) || "—", ic: Package }, { l: "Received", v: fmtDate(repairDetail.receivedDate), ic: Calendar }].map((d, i) => <div key={i} className="gc" style={{ background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.06)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 6 }}>{d.l}</div><div style={{ color: "var(--t1)", fontWeight: 600, display: "flex", gap: 8, alignItems: "center" }}><d.ic size={14} /> {d.v}</div></div>)}
                             </div>
                             <div className="gc" style={{ background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.06)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 6 }}>Problem</div><div style={{ color: "var(--t1)", lineHeight: 1.7 }}>{repairDetail.problem}</div>{repairDetail.notes ? <div style={{ color: "var(--t3)", lineHeight: 1.7, marginTop: 10 }}>Notes: {repairDetail.notes}</div> : null}</div>
                             <div className="action-row"><button className="bp" onClick={() => openRepairForm(repairDetail)}><Edit2 size={16} /> Edit Repair</button><button className="bg" onClick={() => void printRepairSticker(repairDetail)}><Printer size={16} /> Print Sticker</button><button className="bd" onClick={() => deleteRepair(repairDetail.id)}><Trash2 size={16} /> Delete</button></div>
@@ -4512,12 +4686,49 @@ export default function App() {
                                 <F l="Received Date" ic={Calendar}><input className="gi" type="date" value={repairForm.receivedDate} onChange={e => setRepairField("receivedDate", e.target.value)} /></F>
                                 <F l="Estimated Cost" ic={IndianRupee}><input className="gi" type="number" value={repairForm.estimatedCost} onChange={e => setRepairField("estimatedCost", e.target.value)} placeholder="Optional estimate" /></F>
                                 <F l="Advance" ic={Banknote}><input className="gi" type="number" value={repairForm.advance} onChange={e => setRepairField("advance", e.target.value)} placeholder="Optional advance" /></F>
+                                <F l="Part Cost (Optional)" ic={IndianRupee}><input className="gi" type="number" value={repairForm.partCost} onChange={e => setRepairField("partCost", e.target.value)} placeholder="Optional part cost" /></F>
+                                <F l="Part Supplier (Optional)" ic={Package}><select className="gs" value={repairForm.partSupplierId} onChange={e => { const supplier = partSuppliersById.get(e.target.value); setRepairField("partSupplierId", e.target.value); setRepairField("partSupplierName", supplier?.name || ""); }}><option value="">Select supplier</option>{partSuppliers.map(supplier => <option key={supplier.id} value={supplier.id}>{supplier.name}</option>)}</select></F>
                             </div>
                             <F l="Problem" ic={ClipboardList}><textarea className="gi" style={{ minHeight: 96 }} value={repairForm.problem} onChange={e => setRepairField("problem", e.target.value)} placeholder="Describe the reported problem, issue, or required repair" /></F>
                             <F l="Notes" ic={FileText}><textarea className="gi" style={{ minHeight: 84 }} value={repairForm.notes} onChange={e => setRepairField("notes", e.target.value)} placeholder="Internal notes" /></F>
                             <div className="action-row"><button className="bp" onClick={saveRepair}><CheckCircle size={16} /> {repairForm.id ? "Save Repair" : "Add Repair"}</button><button className="bg" onClick={() => { setRepairForm(createEmptyRepairForm()); goPage("repair"); }}><ChevronLeft size={16} /> Back to Repair</button></div>
                         </div>
                     </div>}
+
+                    {pg === "parts" && <div className="fi" style={{ maxWidth: 980 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap", marginBottom: 18 }}><div><h1 style={{ color: "var(--t1)", fontSize: 28, fontWeight: 700, display: "flex", alignItems: "center", gap: 10 }}><Package size={28} style={{ color: "var(--a2)" }} /> Parts</h1><p style={{ color: "var(--t3)", fontSize: 14, marginTop: 4 }}>Track suppliers and part value from linked repair jobs.</p></div><button className="bp" onClick={() => openPartSupplierSheet()}><Plus size={16} /> Add Supplier</button></div>
+                        <div className="parts-stats">
+                            {[{ l: "Suppliers", v: partSuppliers.length, s: "active", c: "var(--a2)" }, { l: "Parts Value", v: fmtCurrency(repairPartsTotal), s: `${repairs.filter(repair => repair.partCost > 0).length} linked`, c: "var(--warn)" }, { l: "Income", v: fmtCurrency(repairValueTotal), s: "repair totals", c: "var(--a)" }, { l: "Net Profit", v: fmtCurrency(repairNetProfit), s: "paid only", c: "var(--ok)" }].map(card => <div key={card.l} className="gc parts-stat-card"><div style={{ color: "var(--t3)", fontSize: 10, textTransform: "uppercase", letterSpacing: .8, marginBottom: 6 }}>{card.l}</div><div style={{ color: card.c, fontSize: 22, fontWeight: 700, lineHeight: 1.05 }}>{card.v}</div><div style={{ color: "var(--t3)", fontSize: 11, marginTop: 4 }}>{card.s}</div></div>)}
+                        </div>
+                        <div className="gc" style={{ marginBottom: 14, padding: 14 }}>
+                            <div style={{ position: "relative" }}><Search size={16} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--t3)" }} /><input className="gi" placeholder="Search supplier, phone, address..." value={partsQuery} onChange={e => setPartsQuery(e.target.value)} style={{ paddingLeft: 36 }} /></div>
+                        </div>
+                        <div style={{ display: "grid", gap: 12 }}>
+                            {partsSupplierRows.length === 0 && <div className="gc" style={{ textAlign: "center", padding: 32 }}><Package size={36} style={{ color: "var(--t3)", marginBottom: 10 }} /><p style={{ color: "var(--t2)", fontSize: 15 }}>{partsQuery.trim() ? "No matching suppliers" : "No part suppliers yet"}</p><p style={{ color: "var(--t3)", fontSize: 13, marginTop: 4 }}>{partsQuery.trim() ? "Try a different search term." : "Add suppliers to start linking part costs with repair jobs."}</p><div className="action-row" style={{ justifyContent: "center", marginTop: 14 }}><button className="bp" onClick={() => openPartSupplierSheet()}><Plus size={16} /> Add Supplier</button></div></div>}
+                            {partsSupplierRows.map(supplier => <div key={supplier.id} className="gc" style={{ display: "grid", gap: 8, padding: 16 }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", flexWrap: "wrap" }}>
+                                    <div><div style={{ color: "var(--t1)", fontSize: 15, fontWeight: 700 }}>{supplier.name}</div><div style={{ color: "var(--t3)", fontSize: 12, marginTop: 4 }}>{supplier.phone || "No phone"}{supplier.address ? ` · ${supplier.address}` : ""}</div></div>
+                                    <div style={{ textAlign: "right" }}><div style={{ color: "var(--warn)", fontSize: 17, fontWeight: 700 }}>{fmtCurrency(supplier.totalValue)}</div><div style={{ color: "var(--t3)", fontSize: 11, marginTop: 4 }}>{supplier.repairsCount} linked repair{supplier.repairsCount !== 1 ? "s" : ""}</div></div>
+                                </div>
+                                {supplier.notes && <div style={{ color: "var(--t2)", fontSize: 12.5, lineHeight: 1.6 }}>{supplier.notes}</div>}
+                                <div className="action-row" style={{ marginTop: 0 }}><button className="bg" onClick={() => editPartSupplier(supplier)}><Edit2 size={16} /> Edit</button><button className="bd" onClick={() => void deletePartSupplier(supplier)} disabled={partsSaveBusy}><Trash2 size={16} /> Delete</button>{supplier.lastDateTime ? <span style={{ color: "var(--t3)", fontSize: 12, alignSelf: "center" }}>Last linked {fmtDateTime(supplier.lastDateTime)}</span> : null}</div>
+                            </div>)}
+                        </div>
+                    </div>}
+
+                    {showPartSupplierSheet && pg === "parts" && <div className="so fi parts-sheet-wrap"><div className="gc parts-sheet">
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 16 }}>
+                            <div><div style={{ color: "var(--t1)", fontSize: 18, fontWeight: 700 }}>{partSupplierForm.id ? "Edit Supplier" : "Add Supplier"}</div><div style={{ color: "var(--t3)", fontSize: 12, marginTop: 4 }}>Suppliers are shared across Repair Pro and linked to repair jobs.</div></div>
+                            <button className="bg" onClick={closePartSupplierSheet} style={{ padding: 8, minWidth: 36, minHeight: 36, justifyContent: "center" }}><X size={16} /></button>
+                        </div>
+                        <div style={{ display: "grid", gap: 12 }}>
+                            <F l="Supplier Name" ic={Package}><input className="gi" value={partSupplierForm.name} onChange={e => setPartSupplierField("name", e.target.value)} placeholder="Supplier name" /></F>
+                            <F l="Phone" ic={Phone}><input className="gi" value={partSupplierForm.phone} onChange={e => setPartSupplierField("phone", e.target.value)} placeholder="Phone number" /></F>
+                            <F l="Address" ic={MapPin}><input className="gi" value={partSupplierForm.address} onChange={e => setPartSupplierField("address", e.target.value)} placeholder="Address" /></F>
+                            <F l="Notes" ic={FileText}><textarea className="gi" style={{ minHeight: 88 }} value={partSupplierForm.notes} onChange={e => setPartSupplierField("notes", e.target.value)} placeholder="Optional notes" /></F>
+                        </div>
+                        <div className="action-row"><button className="bp" onClick={() => void savePartSupplier()} disabled={partsSaveBusy}>{partsSaveBusy ? "Saving..." : partSupplierForm.id ? "Save Supplier" : "Add Supplier"}</button><button className="bg" onClick={closePartSupplierSheet}>Cancel</button></div>
+                    </div></div>}
 
                     {/* ═══ INVOICES ═══ */}
                     {pg === "transactions" && <div className="fi">
