@@ -1768,7 +1768,7 @@ function LB({ photos, si = 0, onClose }) {
 
 // ═══ IMEI Scanner ═══
 function IMEIS({ onScan, onClose, getCameraStream, releaseCameraLater }) {
-    const vr = useRef(null), sr = useRef(null), rr = useRef(null), xr = useRef(null), cr = useRef(null), ar = useRef(null), br = useRef(false), busy = useRef(false), fr = useRef(null);
+    const vr = useRef(null), sr = useRef(null), rr = useRef(null), zr = useRef(null), ar = useRef(null), busy = useRef(false), fr = useRef(null);
     const [sc, setSc] = useState(false);
     const [er, setEr] = useState("");
     const [mi, setMi] = useState("");
@@ -1779,7 +1779,6 @@ function IMEIS({ onScan, onClose, getCameraStream, releaseCameraLater }) {
 
     const clearTimers = useCallback(() => {
         if (rr.current) { window.cancelAnimationFrame(rr.current); rr.current = null; }
-        if (xr.current) { window.clearTimeout(xr.current); xr.current = null; }
         if (fr.current) { clearInterval(fr.current); fr.current = null; }
         busy.current = false;
     }, []);
@@ -1806,11 +1805,10 @@ function IMEIS({ onScan, onClose, getCameraStream, releaseCameraLater }) {
     }, []);
 
     const stop = useCallback(() => {
-        br.current = false;
         clearTimers();
-        if (cr.current?.stop) {
-            try { cr.current.stop(); } catch { }
-            cr.current = null;
+        if (zr.current?.destroy) {
+            try { zr.current.destroy(); } catch { }
+            zr.current = null;
         }
         if (vr.current?.srcObject) vr.current.srcObject = null;
         sr.current = null;
@@ -1884,30 +1882,21 @@ function IMEIS({ onScan, onClose, getCameraStream, releaseCameraLater }) {
         return true;
     }, [onScan, playBeep, stop]);
 
-    const startZXing = useCallback(async () => {
+    const startZBar = useCallback(async () => {
         if (!vr.current) throw new Error("Camera preview is not ready.");
-        const [{ BrowserMultiFormatReader }, { BarcodeFormat, DecodeHintType }] = await Promise.all([
-            import("@zxing/browser"),
-            import("@zxing/library"),
+        const [{ getDefaultScanner, scanImageData }] = await Promise.all([
+            import("@undecaf/zbar-wasm"),
+            startPreviewStream(),
         ]);
-        const hints = new Map();
-        hints.set(DecodeHintType.POSSIBLE_FORMATS, [
-            BarcodeFormat.CODE_128,
-            BarcodeFormat.CODE_39,
-            BarcodeFormat.EAN_13,
-            BarcodeFormat.EAN_8,
-            BarcodeFormat.UPC_A,
-        ]);
-        hints.set(DecodeHintType.TRY_HARDER, true);
-        const reader = new BrowserMultiFormatReader(hints);
-        await startPreviewStream();
-        setEng("Compatibility scanner");
-        setHt("Searching IMEI barcode. Align only the IMEI barcode inside the scan band.");
-        setSc(true);
+        const scanner = await getDefaultScanner();
+        zr.current = scanner;
+        const cropCanvas = document.createElement("canvas");
+        const cropCtx = cropCanvas.getContext("2d", { willReadFrequently: true }) || cropCanvas.getContext("2d");
+        if (!cropCtx) throw new Error("Scanner canvas is not available.");
+        setEng("ZBar scanner");
+        setHt("Searching IMEI barcode. Hold the box or *#06# barcode steady inside the scan band.");
         focusCamera();
         fr.current = setInterval(() => focusCamera(), 2000);
-        const cropCanvas = document.createElement("canvas");
-        const cropCtx = cropCanvas.getContext("2d");
         let lastScan = 0, lastCW = 0, lastCH = 0;
         const loop = (ts) => {
             if (!vr.current || !sr.current) return;
@@ -1922,66 +1911,36 @@ function IMEIS({ onScan, onClose, getCameraStream, releaseCameraLater }) {
                 const sy = Math.floor(vh * 0.33);
                 const sw = Math.floor(vw * 0.88);
                 const sh = Math.floor(vh * 0.34);
-                if (lastCW !== sw || lastCH !== sh) { cropCanvas.width = sw; cropCanvas.height = sh; lastCW = sw; lastCH = sh; }
+                if (lastCW !== sw || lastCH !== sh) {
+                    cropCanvas.width = sw;
+                    cropCanvas.height = sh;
+                    lastCW = sw;
+                    lastCH = sh;
+                }
                 cropCtx.drawImage(v, sx, sy, sw, sh, 0, 0, sw, sh);
-                const result = reader.decodeFromCanvas(cropCanvas);
-                busy.current = false;
-                if (result && handleDetected(result.getText(), "Scanner")) return;
-            } catch { busy.current = false; }
-            if (vr.current && sr.current) rr.current = requestAnimationFrame(loop);
-        };
-        rr.current = requestAnimationFrame(loop);
-    }, [focusCamera, handleDetected, startPreviewStream]);
-
-    const startNative = useCallback(async () => {
-        if (!vr.current || typeof window === "undefined" || !("BarcodeDetector" in window)) return false;
-        const preferred = ["code_128", "code_39", "ean_13", "ean_8", "upc_a"];
-        let supported = preferred;
-        try {
-            const fmts = await window.BarcodeDetector.getSupportedFormats?.();
-            if (Array.isArray(fmts) && fmts.length) supported = preferred.filter(f => fmts.includes(f));
-        } catch { }
-        if (!supported.length) return false;
-        await startPreviewStream();
-        setSc(true);
-        setEng("Fast scanner");
-        setHt("Searching IMEI barcode. Hold the box or *#06# barcode steady inside the scan band.");
-        focusCamera();
-        fr.current = setInterval(() => focusCamera(), 2000);
-        const detector = new window.BarcodeDetector({ formats: supported });
-        let lastScan = 0;
-        const loop = (ts) => {
-            if (!vr.current || !sr.current) return;
-            if (ts - lastScan < 80 || busy.current) { rr.current = requestAnimationFrame(loop); return; }
-            lastScan = ts;
-            busy.current = true;
-            detector.detect(vr.current).then(found => {
-                busy.current = false;
-                if (found && found.length >= 2) {
-                    if (handleMultiDetected(found, "Fast scanner")) return;
-                }
-                for (const item of found || []) {
-                    if (handleDetected(item?.rawValue || "", "Fast scanner")) return;
-                }
-                if (vr.current && sr.current) rr.current = requestAnimationFrame(loop);
-            }).catch(() => {
+                const frame = cropCtx.getImageData(0, 0, sw, sh);
+                scanImageData(frame, scanner).then(symbols => {
+                    busy.current = false;
+                    const found = (symbols || []).map(symbol => ({
+                        rawValue: typeof symbol?.decode === "function" ? symbol.decode() : "",
+                        cornerPoints: Array.isArray(symbol?.points) ? symbol.points : [],
+                    })).filter(item => item.rawValue);
+                    if (found?.length >= 2 && handleMultiDetected(found, "ZBar scanner")) return;
+                    for (const item of found || []) {
+                        if (handleDetected(item?.rawValue || "", "ZBar scanner")) return;
+                    }
+                    if (vr.current && sr.current) rr.current = requestAnimationFrame(loop);
+                }).catch(() => {
+                    busy.current = false;
+                    if (vr.current && sr.current) rr.current = requestAnimationFrame(loop);
+                });
+            } catch {
                 busy.current = false;
                 if (vr.current && sr.current) rr.current = requestAnimationFrame(loop);
-            });
-        };
-        rr.current = requestAnimationFrame(loop);
-        xr.current = window.setTimeout(async () => {
-            if (!sr.current || cr.current) return;
-            setHt("Switching to compatibility scanner for a stronger barcode read...");
-            stop();
-            try {
-                await startZXing();
-            } catch (error) {
-                setEr(error instanceof Error ? error.message : "Scanner fallback failed. Type the IMEI manually.");
             }
-        }, 8000);
-        return true;
-    }, [focusCamera, handleDetected, handleMultiDetected, startPreviewStream, startZXing, stop]);
+        };
+        rr.current = requestAnimationFrame(loop);
+    }, [focusCamera, handleDetected, handleMultiDetected, startPreviewStream]);
 
     useEffect(() => {
         let cancelled = false;
@@ -1995,20 +1954,14 @@ function IMEIS({ onScan, onClose, getCameraStream, releaseCameraLater }) {
             }
             if (!secureOk) setHt("For best scan speed use HTTPS or the installed app. Then scan the box or *#06# barcode.");
             try {
-                const started = await startNative();
-                if (!started && !cancelled) await startZXing();
+                await startZBar();
             } catch (error) {
-                if (cancelled) return;
-                try {
-                    await startZXing();
-                } catch {
-                    setEr(error instanceof Error ? error.message : "Camera denied. Use manual entry.");
-                }
+                if (!cancelled) setEr(error instanceof Error ? error.message : "Camera denied. Use manual entry.");
             }
         };
         void begin();
         return () => { cancelled = true; stop(); };
-    }, [clearTimers, scanTick, secureOk, startNative, startZXing, stop]);
+    }, [clearTimers, scanTick, secureOk, startZBar, stop]);
 
     const sub = () => {
         const c = extractScanImei(mi);
@@ -2045,6 +1998,24 @@ function F({ l, ic: I, children }) {
             {children}
         </div>
     );
+}
+
+function SettingsSection({ title, summary, open, onToggle, children, style = {} }) {
+    return <div className="gc" style={style}>
+        <button
+            type="button"
+            onClick={onToggle}
+            aria-expanded={open}
+            style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, background: "transparent", border: "none", padding: 0, cursor: "pointer", textAlign: "left" }}
+        >
+            <div style={{ minWidth: 0 }}>
+                <div style={{ color: "var(--t1)", fontSize: 15, fontWeight: 600 }}>{title}</div>
+                {summary ? <div style={{ color: "var(--t3)", fontSize: 12, marginTop: 4, lineHeight: 1.5 }}>{summary}</div> : null}
+            </div>
+            <ChevronDown size={18} style={{ color: "var(--t3)", flexShrink: 0, transform: open ? "rotate(180deg)" : "rotate(0deg)", transition: "transform .2s ease" }} />
+        </button>
+        {open ? <div style={{ marginTop: 16 }}>{children}</div> : null}
+    </div>;
 }
 
 function StorageInput({ value, onChange }) {
@@ -3919,24 +3890,6 @@ export default function App() {
     const statBadge = (s) => s === "In Stock" ? "bi" : s === "Sold" ? "bso" : "bre";
     const repairStatusTone = (status) => status === "Ready" || status === "Delivered" ? "bi" : status === "Cancelled" ? "bre" : "br";
     const repairPaymentTone = (status) => status === "Paid" ? "bi" : status === "Advance" ? "bu" : "br";
-    const SettingsSection = ({ id, title, summary, children, style = {} }) => {
-        const open = settingsOpenSection === id;
-        return <div className="gc" style={style}>
-            <button
-                type="button"
-                onClick={() => setSettingsOpenSection(current => current === id ? "" : id)}
-                aria-expanded={open}
-                style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, background: "transparent", border: "none", padding: 0, cursor: "pointer", textAlign: "left" }}
-            >
-                <div style={{ minWidth: 0 }}>
-                    <div style={{ color: "var(--t1)", fontSize: 15, fontWeight: 600 }}>{title}</div>
-                    {summary ? <div style={{ color: "var(--t3)", fontSize: 12, marginTop: 4, lineHeight: 1.5 }}>{summary}</div> : null}
-                </div>
-                <ChevronDown size={18} style={{ color: "var(--t3)", flexShrink: 0, transform: open ? "rotate(180deg)" : "rotate(0deg)", transition: "transform .2s ease" }} />
-            </button>
-            {open ? <div style={{ marginTop: 16 }}>{children}</div> : null}
-        </div>;
-    };
     const InstallPopup = () => {
         if (!showInstallPopup || installed || showAdminPanel || (!installEvt && !isIosInstall)) return null;
         return <div className="so fi" style={{ zIndex: 920, background: "rgba(0,0,0,.78)" }}><div className="gc" style={{ maxWidth: 420, width: "92vw", position: "relative" }}>
@@ -4801,7 +4754,12 @@ export default function App() {
                     {pg === "settings" && <div className="fi" style={{ maxWidth: 980 }}>
                         <div style={{ marginBottom: 28 }}><h1 style={{ color: "var(--t1)", fontSize: 28, fontWeight: 700, display: "flex", alignItems: "center", gap: 10 }}><Settings size={28} style={{ color: "var(--a)" }} /> Shop Profile & Invoice</h1><p style={{ color: "var(--t3)", fontSize: 14, marginTop: 4 }}>Configure your shop details for professional A4 portrait invoices and keep everything updated automatically across logged-in devices.</p></div>
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(300px,1fr))", gap: 16, marginBottom: 16 }}>
-                            <SettingsSection id="shop-profile" title="Shop Profile & Invoice Logo" summary={shopProfileDirty ? "Unsaved changes" : (shopCfg.shopName || "Shop details and invoice branding") }>
+                            <SettingsSection
+                                title="Shop Profile & Invoice Logo"
+                                summary={shopProfileDirty ? "Unsaved changes" : (shopCfg.shopName || "Shop details and invoice branding")}
+                                open={settingsOpenSection === "shop-profile"}
+                                onToggle={() => setSettingsOpenSection(current => current === "shop-profile" ? "" : "shop-profile")}
+                            >
                                 <div style={{ display: "grid", gap: 12 }}>
                                     <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
                                         <div style={{ width: 78, height: 78, borderRadius: 16, overflow: "hidden", border: "1px solid var(--gbo)", background: "rgba(255,255,255,.03)", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -4827,7 +4785,12 @@ export default function App() {
                                     </div>
                                 </div>
                             </SettingsSection>
-                            <SettingsSection id="invoice-preferences" title="Invoice Preferences" summary={`${shopCfg.defaultBillType || "NON GST"} · GST ${shopCfg.defaultGstRate || 0}% · ${shopCfg.invoicePrefix || "INV"}`}>
+                            <SettingsSection
+                                title="Invoice Preferences"
+                                summary={`${shopCfg.defaultBillType || "NON GST"} · GST ${shopCfg.defaultGstRate || 0}% · ${shopCfg.invoicePrefix || "INV"}`}
+                                open={settingsOpenSection === "invoice-preferences"}
+                                onToggle={() => setSettingsOpenSection(current => current === "invoice-preferences" ? "" : "invoice-preferences")}
+                            >
                                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12 }}>
                                     <F l="Invoice Prefix" ic={Hash}><input className="gi" value={shopCfg.invoicePrefix} onChange={e => setShopField("invoicePrefix", e.target.value)} placeholder="INV" style={{ fontFamily: "'Space Mono',monospace" }} /></F>
                                     <F l="Default Bill Type" ic={FileText}><select className="gs" value={shopCfg.defaultBillType} onChange={e => setShopField("defaultBillType", e.target.value)}>{BILL_TYPES.map(type => <option key={type}>{type}</option>)}</select></F>
@@ -4866,7 +4829,13 @@ export default function App() {
                                 </div>
                             </SettingsSection>
                         </div>
-                        <SettingsSection id="data-status" title="Data Status" summary={syncReady ? "Connected and changes update automatically" : "Waiting for login or setup"} style={{ marginBottom: 16 }}>
+                        <SettingsSection
+                            title="Data Status"
+                            summary={syncReady ? "Connected and changes update automatically" : "Waiting for login or setup"}
+                            open={settingsOpenSection === "data-status"}
+                            onToggle={() => setSettingsOpenSection(current => current === "data-status" ? "" : "data-status")}
+                            style={{ marginBottom: 16 }}
+                        >
                             {shopSession && <div className="gc" style={{ marginBottom: 12, background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.06)" }}><div style={{ color: "var(--t1)", fontSize: 14, fontWeight: 600, marginBottom: 4 }}>Automatic updates active</div><div style={{ color: "var(--t2)", fontSize: 13, lineHeight: 1.6 }}>Changes on one logged-in device appear automatically on the others.</div></div>}
                             {showSyncAdvanced ? <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 12 }}>
                                 <F l="Shop ID" ic={Hash}><input className="gi" value={syncCfg.shopId} onChange={e => setSyncField("shopId", e.target.value)} placeholder="main-shop" style={{ fontFamily: "'Space Mono',monospace" }} /></F>
@@ -4878,7 +4847,13 @@ export default function App() {
                             </div>}
                             <div style={{ marginTop: 10, color: "var(--t3)", fontSize: 13 }}>Changes are saved automatically and appear on other logged-in devices.</div>
                         </SettingsSection>
-                        <SettingsSection id="install-offline" title="App Install & Offline" summary={`${installed ? "Installed" : "Not installed"} · ${swReady ? "Offline cache active" : "Offline cache preparing"}`} style={{ marginBottom: 16 }}>
+                        <SettingsSection
+                            title="App Install & Offline"
+                            summary={`${installed ? "Installed" : "Not installed"} · ${swReady ? "Offline cache active" : "Offline cache preparing"}`}
+                            open={settingsOpenSection === "install-offline"}
+                            onToggle={() => setSettingsOpenSection(current => current === "install-offline" ? "" : "install-offline")}
+                            style={{ marginBottom: 16 }}
+                        >
                             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 12 }}>
                                 <div style={{ padding: 12, borderRadius: 12, background: "rgba(255,255,255,.03)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 4 }}>Install Status</div><div style={{ color: installed ? "var(--ok)" : "var(--t1)", fontWeight: 600 }}>{installed ? "Installed" : installEvt ? "Ready to install" : isIosInstall ? "Use Add to Home Screen" : "Install prompt not ready"}</div></div>
                                 <div style={{ padding: 12, borderRadius: 12, background: "rgba(255,255,255,.03)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 4 }}>Offline Cache</div><div style={{ color: swReady ? "var(--ok)" : "var(--warn)", fontWeight: 600 }}>{swReady ? "Offline cache active" : "Preparing offline cache"}</div></div>
@@ -4889,7 +4864,12 @@ export default function App() {
                                 <button className="bg" onClick={() => notify(isIosInstall ? "iPhone: Safari -> Share -> Add to Home Screen." : "For best install and file-sharing support, open the app from an HTTPS deployment.", "warning")}><Smartphone size={16} /> Install Help</button>
                             </div>
                         </SettingsSection>
-                        <SettingsSection id="sync-status" title="Sync Status" summary={`${ol ? "Online" : "Offline"} · ${syncStateLabel}`}>
+                        <SettingsSection
+                            title="Sync Status"
+                            summary={`${ol ? "Online" : "Offline"} · ${syncStateLabel}`}
+                            open={settingsOpenSection === "sync-status"}
+                            onToggle={() => setSettingsOpenSection(current => current === "sync-status" ? "" : "sync-status")}
+                        >
                             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(250px,1fr))", gap: 16 }}>
                             <div className="gc"><h3 style={{ color: "var(--t1)", fontSize: 15, fontWeight: 600, marginBottom: 12 }}>Sync Status</h3>
                                 <div style={{ display: "grid", gap: 10 }}>
