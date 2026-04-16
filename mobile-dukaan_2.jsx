@@ -1767,46 +1767,21 @@ function LB({ photos, si = 0, onClose }) {
 }
 
 // ═══ IMEI Scanner ═══
-function IMEIS({ onScan, onClose, getCameraStream, releaseCameraLater, scanMode }) {
-    const qr = useRef(null), ar = useRef(null), quaggaRef = useRef(null), detectedRef = useRef(null), processedRef = useRef(null), readyTimerRef = useRef(null), fallbackTimerRef = useRef(null), profileIndexRef = useRef(0), restartingRef = useRef(false), lastDetectedRef = useRef({ code: "", at: 0 }), profileStartedAtRef = useRef(0), lastHintRef = useRef("idle"), canTorchRef = useRef(false), confirmRef = useRef({ code: "", count: 0, at: 0 });
+function IMEIS({ onScan, onClose, getCameraStream, releaseCameraLater }) {
+    const vr = useRef(null), sr = useRef(null), rr = useRef(null), xr = useRef(null), cr = useRef(null), ar = useRef(null), br = useRef(false), busy = useRef(false), fr = useRef(null);
     const [sc, setSc] = useState(false);
     const [er, setEr] = useState("");
     const [mi, setMi] = useState("");
     const [eng, setEng] = useState("");
     const [scanTick, setScanTick] = useState(0);
     const [ht, setHt] = useState("Point the back camera at the IMEI barcode on the box or *#06# screen and hold it inside the scan band.");
-    const [canTorch, setCanTorch] = useState(false);
-    const [capturedImeis, setCapturedImeis] = useState([]);
     const secureOk = typeof window !== "undefined" && (window.isSecureContext || ["localhost", "127.0.0.1"].includes(window.location.hostname));
-    const dualScanMode = scanMode === "add" || scanMode === "buy";
-    const scanProfiles = [
-        {
-            label: "Quagga scanner",
-            hint: "Searching Code 128 IMEI barcode. Hold the box or *#06# barcode steady inside the scan band.",
-            constraints: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 24 } },
-            locator: { patchSize: "medium", halfSample: true },
-            frequency: 8,
-            locate: false,
-        },
-        {
-            label: "Quagga scanner HD",
-            hint: "Improving focus for a smaller Code 128 barcode. Move slightly closer and keep the code inside the band.",
-            constraints: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } },
-            locator: { patchSize: "small", halfSample: false },
-            frequency: 6,
-            locate: false,
-        },
-    ];
 
     const clearTimers = useCallback(() => {
-        if (readyTimerRef.current) {
-            clearTimeout(readyTimerRef.current);
-            readyTimerRef.current = null;
-        }
-        if (fallbackTimerRef.current) {
-            clearTimeout(fallbackTimerRef.current);
-            fallbackTimerRef.current = null;
-        }
+        if (rr.current) { window.cancelAnimationFrame(rr.current); rr.current = null; }
+        if (xr.current) { window.clearTimeout(xr.current); xr.current = null; }
+        if (fr.current) { clearInterval(fr.current); fr.current = null; }
+        busy.current = false;
     }, []);
 
     const playBeep = useCallback(() => {
@@ -1831,53 +1806,34 @@ function IMEIS({ onScan, onClose, getCameraStream, releaseCameraLater, scanMode 
     }, []);
 
     const stop = useCallback(() => {
+        br.current = false;
         clearTimers();
-        const quagga = quaggaRef.current;
-        if (quagga && detectedRef.current) {
-            try { quagga.offDetected(detectedRef.current); } catch { }
-            detectedRef.current = null;
+        if (cr.current?.stop) {
+            try { cr.current.stop(); } catch { }
+            cr.current = null;
         }
-        if (quagga && processedRef.current) {
-            try { quagga.offProcessed(processedRef.current); } catch { }
-            processedRef.current = null;
-        }
-        if (quagga) {
-            try { quagga.stop(); } catch { }
-            quaggaRef.current = null;
-        }
-        const video = qr.current?.querySelector("video");
-        if (video?.srcObject) video.srcObject = null;
-        if (qr.current) qr.current.innerHTML = "";
+        if (vr.current?.srcObject) vr.current.srcObject = null;
+        sr.current = null;
         if (releaseCameraLater) releaseCameraLater();
-        restartingRef.current = false;
-        canTorchRef.current = false;
-        confirmRef.current = { code: "", count: 0, at: 0 };
-        setCanTorch(false);
         setSc(false);
     }, [clearTimers, releaseCameraLater]);
 
-    const restartWithProfile = useCallback((nextIndex) => {
-        if (restartingRef.current) return;
-        restartingRef.current = true;
-        profileIndexRef.current = nextIndex;
-        stop();
-        setScanTick(v => v + 1);
-    }, [stop]);
-
-    const optimizeTrack = useCallback(() => {
-        const video = qr.current?.querySelector("video");
-        const stream = video?.srcObject;
-        const track = stream?.getVideoTracks?.()?.[0] || quaggaRef.current?.CameraAccess?.getActiveTrack?.();
-        if (!track) return;
-        const caps = track.getCapabilities?.() || {};
-        canTorchRef.current = !!caps.torch;
-        setCanTorch(!!caps.torch);
-    }, []);
+    const startPreviewStream = useCallback(async () => {
+        if (!navigator.mediaDevices?.getUserMedia) throw new Error("This browser does not support live camera scanning. Use manual entry.");
+        const stream = getCameraStream ? await getCameraStream() : await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } },
+            audio: false,
+        });
+        sr.current = stream;
+        vr.current.srcObject = stream;
+        await vr.current.play();
+        setSc(true);
+        return stream;
+    }, [getCameraStream]);
 
     const focusCamera = useCallback(() => {
-        const video = qr.current?.querySelector("video");
-        const stream = video?.srcObject;
-        const track = stream?.getVideoTracks?.()?.[0] || quaggaRef.current?.CameraAccess?.getActiveTrack?.();
+        const stream = sr.current || vr.current?.srcObject;
+        const track = stream?.getVideoTracks?.()?.[0];
         if (!track?.applyConstraints || !navigator.mediaDevices?.getSupportedConstraints) return;
         const supported = navigator.mediaDevices.getSupportedConstraints();
         const advanced = [];
@@ -1888,9 +1844,8 @@ function IMEIS({ onScan, onClose, getCameraStream, releaseCameraLater, scanMode 
     }, []);
 
     const toggleTorch = useCallback(() => {
-        const video = qr.current?.querySelector("video");
-        const stream = video?.srcObject;
-        const track = stream?.getVideoTracks?.()?.[0] || quaggaRef.current?.CameraAccess?.getActiveTrack?.();
+        const stream = sr.current || vr.current?.srcObject;
+        const track = stream?.getVideoTracks?.()?.[0];
         if (!track) return;
         const caps = track.getCapabilities?.();
         if (!caps?.torch) return;
@@ -1898,22 +1853,7 @@ function IMEIS({ onScan, onClose, getCameraStream, releaseCameraLater, scanMode 
         track.applyConstraints({ advanced: [{ torch: !current }] }).catch(() => { });
     }, []);
 
-    const commitScan = useCallback((codes) => {
-        stop();
-        if (codes.length >= 2) onScan(codes[0], codes[1]);
-        else if (codes[0]) onScan(codes[0]);
-    }, [onScan, stop]);
-
-    const getDetectionQuality = useCallback((result) => {
-        const errors = (result?.codeResult?.decodedCodes || [])
-            .map(item => Number(item?.error))
-            .filter(value => Number.isFinite(value) && value >= 0);
-        if (!errors.length) return null;
-        return errors.reduce((sum, value) => sum + value, 0) / errors.length;
-    }, []);
-
-    const handleDetected = useCallback((result, source) => {
-        const raw = result?.codeResult?.code || "";
+    const handleDetected = useCallback((raw, source) => {
         const text = String(raw || "");
         const matches = text.match(/\d{15}/g) || [];
         const code = extractScanImei(matches[0] || text);
@@ -1921,139 +1861,132 @@ function IMEIS({ onScan, onClose, getCameraStream, releaseCameraLater, scanMode 
             if (text) setHt(`${source} detected a code, but it is not a valid 15-digit IMEI. Align only the IMEI barcode.`);
             return false;
         }
-        const now = Date.now();
-        if (lastDetectedRef.current.code === code && now - lastDetectedRef.current.at < 1200) return false;
-        const quality = getDetectionQuality(result);
-        const instantAccept = quality !== null && quality <= 0.12;
-        const isRepeat = confirmRef.current.code === code && now - confirmRef.current.at < 1600;
-        const nextCount = isRepeat ? confirmRef.current.count + 1 : 1;
-        confirmRef.current = { code, count: nextCount, at: now };
-        if (!instantAccept && nextCount < 2) {
-            setHt(`Code found: ${code}. Hold steady for confirmation.`);
-            return false;
-        }
-        lastDetectedRef.current = { code, at: now };
-        confirmRef.current = { code: "", count: 0, at: 0 };
-        if (dualScanMode) {
-            let nextCodes = [];
-            setCapturedImeis((current) => {
-                if (current.includes(code)) {
-                    nextCodes = current;
-                    return current;
-                }
-                nextCodes = [...current, code].slice(0, 2);
-                return nextCodes;
-            });
-            if (nextCodes.length >= 2) {
-                playBeep();
-                commitScan(nextCodes);
-            } else if (nextCodes.length === 1) {
-                playBeep();
-                setHt(`IMEI 1 captured: ${code}. Scan the second IMEI barcode or use IMEI 1 only.`);
-            }
-            return true;
-        }
         playBeep();
-        commitScan([code]);
+        stop();
+        onScan(code);
         return true;
-    }, [commitScan, dualScanMode, playBeep]);
+    }, [onScan, playBeep, stop]);
 
-    const startQuagga = useCallback(async () => {
-        if (!qr.current) throw new Error("Camera preview is not ready.");
-        if (!navigator.mediaDevices?.getUserMedia) throw new Error("This browser does not support live camera scanning. Use manual entry.");
-        const profile = scanProfiles[profileIndexRef.current] || scanProfiles[0];
-        const { default: Quagga } = await import("@ericblade/quagga2");
-        quaggaRef.current = Quagga;
-        profileStartedAtRef.current = Date.now();
-        lastHintRef.current = "starting";
-        setEng(profile.label);
-        setHt(profile.hint);
-        await new Promise((resolve, reject) => {
-            Quagga.init({
-                inputStream: {
-                    type: "LiveStream",
-                    target: qr.current,
-                    constraints: { ...profile.constraints, aspectRatio: { ideal: 1.7777777778 } },
-                    area: {
-                        top: "33%",
-                        right: "6%",
-                        left: "6%",
-                        bottom: "33%",
-                    },
-                },
-                locator: profile.locator,
-                numOfWorkers: typeof navigator !== "undefined" ? Math.min(4, navigator.hardwareConcurrency || 2) : 2,
-                frequency: profile.frequency,
-                decoder: {
-                    readers: ["code_128_reader"],
-                    multiple: false,
-                },
-                locate: profile.locate,
-            }, (error) => {
-                if (error) reject(error);
-                else resolve();
-            });
-        });
-        const onDetected = (result) => {
-            handleDetected(result, "Quagga scanner");
-        };
-        const onProcessed = (result) => {
-            const elapsed = Date.now() - profileStartedAtRef.current;
-            const hasBox = !!(result?.box || (Array.isArray(result?.boxes) && result.boxes.length));
-            if (result?.codeResult?.code) {
-                if (lastHintRef.current !== "locked") {
-                    lastHintRef.current = "locked";
-                    setHt("Barcode found. Hold steady for confirmation.");
-                }
-                return;
-            }
-            if (hasBox && elapsed > 1200 && lastHintRef.current !== "align") {
-                lastHintRef.current = "align";
-                setHt("Barcode edges found. Keep it flat, centered, and fully inside the IMEI band.");
-                return;
-            }
-            if (elapsed > 2300 && canTorchRef.current && lastHintRef.current !== "light") {
-                lastHintRef.current = "light";
-                setHt("Low light slows scanning. Tap Light or move to brighter light for faster focus.");
-                return;
-            }
-            if (elapsed > 3200 && lastHintRef.current !== "screen") {
-                lastHintRef.current = "screen";
-                setHt("For *#06# screen barcodes, reduce the other phone's brightness a little and avoid reflections.");
-            }
-        };
-        detectedRef.current = onDetected;
-        processedRef.current = onProcessed;
-        Quagga.onDetected(onDetected);
-        Quagga.onProcessed(onProcessed);
-        Quagga.start();
-        setSc(true);
-        readyTimerRef.current = setTimeout(() => {
-            const video = qr.current?.querySelector("video");
-            if (video) {
-                video.setAttribute("playsinline", "true");
-                video.muted = true;
-                video.style.width = "100%";
-                video.style.height = "100%";
-                video.style.objectFit = "cover";
-            }
-            optimizeTrack();
-            focusCamera();
-            setHt((current) => current.startsWith("Searching IMEI barcode") ? "Searching IMEI barcode. Hold steady or move slightly closer if the code is blurred." : current);
-        }, 900);
-        if (profileIndexRef.current < scanProfiles.length - 1) {
-            fallbackTimerRef.current = setTimeout(() => {
-                setHt("Camera is on, but the barcode is still weak. Switching to a sharper scan mode.");
-                restartWithProfile(profileIndexRef.current + 1);
-            }, 4500);
+    const handleMultiDetected = useCallback((items, source) => {
+        const valid = items
+            .map(it => ({ imei: extractScanImei(it.rawValue || ""), y: it.cornerPoints?.[0]?.y ?? it.boundingBox?.y ?? 0 }))
+            .filter(it => hasImei(it.imei));
+        if (!valid.length) return false;
+        valid.sort((a, b) => a.y - b.y);
+        const unique = [...new Set(valid.map(v => v.imei))];
+        playBeep();
+        stop();
+        if (unique.length >= 2) {
+            onScan(unique[0], unique[1]);
+        } else {
+            onScan(unique[0]);
         }
-    }, [focusCamera, getDetectionQuality, handleDetected, optimizeTrack, restartWithProfile]);
+        return true;
+    }, [onScan, playBeep, stop]);
+
+    const startZXing = useCallback(async () => {
+        if (!vr.current) throw new Error("Camera preview is not ready.");
+        const [{ BrowserMultiFormatReader }, { BarcodeFormat, DecodeHintType }] = await Promise.all([
+            import("@zxing/browser"),
+            import("@zxing/library"),
+        ]);
+        const hints = new Map();
+        hints.set(DecodeHintType.POSSIBLE_FORMATS, [
+            BarcodeFormat.CODE_128,
+            BarcodeFormat.CODE_39,
+            BarcodeFormat.EAN_13,
+            BarcodeFormat.EAN_8,
+            BarcodeFormat.UPC_A,
+        ]);
+        hints.set(DecodeHintType.TRY_HARDER, true);
+        const reader = new BrowserMultiFormatReader(hints);
+        await startPreviewStream();
+        setEng("Compatibility scanner");
+        setHt("Searching IMEI barcode. Align only the IMEI barcode inside the scan band.");
+        setSc(true);
+        focusCamera();
+        fr.current = setInterval(() => focusCamera(), 2000);
+        const cropCanvas = document.createElement("canvas");
+        const cropCtx = cropCanvas.getContext("2d");
+        let lastScan = 0, lastCW = 0, lastCH = 0;
+        const loop = (ts) => {
+            if (!vr.current || !sr.current) return;
+            if (ts - lastScan < 100 || busy.current) { rr.current = requestAnimationFrame(loop); return; }
+            lastScan = ts;
+            busy.current = true;
+            try {
+                const v = vr.current;
+                const vw = v.videoWidth || 1280;
+                const vh = v.videoHeight || 720;
+                const sx = Math.floor(vw * 0.06);
+                const sy = Math.floor(vh * 0.33);
+                const sw = Math.floor(vw * 0.88);
+                const sh = Math.floor(vh * 0.34);
+                if (lastCW !== sw || lastCH !== sh) { cropCanvas.width = sw; cropCanvas.height = sh; lastCW = sw; lastCH = sh; }
+                cropCtx.drawImage(v, sx, sy, sw, sh, 0, 0, sw, sh);
+                const result = reader.decodeFromCanvas(cropCanvas);
+                busy.current = false;
+                if (result && handleDetected(result.getText(), "Scanner")) return;
+            } catch { busy.current = false; }
+            if (vr.current && sr.current) rr.current = requestAnimationFrame(loop);
+        };
+        rr.current = requestAnimationFrame(loop);
+    }, [focusCamera, handleDetected, startPreviewStream]);
+
+    const startNative = useCallback(async () => {
+        if (!vr.current || typeof window === "undefined" || !("BarcodeDetector" in window)) return false;
+        const preferred = ["code_128", "code_39", "ean_13", "ean_8", "upc_a"];
+        let supported = preferred;
+        try {
+            const fmts = await window.BarcodeDetector.getSupportedFormats?.();
+            if (Array.isArray(fmts) && fmts.length) supported = preferred.filter(f => fmts.includes(f));
+        } catch { }
+        if (!supported.length) return false;
+        await startPreviewStream();
+        setSc(true);
+        setEng("Fast scanner");
+        setHt("Searching IMEI barcode. Hold the box or *#06# barcode steady inside the scan band.");
+        focusCamera();
+        fr.current = setInterval(() => focusCamera(), 2000);
+        const detector = new window.BarcodeDetector({ formats: supported });
+        let lastScan = 0;
+        const loop = (ts) => {
+            if (!vr.current || !sr.current) return;
+            if (ts - lastScan < 80 || busy.current) { rr.current = requestAnimationFrame(loop); return; }
+            lastScan = ts;
+            busy.current = true;
+            detector.detect(vr.current).then(found => {
+                busy.current = false;
+                if (found && found.length >= 2) {
+                    if (handleMultiDetected(found, "Fast scanner")) return;
+                }
+                for (const item of found || []) {
+                    if (handleDetected(item?.rawValue || "", "Fast scanner")) return;
+                }
+                if (vr.current && sr.current) rr.current = requestAnimationFrame(loop);
+            }).catch(() => {
+                busy.current = false;
+                if (vr.current && sr.current) rr.current = requestAnimationFrame(loop);
+            });
+        };
+        rr.current = requestAnimationFrame(loop);
+        xr.current = window.setTimeout(async () => {
+            if (!sr.current || cr.current) return;
+            setHt("Switching to compatibility scanner for a stronger barcode read...");
+            stop();
+            try {
+                await startZXing();
+            } catch (error) {
+                setEr(error instanceof Error ? error.message : "Scanner fallback failed. Type the IMEI manually.");
+            }
+        }, 8000);
+        return true;
+    }, [focusCamera, handleDetected, handleMultiDetected, startPreviewStream, startZXing, stop]);
 
     useEffect(() => {
         let cancelled = false;
         const begin = async () => {
             setEr("");
-            setCapturedImeis([]);
             clearTimers();
             stop();
             if (!navigator.mediaDevices?.getUserMedia) {
@@ -2062,18 +1995,24 @@ function IMEIS({ onScan, onClose, getCameraStream, releaseCameraLater, scanMode 
             }
             if (!secureOk) setHt("For best scan speed use HTTPS or the installed app. Then scan the box or *#06# barcode.");
             try {
-                await startQuagga();
+                const started = await startNative();
+                if (!started && !cancelled) await startZXing();
             } catch (error) {
-                if (!cancelled) setEr(error instanceof Error ? error.message : "Camera denied. Use manual entry.");
+                if (cancelled) return;
+                try {
+                    await startZXing();
+                } catch {
+                    setEr(error instanceof Error ? error.message : "Camera denied. Use manual entry.");
+                }
             }
         };
         void begin();
         return () => { cancelled = true; stop(); };
-    }, [clearTimers, scanTick, secureOk, startQuagga, stop]);
+    }, [clearTimers, scanTick, secureOk, startNative, startZXing, stop]);
 
     const sub = () => {
         const c = extractScanImei(mi);
-        if (hasImei(c)) commitScan([c]);
+        if (hasImei(c)) onScan(c);
         else setEr("IMEI must be 15 digits.");
     };
     return (
@@ -2082,18 +2021,16 @@ function IMEIS({ onScan, onClose, getCameraStream, releaseCameraLater, scanMode 
                 <h3 style={{ color: "var(--t1)", fontSize: 18, fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}><ScanLine size={20} style={{ color: "var(--a)" }} /> Scan IMEI Barcode</h3>
                 <button onClick={() => { stop(); onClose(); }} style={{ background: "none", border: "none", cursor: "pointer" }}><X size={24} color="rgba(255,255,255,.6)" /></button>
             </div>
-            <div className="sf" style={{ margin: "0 auto 20px" }}><div ref={qr} style={{ width: "100%", height: "100%", overflow: "hidden" }} />{sc && <><div className="sl" /><div className="sbx" style={{ left: "8%", right: "8%", top: "38%", bottom: "38%" }} /><div className="sbt">IMEI barcode zone</div></>}</div>
+            <div className="sf" style={{ margin: "0 auto 20px" }}><video ref={vr} style={{ width: "100%", height: "100%", objectFit: "cover" }} playsInline muted autoPlay />{sc && <><div className="sl" /><div className="sbx" style={{ left: "8%", right: "8%", top: "38%", bottom: "38%" }} /><div className="sbt">IMEI barcode zone</div></>}</div>
             {er && <div style={{ color: "var(--warn)", fontSize: 13, marginBottom: 16, display: "flex", alignItems: "center", gap: 6, justifyContent: "center" }}><AlertCircle size={14} /> {er}</div>}
             <div style={{ marginBottom: 14 }}><div style={{ color: "var(--t2)", fontSize: 12, fontWeight: 600, marginBottom: 6 }}>{eng || "Preparing scanner"}</div><p style={{ color: "var(--t3)", fontSize: 13 }}>{ht}</p></div>
-            {dualScanMode && capturedImeis.length > 0 && <div style={{ marginBottom: 12, color: "var(--t2)", fontSize: 12, fontFamily: "'Space Mono',monospace" }}>IMEI 1: {capturedImeis[0]}{capturedImeis[1] ? ` | IMEI 2: ${capturedImeis[1]}` : ""}</div>}
             <div style={{ display: "flex", gap: 8 }}>
                 <input className="gi" type="tel" maxLength={15} placeholder="15-digit IMEI" value={mi} onChange={e => setMi(e.target.value.replace(/\D/g, "").slice(0, 15))} onKeyDown={e => e.key === "Enter" && sub()} style={{ fontFamily: "'Space Mono',monospace", letterSpacing: 1 }} />
                 <button className="bp" onClick={sub} style={{ whiteSpace: "nowrap" }}><CheckCircle size={16} /> Add</button>
             </div>
             <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap", marginTop: 12 }}>
-                <button className="bg" onClick={() => { profileIndexRef.current = 0; setCapturedImeis([]); setEr(""); setMi(""); setHt("Point the back camera at the IMEI barcode on the box or *#06# screen and hold it inside the scan band."); setScanTick(v => v + 1); }}><RefreshCw size={15} /> Scan Again</button>
-                {dualScanMode && capturedImeis.length === 1 && <button className="bg" onClick={() => commitScan(capturedImeis)}><CheckCircle size={15} /> Use IMEI 1 Only</button>}
-                {sc && canTorch && <button className="bg" onClick={toggleTorch} title="Toggle flashlight"><Zap size={15} /> Light</button>}
+                <button className="bg" onClick={() => { setEr(""); setMi(""); setHt("Point the back camera at the IMEI barcode on the box or *#06# screen and hold it inside the scan band."); setScanTick(v => v + 1); }}><RefreshCw size={15} /> Scan Again</button>
+                {sc && <button className="bg" onClick={toggleTorch} title="Toggle flashlight"><Zap size={15} /> Light</button>}
             </div>
         </div></div>
     );
@@ -5020,7 +4957,7 @@ export default function App() {
                     </div>
                 </div></div>}
 
-                {scs && <IMEIS onScan={handleScan} onClose={() => setScs(false)} getCameraStream={getCameraStream} releaseCameraLater={releaseCameraLater} scanMode={st} />}
+                {scs && <IMEIS onScan={handleScan} onClose={() => setScs(false)} getCameraStream={getCameraStream} releaseCameraLater={releaseCameraLater} />}
                 {lb && <LB photos={lb.photos} si={lb.si} onClose={() => sLb(null)} />}
             </div></>
     );
