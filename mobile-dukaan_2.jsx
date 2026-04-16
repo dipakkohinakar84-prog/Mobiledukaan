@@ -1768,7 +1768,7 @@ function LB({ photos, si = 0, onClose }) {
 
 // ═══ IMEI Scanner ═══
 function IMEIS({ onScan, onClose, getCameraStream, releaseCameraLater, scanMode }) {
-    const qr = useRef(null), ar = useRef(null), quaggaRef = useRef(null), detectedRef = useRef(null), processedRef = useRef(null), readyTimerRef = useRef(null), focusTimerRef = useRef(null), fallbackTimerRef = useRef(null), profileIndexRef = useRef(0), restartingRef = useRef(false), lastDetectedRef = useRef({ code: "", at: 0 }), profileStartedAtRef = useRef(0), lastHintRef = useRef("idle"), canTorchRef = useRef(false);
+    const qr = useRef(null), ar = useRef(null), quaggaRef = useRef(null), detectedRef = useRef(null), processedRef = useRef(null), readyTimerRef = useRef(null), fallbackTimerRef = useRef(null), profileIndexRef = useRef(0), restartingRef = useRef(false), lastDetectedRef = useRef({ code: "", at: 0 }), profileStartedAtRef = useRef(0), lastHintRef = useRef("idle"), canTorchRef = useRef(false), confirmRef = useRef({ code: "", count: 0, at: 0 });
     const [sc, setSc] = useState(false);
     const [er, setEr] = useState("");
     const [mi, setMi] = useState("");
@@ -1782,7 +1782,7 @@ function IMEIS({ onScan, onClose, getCameraStream, releaseCameraLater, scanMode 
     const scanProfiles = [
         {
             label: "Quagga scanner",
-            hint: "Searching IMEI barcode. Hold the box or *#06# barcode steady inside the scan band.",
+            hint: "Searching Code 128 IMEI barcode. Hold the box or *#06# barcode steady inside the scan band.",
             constraints: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 24 } },
             locator: { patchSize: "medium", halfSample: true },
             frequency: 8,
@@ -1790,7 +1790,7 @@ function IMEIS({ onScan, onClose, getCameraStream, releaseCameraLater, scanMode 
         },
         {
             label: "Quagga scanner HD",
-            hint: "Improving focus for a smaller barcode. Move slightly closer and keep the code inside the band.",
+            hint: "Improving focus for a smaller Code 128 barcode. Move slightly closer and keep the code inside the band.",
             constraints: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } },
             locator: { patchSize: "small", halfSample: false },
             frequency: 6,
@@ -1802,10 +1802,6 @@ function IMEIS({ onScan, onClose, getCameraStream, releaseCameraLater, scanMode 
         if (readyTimerRef.current) {
             clearTimeout(readyTimerRef.current);
             readyTimerRef.current = null;
-        }
-        if (focusTimerRef.current) {
-            clearInterval(focusTimerRef.current);
-            focusTimerRef.current = null;
         }
         if (fallbackTimerRef.current) {
             clearTimeout(fallbackTimerRef.current);
@@ -1855,6 +1851,7 @@ function IMEIS({ onScan, onClose, getCameraStream, releaseCameraLater, scanMode 
         if (releaseCameraLater) releaseCameraLater();
         restartingRef.current = false;
         canTorchRef.current = false;
+        confirmRef.current = { code: "", count: 0, at: 0 };
         setCanTorch(false);
         setSc(false);
     }, [clearTimers, releaseCameraLater]);
@@ -1871,39 +1868,10 @@ function IMEIS({ onScan, onClose, getCameraStream, releaseCameraLater, scanMode 
         const video = qr.current?.querySelector("video");
         const stream = video?.srcObject;
         const track = stream?.getVideoTracks?.()?.[0] || quaggaRef.current?.CameraAccess?.getActiveTrack?.();
-        if (!track?.applyConstraints) return;
+        if (!track) return;
         const caps = track.getCapabilities?.() || {};
         canTorchRef.current = !!caps.torch;
         setCanTorch(!!caps.torch);
-        const advanced = [];
-        if (Array.isArray(caps.focusMode) && caps.focusMode.includes("continuous")) advanced.push({ focusMode: "continuous" });
-        if (Array.isArray(caps.exposureMode) && caps.exposureMode.includes("continuous")) advanced.push({ exposureMode: "continuous" });
-        if (Array.isArray(caps.whiteBalanceMode) && caps.whiteBalanceMode.includes("continuous")) advanced.push({ whiteBalanceMode: "continuous" });
-        if (caps.zoom?.max && caps.zoom?.min !== undefined) {
-            const zoomStrength = profileIndexRef.current > 0 ? 0.24 : 0.14;
-            const targetZoom = Math.min(caps.zoom.max, Math.max(caps.zoom.min, caps.zoom.min + (caps.zoom.max - caps.zoom.min) * zoomStrength));
-            advanced.push({ zoom: targetZoom });
-        }
-        if (caps.sharpness?.max !== undefined && caps.sharpness?.min !== undefined) {
-            const targetSharpness = Math.min(caps.sharpness.max, Math.max(caps.sharpness.min, caps.sharpness.min + (caps.sharpness.max - caps.sharpness.min) * 0.72));
-            advanced.push({ sharpness: targetSharpness });
-        }
-        if (caps.contrast?.max !== undefined && caps.contrast?.min !== undefined) {
-            const targetContrast = Math.min(caps.contrast.max, Math.max(caps.contrast.min, caps.contrast.min + (caps.contrast.max - caps.contrast.min) * 0.58));
-            advanced.push({ contrast: targetContrast });
-        }
-        if (caps.brightness?.max !== undefined && caps.brightness?.min !== undefined) {
-            const brightnessRatio = profileIndexRef.current > 0 ? 0.4 : 0.52;
-            const targetBrightness = Math.min(caps.brightness.max, Math.max(caps.brightness.min, caps.brightness.min + (caps.brightness.max - caps.brightness.min) * brightnessRatio));
-            advanced.push({ brightness: targetBrightness });
-        }
-        if (caps.exposureCompensation?.max !== undefined && caps.exposureCompensation?.min !== undefined) {
-            const compensationRatio = profileIndexRef.current > 0 ? 0.38 : 0.5;
-            const targetExposure = Math.min(caps.exposureCompensation.max, Math.max(caps.exposureCompensation.min, caps.exposureCompensation.min + (caps.exposureCompensation.max - caps.exposureCompensation.min) * compensationRatio));
-            advanced.push({ exposureCompensation: targetExposure });
-        }
-        if (!advanced.length) return;
-        track.applyConstraints({ advanced }).catch(() => { });
     }, []);
 
     const focusCamera = useCallback(() => {
@@ -1936,7 +1904,16 @@ function IMEIS({ onScan, onClose, getCameraStream, releaseCameraLater, scanMode 
         else if (codes[0]) onScan(codes[0]);
     }, [onScan, stop]);
 
-    const handleDetected = useCallback((raw, source) => {
+    const getDetectionQuality = useCallback((result) => {
+        const errors = (result?.codeResult?.decodedCodes || [])
+            .map(item => Number(item?.error))
+            .filter(value => Number.isFinite(value) && value >= 0);
+        if (!errors.length) return null;
+        return errors.reduce((sum, value) => sum + value, 0) / errors.length;
+    }, []);
+
+    const handleDetected = useCallback((result, source) => {
+        const raw = result?.codeResult?.code || "";
         const text = String(raw || "");
         const matches = text.match(/\d{15}/g) || [];
         const code = extractScanImei(matches[0] || text);
@@ -1946,7 +1923,17 @@ function IMEIS({ onScan, onClose, getCameraStream, releaseCameraLater, scanMode 
         }
         const now = Date.now();
         if (lastDetectedRef.current.code === code && now - lastDetectedRef.current.at < 1200) return false;
+        const quality = getDetectionQuality(result);
+        const instantAccept = quality !== null && quality <= 0.12;
+        const isRepeat = confirmRef.current.code === code && now - confirmRef.current.at < 1600;
+        const nextCount = isRepeat ? confirmRef.current.count + 1 : 1;
+        confirmRef.current = { code, count: nextCount, at: now };
+        if (!instantAccept && nextCount < 2) {
+            setHt(`Code found: ${code}. Hold steady for confirmation.`);
+            return false;
+        }
         lastDetectedRef.current = { code, at: now };
+        confirmRef.current = { code: "", count: 0, at: 0 };
         if (dualScanMode) {
             let nextCodes = [];
             setCapturedImeis((current) => {
@@ -1998,11 +1985,7 @@ function IMEIS({ onScan, onClose, getCameraStream, releaseCameraLater, scanMode 
                 numOfWorkers: typeof navigator !== "undefined" ? Math.min(4, navigator.hardwareConcurrency || 2) : 2,
                 frequency: profile.frequency,
                 decoder: {
-                    readers: [
-                        "code_128_reader",
-                        "ean_reader",
-                        "code_39_reader",
-                    ],
+                    readers: ["code_128_reader"],
                     multiple: false,
                 },
                 locate: profile.locate,
@@ -2012,8 +1995,7 @@ function IMEIS({ onScan, onClose, getCameraStream, releaseCameraLater, scanMode 
             });
         });
         const onDetected = (result) => {
-            const raw = result?.codeResult?.code || "";
-            handleDetected(raw, "Quagga scanner");
+            handleDetected(result, "Quagga scanner");
         };
         const onProcessed = (result) => {
             const elapsed = Date.now() - profileStartedAtRef.current;
@@ -2021,7 +2003,7 @@ function IMEIS({ onScan, onClose, getCameraStream, releaseCameraLater, scanMode 
             if (result?.codeResult?.code) {
                 if (lastHintRef.current !== "locked") {
                     lastHintRef.current = "locked";
-                    setHt("Barcode found. Hold steady for one moment.");
+                    setHt("Barcode found. Hold steady for confirmation.");
                 }
                 return;
             }
@@ -2059,17 +2041,13 @@ function IMEIS({ onScan, onClose, getCameraStream, releaseCameraLater, scanMode 
             focusCamera();
             setHt((current) => current.startsWith("Searching IMEI barcode") ? "Searching IMEI barcode. Hold steady or move slightly closer if the code is blurred." : current);
         }, 900);
-        focusTimerRef.current = setInterval(() => {
-            optimizeTrack();
-            focusCamera();
-        }, 2200);
         if (profileIndexRef.current < scanProfiles.length - 1) {
             fallbackTimerRef.current = setTimeout(() => {
                 setHt("Camera is on, but the barcode is still weak. Switching to a sharper scan mode.");
                 restartWithProfile(profileIndexRef.current + 1);
             }, 4500);
         }
-    }, [focusCamera, handleDetected, optimizeTrack, restartWithProfile]);
+    }, [focusCamera, getDetectionQuality, handleDetected, optimizeTrack, restartWithProfile]);
 
     useEffect(() => {
         let cancelled = false;
