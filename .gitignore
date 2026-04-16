@@ -9,3 +9,5 @@ dev-dist/
 *.key
 *service-account*.json
 credentials.json
+**/bin/
+**/obj/

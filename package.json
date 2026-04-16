@@ -10,8 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@zxing/browser": "^0.1.5",
-    "@zxing/library": "^0.21.3",
+    "@undecaf/zbar-wasm": "^0.9.16",
     "idb": "^8.0.3",
     "jsbarcode": "^3.12.3",
     "jspdf": "^4.2.1",

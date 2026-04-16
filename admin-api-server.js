@@ -248,6 +248,19 @@ const server = http.createServer(async (req, res) => {
       return
     }
 
+    if (req.method === 'GET' && url.pathname === '/admin-api/healthz') {
+      sendJson(res, 200, {
+        data: {
+          ok: true,
+          service: 'admin-api',
+          pocketbaseUrlConfigured: Boolean(PB_URL),
+          uptimeSeconds: Math.round(process.uptime()),
+          checkedAt: new Date().toISOString(),
+        },
+      }, headers)
+      return
+    }
+
     const wrapped = requireSession(req, res)
     if (!wrapped) return
     const pb = createPocketBase({ token: wrapped.session.token, record: wrapped.session.record })
