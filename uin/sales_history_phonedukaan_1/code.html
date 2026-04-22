@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "primary-container": "#1a237e",
+                    "secondary": "#0048d8",
+                    "on-error": "#ffffff",
+                    "tertiary-fixed-dim": "#88d982",
+                    "background": "#f7f9fc",
+                    "on-surface-variant": "#454652",
+                    "on-primary-container": "#8690ee",
+                    "surface-container": "#eceef1",
+                    "inverse-surface": "#2d3133",
+                    "primary-fixed": "#e0e0ff",
+                    "on-primary-fixed": "#000767",
+                    "on-tertiary-fixed": "#002204",
+                    "on-tertiary": "#ffffff",
+                    "on-primary": "#ffffff",
+                    "surface-dim": "#d8dadd",
+                    "on-tertiary-container": "#5aa958",
+                    "error": "#ba1a1a",
+                    "primary-fixed-dim": "#bdc2ff",
+                    "inverse-primary": "#bdc2ff",
+                    "surface-container-lowest": "#ffffff",
+                    "on-surface": "#191c1e",
+                    "surface-container-high": "#e6e8eb",
+                    "tertiary": "#002103",
+                    "primary": "#000666",
+                    "outline-variant": "#c6c5d4",
+                    "error-container": "#ffdad6",
+                    "tertiary-container": "#003909",
+                    "secondary-container": "#2761fe",
+                    "on-secondary": "#ffffff",
+                    "surface-bright": "#f7f9fc",
+                    "on-tertiary-fixed-variant": "#005312",
+                    "inverse-on-surface": "#eff1f4",
+                    "on-secondary-container": "#f4f3ff",
+                    "tertiary-fixed": "#a3f69c",
+                    "surface-container-low": "#f2f4f7",
+                    "on-secondary-fixed": "#001550",
+                    "surface-tint": "#4c56af",
+                    "outline": "#767683",
+                    "surface-container-highest": "#e0e3e6",
+                    "secondary-fixed-dim": "#b6c4ff",
+                    "on-error-container": "#93000a",
+                    "surface": "#f7f9fc",
+                    "on-primary-fixed-variant": "#343d96",
+                    "surface-variant": "#e0e3e6",
+                    "secondary-fixed": "#dce1ff",
+                    "on-background": "#191c1e",
+                    "on-secondary-fixed-variant": "#003ab3"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "fontFamily": {
+                    "headline": ["Plus Jakarta Sans"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3 { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .tabular-nums { font-variant-numeric: tabular-nums; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-surface min-h-screen flex flex-col md:flex-row overflow-x-hidden">
+<aside class="hidden lg:flex flex-col h-screen w-72 border-r border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-950 p-4 gap-2 shrink-0">
+<div class="flex items-center gap-3 px-2 mb-8">
+<div class="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container">
+<span class="material-symbols-outlined" data-icon="sync">sync</span>
+</div>
+<div>
+<h2 class="text-blue-900 dark:text-blue-100 font-black text-lg">PhoneDukaan Alpha</h2>
+<p class="text-xs text-slate-500">Admin Terminal v2.4.1</p>
+</div>
+</div>
+<nav class="flex flex-col gap-1">
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:translate-x-1 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-xl transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span class="font-medium">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:translate-x-1 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-xl transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="devices">devices</span>
+<span class="font-medium">Inventory</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 bg-white dark:bg-slate-900 text-blue-700 dark:text-blue-400 shadow-sm font-bold border-r-4 border-blue-700 rounded-xl transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="receipt_long">receipt_long</span>
+<span class="font-medium">Sales Ledger</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:translate-x-1 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-xl transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="biotech">biotech</span>
+<span class="font-medium">Repair Lab</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:translate-x-1 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-xl transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="group">group</span>
+<span class="font-medium">Customer CRM</span>
+</a>
+</nav>
+</aside>
+<main class="flex-1 flex flex-col min-h-screen relative pb-24 md:pb-0">
+<div class="sticky top-0 z-40 bg-white dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 shadow-sm">
+<header class="flex justify-between items-center px-4 h-14 w-full">
+<div class="flex items-center gap-2">
+<button class="lg:hidden text-primary scale-90">
+<span class="material-symbols-outlined" data-icon="menu">menu</span>
+</button>
+<h1 class="font-bold text-lg tracking-tight text-primary dark:text-blue-100">PhoneDukaan</h1>
+</div>
+<div class="flex items-center gap-1">
+<button class="p-2 text-primary">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<div class="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center overflow-hidden border border-slate-300">
+<span class="material-symbols-outlined text-slate-500" data-icon="person">person</span>
+</div>
+</div>
+</header>
+<div class="flex items-center divide-x divide-slate-100 dark:divide-slate-800 border-t border-slate-100 dark:border-slate-800">
+<div class="flex-1 px-4 py-2">
+<p class="text-[9px] uppercase font-bold text-outline tracking-wider">Sales</p>
+<p class="text-sm font-bold tabular-nums">₹4.82L</p>
+</div>
+<div class="flex-1 px-4 py-2">
+<p class="text-[9px] uppercase font-bold text-error tracking-wider">Due</p>
+<p class="text-sm font-bold text-error tabular-nums">₹24.5K</p>
+</div>
+<div class="flex-1 px-4 py-2">
+<p class="text-[9px] uppercase font-bold text-secondary tracking-wider">GST</p>
+<p class="text-sm font-bold text-secondary tabular-nums">₹86K</p>
+</div>
+<button class="px-4 py-2 flex items-center justify-center text-primary bg-primary-fixed/30 active:bg-primary-fixed/50">
+<span class="material-symbols-outlined" data-icon="add_circle">add_circle</span>
+</button>
+</div>
+<div class="px-4 py-2 flex gap-2 items-center bg-surface-container-low">
+<div class="relative flex-1">
+<span class="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-outline text-xs" data-icon="search">search</span>
+<input class="w-full bg-surface-container-lowest border-none rounded-lg pl-8 pr-2 py-1.5 text-xs focus:ring-1 focus:ring-primary shadow-sm placeholder:text-outline-variant" placeholder="Search INV#, IMEI..." type="text"/>
+</div>
+<div class="flex bg-surface-container-lowest rounded-lg p-0.5 shadow-sm">
+<button class="px-2 py-1 text-[10px] font-bold rounded bg-primary text-on-primary">All</button>
+<button class="px-2 py-1 text-[10px] font-medium text-outline">GST</button>
+</div>
+<button class="bg-surface-container-lowest p-1.5 rounded-lg shadow-sm text-primary">
+<span class="material-symbols-outlined text-xs" data-icon="calendar_month">calendar_month</span>
+</button>
+</div>
+</div>
+<section class="p-3 space-y-3">
+<div class="flex items-center justify-between px-1">
+<h2 class="text-xs font-bold text-slate-500 uppercase tracking-widest">Recent Sales</h2>
+<span class="text-[10px] font-medium text-outline">48 total</span>
+</div>
+<div class="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-2">
+<div class="bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm relative overflow-hidden">
+<div class="absolute top-0 right-0 h-1 w-full bg-tertiary-fixed-dim"></div>
+<div class="flex justify-between items-start mb-2">
+<span class="text-[10px] font-bold text-primary truncate pr-1">INV-0892</span>
+<span class="bg-tertiary-fixed text-on-tertiary-fixed text-[8px] px-1.5 rounded-full font-bold uppercase">Paid</span>
+</div>
+<div class="space-y-0.5">
+<p class="text-[10px] text-outline font-medium">24 Oct, 23</p>
+<p class="text-[11px] font-bold truncate">Aditya Sharma</p>
+<p class="text-sm font-black tabular-nums mt-1 text-on-surface">₹54,999</p>
+</div>
+<div class="flex justify-between items-center mt-3 pt-2 border-t border-slate-50">
+<div class="flex gap-1">
+<button class="p-1 text-outline hover:text-primary"><span class="material-symbols-outlined text-sm">share</span></button>
+<button class="p-1 text-outline hover:text-primary"><span class="material-symbols-outlined text-sm">download</span></button>
+</div>
+</div>
+</div>
+<div class="bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm relative overflow-hidden">
+<div class="absolute top-0 right-0 h-1 w-full bg-error"></div>
+<div class="flex justify-between items-start mb-2">
+<span class="text-[10px] font-bold text-primary truncate pr-1">INV-0891</span>
+<span class="bg-error-container text-on-error-container text-[8px] px-1.5 rounded-full font-bold uppercase">Due</span>
+</div>
+<div class="space-y-0.5">
+<p class="text-[10px] text-outline font-medium">24 Oct, 23</p>
+<p class="text-[11px] font-bold truncate">Rajesh Khanna</p>
+<p class="text-sm font-black tabular-nums mt-1 text-on-surface">₹21,500</p>
+</div>
+<div class="flex justify-between items-center mt-3 pt-2 border-t border-slate-50">
+<div class="flex gap-1">
+<button class="p-1 text-outline hover:text-primary"><span class="material-symbols-outlined text-sm">share</span></button>
+<button class="p-1 text-outline hover:text-primary"><span class="material-symbols-outlined text-sm">download</span></button>
+</div>
+</div>
+</div>
+<div class="bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm relative overflow-hidden">
+<div class="absolute top-0 right-0 h-1 w-full bg-tertiary-fixed-dim"></div>
+<div class="flex justify-between items-start mb-2">
+<span class="text-[10px] font-bold text-primary truncate pr-1">INV-0890</span>
+<span class="bg-tertiary-fixed text-on-tertiary-fixed text-[8px] px-1.5 rounded-full font-bold uppercase">Paid</span>
+</div>
+<div class="space-y-0.5">
+<p class="text-[10px] text-outline font-medium">23 Oct, 23</p>
+<p class="text-[11px] font-bold truncate">Priya Verma</p>
+<p class="text-sm font-black tabular-nums mt-1 text-on-surface">₹18,900</p>
+</div>
+<div class="flex justify-between items-center mt-3 pt-2 border-t border-slate-50">
+<div class="flex gap-1">
+<button class="p-1 text-outline hover:text-primary"><span class="material-symbols-outlined text-sm">share</span></button>
+<button class="p-1 text-outline hover:text-primary"><span class="material-symbols-outlined text-sm">download</span></button>
+</div>
+</div>
+</div>
+<div class="bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm relative overflow-hidden">
+<div class="absolute top-0 right-0 h-1 w-full bg-tertiary-fixed-dim"></div>
+<div class="flex justify-between items-start mb-2">
+<span class="text-[10px] font-bold text-primary truncate pr-1">INV-0889</span>
+<span class="bg-tertiary-fixed text-on-tertiary-fixed text-[8px] px-1.5 rounded-full font-bold uppercase">Paid</span>
+</div>
+<div class="space-y-0.5">
+<p class="text-[10px] text-outline font-medium">22 Oct, 23</p>
+<p class="text-[11px] font-bold truncate">Aman Singh</p>
+<p class="text-sm font-black tabular-nums mt-1 text-on-surface">₹1,24,000</p>
+</div>
+<div class="flex justify-between items-center mt-3 pt-2 border-t border-slate-50">
+<div class="flex gap-1">
+<button class="p-1 text-outline hover:text-primary"><span class="material-symbols-outlined text-sm">share</span></button>
+<button class="p-1 text-outline hover:text-primary"><span class="material-symbols-outlined text-sm">download</span></button>
+</div>
+</div>
+</div>
+<div class="bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm relative overflow-hidden">
+<div class="absolute top-0 right-0 h-1 w-full bg-error"></div>
+<div class="flex justify-between items-start mb-2">
+<span class="text-[10px] font-bold text-primary truncate pr-1">INV-0888</span>
+<span class="bg-error-container text-on-error-container text-[8px] px-1.5 rounded-full font-bold uppercase">Due</span>
+</div>
+<div class="space-y-0.5">
+<p class="text-[10px] text-outline font-medium">21 Oct, 23</p>
+<p class="text-[11px] font-bold truncate">Rahul Dravid</p>
+<p class="text-sm font-black tabular-nums mt-1 text-on-surface">₹3,000</p>
+</div>
+<div class="flex justify-between items-center mt-3 pt-2 border-t border-slate-50">
+<div class="flex gap-1">
+<button class="p-1 text-outline hover:text-primary"><span class="material-symbols-outlined text-sm">share</span></button>
+<button class="p-1 text-outline hover:text-primary"><span class="material-symbols-outlined text-sm">download</span></button>
+</div>
+</div>
+</div>
+<div class="bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm relative overflow-hidden">
+<div class="absolute top-0 right-0 h-1 w-full bg-tertiary-fixed-dim"></div>
+<div class="flex justify-between items-start mb-2">
+<span class="text-[10px] font-bold text-primary truncate pr-1">INV-0887</span>
+<span class="bg-tertiary-fixed text-on-tertiary-fixed text-[8px] px-1.5 rounded-full font-bold uppercase">Paid</span>
+</div>
+<div class="space-y-0.5">
+<p class="text-[10px] text-outline font-medium">21 Oct, 23</p>
+<p class="text-[11px] font-bold truncate">Sonia G.</p>
+<p class="text-sm font-black tabular-nums mt-1 text-on-surface">₹12,499</p>
+</div>
+<div class="flex justify-between items-center mt-3 pt-2 border-t border-slate-50">
+<div class="flex gap-1">
+<button class="p-1 text-outline hover:text-primary"><span class="material-symbols-outlined text-sm">share</span></button>
+<button class="p-1 text-outline hover:text-primary"><span class="material-symbols-outlined text-sm">download</span></button>
+</div>
+</div>
+</div>
+</div>
+</section>
+<footer class="fixed bottom-14 left-0 lg:left-72 right-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 py-2 px-4 flex items-center justify-between z-30">
+<div class="flex flex-col">
+<span class="text-[9px] font-bold text-outline uppercase leading-none mb-0.5">Period Sales</span>
+<span class="text-base font-black tabular-nums text-primary">₹4,82,390</span>
+</div>
+<button class="bg-primary text-on-primary px-4 py-1.5 rounded-lg text-xs font-bold shadow-md active:scale-95 transition-transform flex items-center gap-1">
+<span class="material-symbols-outlined text-sm">picture_as_pdf</span>
+            Report
+        </button>
+</footer>
+<nav class="md:hidden fixed bottom-0 left-0 w-full flex justify-around items-center pt-2 pb-5 px-2 bg-white dark:bg-slate-950 z-50 border-t border-slate-200">
+<button class="flex flex-col items-center justify-center text-slate-400">
+<span class="material-symbols-outlined text-[22px]">inventory_2</span>
+<span class="font-medium text-[9px]">Inventory</span>
+</button>
+<button class="flex flex-col items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[22px]" style="font-variation-settings: 'FILL' 1;">payments</span>
+<span class="font-bold text-[9px]">Sales</span>
+</button>
+<button class="flex flex-col items-center justify-center -mt-8">
+<div class="w-12 h-12 bg-primary rounded-full flex items-center justify-center text-white shadow-lg border-4 border-white">
+<span class="material-symbols-outlined text-2xl">add</span>
+</div>
+</button>
+<button class="flex flex-col items-center justify-center text-slate-400">
+<span class="material-symbols-outlined text-[22px]">build</span>
+<span class="font-medium text-[9px]">Repairs</span>
+</button>
+<button class="flex flex-col items-center justify-center text-slate-400">
+<span class="material-symbols-outlined text-[22px]">settings</span>
+<span class="font-medium text-[9px]">Admin</span>
+</button>
+</nav>
+</main>
+
+</body></html>

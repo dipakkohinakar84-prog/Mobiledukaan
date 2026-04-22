@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Repair Lab - The Retail Editorial</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary-container": "#5aa958",
+                        "inverse-surface": "#2d3133",
+                        "on-surface-variant": "#454652",
+                        "on-primary-fixed-variant": "#343d96",
+                        "on-background": "#191c1e",
+                        "surface-bright": "#f7f9fc",
+                        "secondary-container": "#2761fe",
+                        "secondary": "#0048d8",
+                        "on-error": "#ffffff",
+                        "on-tertiary-fixed-variant": "#005312",
+                        "secondary-fixed": "#dce1ff",
+                        "inverse-on-surface": "#eff1f4",
+                        "primary": "#000666",
+                        "tertiary-fixed": "#a3f69c",
+                        "inverse-primary": "#bdc2ff",
+                        "error-container": "#ffdad6",
+                        "surface-container-low": "#f2f4f7",
+                        "error": "#ba1a1a",
+                        "surface-container-high": "#e6e8eb",
+                        "on-surface": "#191c1e",
+                        "on-secondary-fixed-variant": "#003ab3",
+                        "surface-container": "#eceef1",
+                        "surface": "#f7f9fc",
+                        "secondary-fixed-dim": "#b6c4ff",
+                        "surface-container-lowest": "#ffffff",
+                        "tertiary-fixed-dim": "#88d982",
+                        "surface-container-highest": "#e0e3e6",
+                        "primary-fixed-dim": "#bdc2ff",
+                        "surface-dim": "#d8dadd",
+                        "surface-variant": "#e0e3e6",
+                        "on-secondary-fixed": "#001550",
+                        "primary-fixed": "#e0e0ff",
+                        "on-tertiary": "#ffffff",
+                        "on-secondary-container": "#f4f3ff",
+                        "on-primary-container": "#8690ee",
+                        "tertiary": "#002103",
+                        "on-error-container": "#93000a",
+                        "on-primary": "#ffffff",
+                        "on-secondary": "#ffffff",
+                        "surface-tint": "#4c56af",
+                        "on-primary-fixed": "#000767",
+                        "tertiary-container": "#003909",
+                        "primary-container": "#1a237e",
+                        "background": "#f7f9fc",
+                        "outline-variant": "#c6c5d4",
+                        "on-tertiary-fixed": "#002204",
+                        "outline": "#767683"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {},
+                    "fontFamily": {
+                        "headline": ["Plus Jakarta Sans"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .fill-icon {
+            font-variation-settings: 'FILL' 1;
+        }
+        .font-headline { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .font-body { font-family: 'Inter', sans-serif; }
+        .font-label { font-family: 'Inter', sans-serif; font-variant-numeric: tabular-nums; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface font-body antialiased flex h-screen overflow-hidden">
+<!-- SideNavBar -->
+<aside class="h-screen w-64 fixed left-0 top-0 bg-[#eef2f6] dark:bg-slate-950 border-r-0 flex flex-col h-full py-6 transition-all duration-200 ease-in-out z-40 hidden md:flex">
+<div class="px-6 mb-8">
+<h1 class="text-xl font-black text-[#000666] dark:text-white mb-6 font-headline tracking-tight">The Architect Lab</h1>
+<p class="text-xs text-slate-500 font-label font-medium uppercase tracking-wider mb-8">Terminal A-1</p>
+<button class="w-full bg-primary-container text-on-primary-container py-3 rounded-xl font-body font-medium flex items-center justify-center gap-2 hover:bg-primary hover:text-on-primary transition-colors">
+<span class="material-symbols-outlined text-[1.25rem]">add</span>
+                Create Ticket
+            </button>
+</div>
+<nav class="flex-1 px-4 space-y-1">
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-500 dark:text-slate-400 hover:text-[#000666] dark:hover:text-white hover:bg-white/30 dark:hover:bg-slate-900 transition-colors font-body font-medium text-sm" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+                Dashboard
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-[#000666] dark:text-indigo-300 border-r-4 border-[#000666] dark:border-indigo-500 bg-white/50 dark:bg-white/5 transition-colors font-body font-medium text-sm" href="#">
+<span class="material-symbols-outlined fill-icon">construction</span>
+                Repair Queue
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-500 dark:text-slate-400 hover:text-[#000666] dark:hover:text-white hover:bg-white/30 dark:hover:bg-slate-900 transition-colors font-body font-medium text-sm" href="#">
+<span class="material-symbols-outlined">inventory_2</span>
+                Inventory
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-500 dark:text-slate-400 hover:text-[#000666] dark:hover:text-white hover:bg-white/30 dark:hover:bg-slate-900 transition-colors font-body font-medium text-sm" href="#">
+<span class="material-symbols-outlined">group</span>
+                Customers
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-500 dark:text-slate-400 hover:text-[#000666] dark:hover:text-white hover:bg-white/30 dark:hover:bg-slate-900 transition-colors font-body font-medium text-sm" href="#">
+<span class="material-symbols-outlined">payments</span>
+                Financials
+            </a>
+</nav>
+<div class="px-4 mt-auto">
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-500 dark:text-slate-400 hover:text-[#000666] dark:hover:text-white hover:bg-white/30 dark:hover:bg-slate-900 transition-colors font-body font-medium text-sm" href="#">
+<span class="material-symbols-outlined">logout</span>
+                Logout
+            </a>
+</div>
+</aside>
+<!-- Main Content Wrapper -->
+<main class="flex-1 ml-0 md:ml-64 flex flex-col h-screen overflow-hidden">
+<!-- TopNavBar -->
+<header class="bg-[#f7f9fc] dark:bg-slate-900 full-width top-0 sticky z-50 flat no-border flex items-center justify-between px-8 py-3 w-full border-b border-surface-container-high/20">
+<div class="flex items-center gap-4">
+<div class="font-['Plus_Jakarta_Sans'] tracking-tight text-lg font-bold text-[#000666] dark:text-indigo-300 md:hidden">
+                    Repair Editorial
+                </div>
+<div class="hidden md:flex items-center bg-surface-container-low rounded-full px-4 py-2 border border-outline-variant/15 w-96">
+<span class="material-symbols-outlined text-on-surface-variant mr-2">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-sm font-body w-full placeholder:text-on-surface-variant/70 text-on-surface p-0" placeholder="Search IMEI, Job ID, or Customer..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="text-slate-500 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-slate-800 transition-colors cursor-pointer active:opacity-80 p-2 rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="text-slate-500 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-slate-800 transition-colors cursor-pointer active:opacity-80 p-2 rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<button class="text-slate-500 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-slate-800 transition-colors cursor-pointer active:opacity-80 p-2 rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined">help</span>
+</button>
+<div class="w-8 h-8 rounded-full bg-primary-container overflow-hidden ml-2 cursor-pointer border border-outline-variant/20">
+<img alt="Technician Profile" class="w-full h-full object-cover" data-alt="Close up professional headshot of a male technician in soft lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAg85snjE_xFODSqGdzCwqRSS7xvz7TX0aGwmfdfLZ9JUv0JW-UbjM5MQsCzBKWWTH1nRv3dyqlHc-8O0Zji9i0NwrOKSducPoaNd4ozOLcU6Ko0lozTD5nTWHXjSUwEv8le1I1o_tZ-2EtETwsNrEciKM6e4fLiJLIpTW2h8GIaoPGMAax24AOVbLhqRAL1Sp3Ch4-NtmvAkEPLyPqIcAx0T_0bLXRG7rbtaZZfKwtec8f1L7S3AdS5CQpmlZRFdJ5piB4SF_EWCw"/>
+</div>
+</div>
+</header>
+<!-- Page Content Canvas -->
+<div class="flex-1 overflow-y-auto p-8 bg-surface">
+<div class="flex items-end justify-between mb-8">
+<div>
+<h2 class="text-[2rem] font-headline font-bold text-on-surface leading-tight">Repair Lab</h2>
+<p class="text-on-surface-variant font-body text-sm mt-1">Live queue and active diagnostics</p>
+</div>
+<div class="flex gap-3">
+<button class="bg-surface-container-lowest border border-outline-variant/20 px-4 py-2 rounded-lg font-body text-sm font-medium hover:bg-surface-container-low transition-colors shadow-sm flex items-center gap-2 text-on-surface">
+<span class="material-symbols-outlined text-[1.25rem]">filter_list</span>
+                        Filter
+                    </button>
+<button class="bg-primary text-on-primary px-5 py-2 rounded-lg font-body text-sm font-medium hover:bg-primary/90 transition-colors shadow-md flex items-center gap-2">
+<span class="material-symbols-outlined text-[1.25rem]">add</span>
+                        New Repair
+                    </button>
+</div>
+</div>
+<!-- Metrics -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+<!-- Open Jobs -->
+<div class="bg-surface-container-lowest rounded-xl p-6 border border-outline-variant/10 relative overflow-hidden group">
+<div class="absolute -right-6 -top-6 text-primary/5 group-hover:text-primary/10 transition-colors">
+<span class="material-symbols-outlined text-[8rem] fill-icon">build</span>
+</div>
+<div class="relative z-10 flex flex-col h-full">
+<div class="flex justify-between items-start mb-4">
+<span class="text-sm font-body font-medium text-on-surface-variant uppercase tracking-wider">Open Jobs</span>
+<span class="w-2 h-2 rounded-full bg-secondary"></span>
+</div>
+<div class="mt-auto">
+<span class="text-[3.5rem] font-headline font-bold text-on-surface leading-none">24</span>
+<p class="text-xs font-label text-on-surface-variant mt-2">+3 since yesterday</p>
+</div>
+</div>
+</div>
+<!-- Ready for Delivery -->
+<div class="bg-surface-container-lowest rounded-xl p-6 border border-outline-variant/10 relative overflow-hidden group">
+<div class="absolute -right-6 -top-6 text-tertiary-fixed-dim/10 group-hover:text-tertiary-fixed-dim/20 transition-colors">
+<span class="material-symbols-outlined text-[8rem] fill-icon">check_circle</span>
+</div>
+<div class="relative z-10 flex flex-col h-full">
+<div class="flex justify-between items-start mb-4">
+<span class="text-sm font-body font-medium text-on-surface-variant uppercase tracking-wider">Ready for Delivery</span>
+<span class="w-2 h-2 rounded-full bg-on-tertiary-container"></span>
+</div>
+<div class="mt-auto">
+<span class="text-[3.5rem] font-headline font-bold text-on-tertiary-container leading-none">12</span>
+<p class="text-xs font-label text-on-surface-variant mt-2">Awaiting pickup</p>
+</div>
+</div>
+</div>
+<!-- Parts Pending -->
+<div class="bg-surface-container-lowest rounded-xl p-6 border border-outline-variant/10 relative overflow-hidden group">
+<div class="absolute -right-6 -top-6 text-error/5 group-hover:text-error/10 transition-colors">
+<span class="material-symbols-outlined text-[8rem] fill-icon">warning</span>
+</div>
+<div class="relative z-10 flex flex-col h-full">
+<div class="flex justify-between items-start mb-4">
+<span class="text-sm font-body font-medium text-error uppercase tracking-wider">Parts Pending</span>
+<span class="w-2 h-2 rounded-full bg-error animate-pulse"></span>
+</div>
+<div class="mt-auto">
+<span class="text-[3.5rem] font-headline font-bold text-error leading-none">07</span>
+<p class="text-xs font-label text-error mt-2 font-medium">Attention required</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Queue Area -->
+<div class="bg-surface-container-low rounded-[1rem] p-6 shadow-sm border border-outline-variant/15">
+<!-- Tabs -->
+<div class="flex gap-2 border-b border-outline-variant/15 pb-4 mb-6">
+<button class="px-4 py-2 rounded-lg bg-surface-container-lowest text-primary font-body text-sm font-medium shadow-sm border border-outline-variant/10">All Queue</button>
+<button class="px-4 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-highest font-body text-sm font-medium transition-colors">In Progress</button>
+<button class="px-4 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-highest font-body text-sm font-medium transition-colors">Ready</button>
+<button class="px-4 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-highest font-body text-sm font-medium transition-colors">Pending</button>
+</div>
+<!-- Job List -->
+<div class="space-y-4">
+<!-- Card 1: In Progress -->
+<div class="bg-surface-container-lowest p-5 rounded-xl border border-outline-variant/15 hover:shadow-md transition-shadow flex items-center justify-between group">
+<div class="flex items-center gap-6">
+<!-- Icon / Visual -->
+<div class="w-14 h-14 rounded-lg bg-secondary-fixed/50 flex items-center justify-center text-on-secondary-fixed-variant">
+<span class="material-symbols-outlined text-3xl">smartphone</span>
+</div>
+<!-- Core Info -->
+<div>
+<div class="flex items-center gap-3 mb-1">
+<span class="font-headline font-semibold text-lg text-on-surface">iPhone 14 Pro Max</span>
+<span class="text-xs font-label bg-secondary-fixed text-on-secondary-fixed px-2 py-0.5 rounded-full font-medium">IN PROGRESS</span>
+</div>
+<div class="flex items-center gap-4 text-sm font-body text-on-surface-variant">
+<span class="font-label font-medium text-primary">#RD-9821</span>
+<span class="text-outline-variant">•</span>
+<span>Screen Replacement</span>
+</div>
+</div>
+</div>
+<!-- Customer & Meta -->
+<div class="flex items-center gap-8">
+<div class="text-right hidden md:block">
+<p class="font-body font-medium text-sm text-on-surface">Rahul Malhotra</p>
+<p class="font-label text-xs text-on-surface-variant">+91 98765 43210</p>
+</div>
+<div class="text-right">
+<p class="font-label text-xs text-on-surface-variant uppercase tracking-wider mb-0.5">Est. Cost</p>
+<p class="font-label font-semibold text-on-surface">₹14,500</p>
+</div>
+<!-- Actions -->
+<div class="flex items-center gap-2 border-l border-outline-variant/15 pl-6 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-2 text-on-surface-variant hover:text-primary hover:bg-primary-fixed/50 rounded-lg transition-colors" title="Edit">
+<span class="material-symbols-outlined text-[1.25rem]">edit</span>
+</button>
+<button class="p-2 text-on-surface-variant hover:text-primary hover:bg-primary-fixed/50 rounded-lg transition-colors" title="Print">
+<span class="material-symbols-outlined text-[1.25rem]">print</span>
+</button>
+<button class="p-2 text-[#25D366] hover:bg-[#25D366]/10 rounded-lg transition-colors flex items-center justify-center" title="WhatsApp">
+<svg class="w-5 h-5 fill-current" viewbox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"></path></svg>
+</button>
+</div>
+</div>
+</div>
+<!-- Card 2: Ready -->
+<div class="bg-surface-container-lowest p-5 rounded-xl border border-outline-variant/15 hover:shadow-md transition-shadow flex items-center justify-between group">
+<div class="flex items-center gap-6">
+<div class="w-14 h-14 rounded-lg bg-surface-container-high flex items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined text-3xl">laptop_mac</span>
+</div>
+<div>
+<div class="flex items-center gap-3 mb-1">
+<span class="font-headline font-semibold text-lg text-on-surface">MacBook Pro 16"</span>
+<span class="text-xs font-label bg-tertiary-fixed text-on-tertiary-fixed px-2 py-0.5 rounded-full font-medium">READY</span>
+</div>
+<div class="flex items-center gap-4 text-sm font-body text-on-surface-variant">
+<span class="font-label font-medium text-primary">#RD-9820</span>
+<span class="text-outline-variant">•</span>
+<span>Battery Swap</span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-8">
+<div class="text-right hidden md:block">
+<p class="font-body font-medium text-sm text-on-surface">Priya Sharma</p>
+<p class="font-label text-xs text-on-surface-variant">+91 98765 43211</p>
+</div>
+<div class="text-right">
+<p class="font-label text-xs text-on-surface-variant uppercase tracking-wider mb-0.5">Est. Cost</p>
+<p class="font-label font-semibold text-on-surface">₹8,200</p>
+</div>
+<div class="flex items-center gap-2 border-l border-outline-variant/15 pl-6 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-2 text-on-surface-variant hover:text-primary hover:bg-primary-fixed/50 rounded-lg transition-colors" title="Edit">
+<span class="material-symbols-outlined text-[1.25rem]">edit</span>
+</button>
+<button class="p-2 text-on-surface-variant hover:text-primary hover:bg-primary-fixed/50 rounded-lg transition-colors" title="Print">
+<span class="material-symbols-outlined text-[1.25rem]">print</span>
+</button>
+<button class="p-2 text-[#25D366] hover:bg-[#25D366]/10 rounded-lg transition-colors flex items-center justify-center" title="WhatsApp">
+<svg class="w-5 h-5 fill-current" viewbox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"></path></svg>
+</button>
+</div>
+</div>
+</div>
+<!-- Card 3: Pending -->
+<div class="bg-surface-container-lowest p-5 rounded-xl border border-error-container hover:shadow-md transition-shadow flex items-center justify-between group">
+<div class="flex items-center gap-6">
+<div class="w-14 h-14 rounded-lg bg-surface-container-high flex items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined text-3xl">tablet_mac</span>
+</div>
+<div>
+<div class="flex items-center gap-3 mb-1">
+<span class="font-headline font-semibold text-lg text-on-surface">iPad Pro 12.9"</span>
+<span class="text-xs font-label bg-error-container text-on-error-container px-2 py-0.5 rounded-full font-medium">PARTS PENDING</span>
+</div>
+<div class="flex items-center gap-4 text-sm font-body text-on-surface-variant">
+<span class="font-label font-medium text-primary">#RD-9819</span>
+<span class="text-outline-variant">•</span>
+<span>Logic Board Issue</span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-8">
+<div class="text-right hidden md:block">
+<p class="font-body font-medium text-sm text-on-surface">Amit Patel</p>
+<p class="font-label text-xs text-on-surface-variant">+91 98765 43212</p>
+</div>
+<div class="text-right">
+<p class="font-label text-xs text-on-surface-variant uppercase tracking-wider mb-0.5">Est. Cost</p>
+<p class="font-label font-semibold text-on-surface">₹22,000</p>
+</div>
+<div class="flex items-center gap-2 border-l border-outline-variant/15 pl-6 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-2 text-on-surface-variant hover:text-primary hover:bg-primary-fixed/50 rounded-lg transition-colors" title="Edit">
+<span class="material-symbols-outlined text-[1.25rem]">edit</span>
+</button>
+<button class="p-2 text-on-surface-variant hover:text-primary hover:bg-primary-fixed/50 rounded-lg transition-colors" title="Print">
+<span class="material-symbols-outlined text-[1.25rem]">print</span>
+</button>
+<button class="p-2 text-[#25D366] hover:bg-[#25D366]/10 rounded-lg transition-colors flex items-center justify-center" title="WhatsApp">
+<svg class="w-5 h-5 fill-current" viewbox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"></path></svg>
+</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</body></html>

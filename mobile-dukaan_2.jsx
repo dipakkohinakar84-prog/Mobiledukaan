@@ -19,6 +19,33 @@ const genId = () => Date.now().toString(36) + Math.random().toString(36).slice(2
 const fmtDate = (d) => new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 const daysInStock = (d) => Math.max(0, Math.floor((Date.now() - new Date(d).getTime()) / 86400000));
 const fmtCurrency = (n) => "₹" + Number(n || 0).toLocaleString("en-IN");
+const fmtCompactCurrency = (n) => "₹" + new Intl.NumberFormat("en-IN", { notation: "compact", maximumFractionDigits: 2 }).format(Number(n || 0));
+const fmtRelativeTime = (value) => {
+    const time = new Date(value).getTime();
+    if (!time) return "Recently";
+    const diffMinutes = Math.max(0, Math.floor((Date.now() - time) / 60000));
+    if (diffMinutes < 1) return "Just now";
+    if (diffMinutes < 60) return `${diffMinutes} min${diffMinutes === 1 ? "" : "s"} ago`;
+    const diffHours = Math.floor(diffMinutes / 60);
+    if (diffHours < 24) return `${diffHours} hr${diffHours === 1 ? "" : "s"} ago`;
+    const diffDays = Math.floor(diffHours / 24);
+    return `${diffDays} day${diffDays === 1 ? "" : "s"} ago`;
+};
+const fmtDashboardTime = (value) => {
+    const date = new Date(value || new Date());
+    if (!Number.isFinite(date.getTime())) return "--";
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const targetStart = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+    const dayDiff = Math.round((todayStart - targetStart) / 86400000);
+    const dayLabel = dayDiff === 0
+        ? "Today"
+        : dayDiff === 1
+            ? "Yesterday"
+            : date.toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
+    const timeLabel = date.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+    return `${dayLabel}, ${timeLabel}`;
+};
 const CONDITIONS = ["New", "Refurbished", "Used"];
 const STATUSES = ["In Stock", "Sold", "Deleted"];
 const PAYMENT_MODES = ["Cash", "UPI", "Card", "Bank Transfer", "EMI"];
@@ -30,6 +57,7 @@ const REPORT_VIEWS = ["Transactions", "Customer Ledger", "Supplier Summary"];
 const REPORT_DUE_FILTERS = ["All Status", "Due Only", "Paid Only"];
 const PHOTO_PREVIEW_MAX = 900;
 const STOCK_PAGE_SIZE = 18;
+const STOCK_PRICE_FILTERS = ["Price Range", "Under 20k", "20k-50k", "50k-100k", "100k+"];
 const REPORT_PAGE_SIZE = 24;
 const CUSTOM_RAM = "__custom_ram__";
 const RAM_PRESETS = ["2GB", "4GB", "6GB", "8GB", "12GB", "16GB", "20GB", "24GB"];
@@ -430,6 +458,17 @@ const makeInvoiceNo = (tx, prefix = DEFAULT_SHOP_PROFILE.invoicePrefix) => {
     return `${prefix}-${now.getFullYear().toString().slice(-2)}${String(now.getMonth() + 1).padStart(2, "0")}-${String(tx.filter(t => t.type === "Sell").length + 1).padStart(4, "0")}`;
 };
 const WARRANTY_TYPES = ["No Warranty", "Testing Warranty", "1 Year Warranty"];
+const ADD_DRAFT_KEY = "pd_add_draft_v1";
+const ADD_FLOW_STEPS = [
+    { id: "photos", label: "Photos", title: "Product Photos", subtitle: "Add clear photos of the handset, box, and accessories.", cta: "Continue to Device Info" },
+    { id: "device", label: "Device Info", title: "Device Details", subtitle: "Enter technical specifications and identifiers.", cta: "Continue to Pricing" },
+    { id: "pricing", label: "Pricing", title: "Pricing & Warranty", subtitle: "Set the sell price, warranty setup, and stock context.", cta: "Save Stock" },
+];
+const ADD_CONDITION_CHIPS = [
+    { value: "New", label: "Brand New" },
+    { value: "Refurbished", label: "Refurbished" },
+    { value: "Used", label: "Pre-owned" },
+];
 const getWarrantyStatus = (item) => {
     if (!item.warrantyType || item.warrantyType === "No Warranty") return { label: "Out of Warranty", active: false, remaining: "" };
     const months = item.warrantyType === "1 Year Warranty" ? 12 : Number(item.warrantyMonths || 0);
@@ -1449,108 +1488,650 @@ const makeRepairStickerFile = async (repair, shop) => {
 };
 
 const S = `
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Space+Mono:wght@400;700&display=swap');
 *{box-sizing:border-box;margin:0;padding:0}
-:root{--gb:rgba(255,255,255,0.06);--gbh:rgba(255,255,255,0.1);--gbo:rgba(255,255,255,0.1);--gbl:rgba(255,255,255,0.15);--blur:24px;--a:#00d4ff;--a2:#8b5cf6;--a3:#f472b6;--ok:#34d399;--warn:#fbbf24;--err:#f87171;--t1:rgba(255,255,255,0.95);--t2:rgba(255,255,255,0.6);--t3:rgba(255,255,255,0.35);--r:16px;--rs:10px}
-body,#root{font-family:'Outfit',sans-serif}
-.abg{min-height:100vh;background:linear-gradient(135deg,#0a0a1a,#0d1b2a 30%,#1b1040 60%,#0a0a1a);position:relative;overflow-x:hidden}
-.abg::before{content:'';position:fixed;top:-50%;left:-50%;width:200%;height:200%;background:radial-gradient(ellipse at 20% 20%,rgba(0,212,255,.08) 0%,transparent 50%),radial-gradient(ellipse at 80% 80%,rgba(139,92,246,.08) 0%,transparent 50%);pointer-events:none;animation:bf 20s ease-in-out infinite}
-@keyframes bf{0%,100%{transform:translate(0,0)}33%{transform:translate(2%,-2%)}66%{transform:translate(-1%,1%)}}
-.gl{background:var(--gb);backdrop-filter:blur(var(--blur));-webkit-backdrop-filter:blur(var(--blur));border:1px solid var(--gbo);border-radius:var(--r)}
-.gc{background:var(--gb);backdrop-filter:blur(var(--blur));-webkit-backdrop-filter:blur(var(--blur));border:1px solid var(--gbo);border-radius:var(--r);padding:20px;transition:all .3s}
-.gc:hover{background:var(--gbh);border-color:var(--gbl);transform:translateY(-2px);box-shadow:0 8px 32px rgba(0,0,0,.3)}
-.gi{width:100%;padding:12px 16px;background:rgba(255,255,255,.05);border:1px solid var(--gbo);border-radius:var(--rs);color:var(--t1);font-family:'Outfit',sans-serif;font-size:14px;outline:none;transition:all .3s}
-.gi:focus{border-color:var(--a);background:rgba(0,212,255,.05);box-shadow:0 0 0 3px rgba(0,212,255,.1)}
-.gi::placeholder{color:var(--t3)}
-.gs{width:100%;padding:12px 16px;background:rgba(255,255,255,.05);border:1px solid var(--gbo);border-radius:var(--rs);color:var(--t1);font-family:'Outfit',sans-serif;font-size:14px;outline:none;appearance:none;cursor:pointer}
-.gs option{background:#1a1a3a;color:#fff}
-.bp{padding:12px 24px;background:linear-gradient(135deg,var(--a),var(--a2));border:none;border-radius:var(--rs);color:#fff;font-family:'Outfit',sans-serif;font-weight:600;font-size:14px;cursor:pointer;transition:all .3s;display:inline-flex;align-items:center;gap:8px}
-.bp:hover{transform:translateY(-1px);box-shadow:0 4px 20px rgba(0,212,255,.3)}
-.bg{padding:10px 18px;background:transparent;border:1px solid var(--gbo);border-radius:var(--rs);color:var(--t2);font-family:'Outfit',sans-serif;font-weight:500;font-size:13px;cursor:pointer;transition:all .3s;display:inline-flex;align-items:center;gap:6px}
-.bg:hover{background:var(--gbh);color:var(--t1)}
-.bd{padding:10px 18px;background:rgba(248,113,113,.15);border:1px solid rgba(248,113,113,.3);border-radius:var(--rs);color:var(--err);font-family:'Outfit',sans-serif;font-weight:500;font-size:13px;cursor:pointer;transition:all .3s;display:inline-flex;align-items:center;gap:6px}
-.bs{padding:12px 24px;background:linear-gradient(135deg,#34d399,#059669);border:none;border-radius:var(--rs);color:#fff;font-family:'Outfit',sans-serif;font-weight:600;font-size:14px;cursor:pointer;transition:all .3s;display:inline-flex;align-items:center;gap:8px}
-.ba{display:inline-flex;align-items:center;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
-.bn{background:rgba(0,212,255,.15);color:var(--a);border:1px solid rgba(0,212,255,.3)}
-.br{background:rgba(251,191,36,.15);color:var(--warn);border:1px solid rgba(251,191,36,.3)}
-.bu{background:rgba(255,255,255,.08);color:var(--t2);border:1px solid var(--gbo)}
-.bi{background:rgba(52,211,153,.15);color:var(--ok);border:1px solid rgba(52,211,153,.3)}
-.bso{background:rgba(248,113,113,.15);color:var(--err);border:1px solid rgba(248,113,113,.3)}
-.bre{background:rgba(139,92,246,.15);color:var(--a2);border:1px solid rgba(139,92,246,.3)}
-.ni{display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:var(--rs);color:var(--t2);cursor:pointer;transition:all .25s;font-size:14px;font-weight:500;border:1px solid transparent}
-.ni:hover{background:var(--gbh);color:var(--t1)}
-.ni.ac{background:rgba(0,212,255,.1);color:var(--a);border-color:rgba(0,212,255,.2)}
-.fi{animation:fi .4s ease-out}@keyframes fi{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
-.tr{transition:background .2s}.tr:hover{background:rgba(255,255,255,.03)}
-.pd{width:8px;height:8px;border-radius:50%;background:var(--ok);animation:pu 2s infinite}
-.action-row{display:flex;gap:10px;margin-top:20px;flex-wrap:wrap}
-.action-row .bp,.action-row .bg,.action-row .bs,.action-row .bd{justify-content:center}
+:root{--surface:#f7f9fc;--surface-strong:#ffffff;--surface-low:#f2f4f7;--surface-mid:#eceef1;--surface-high:#e3e7ee;--surface-dim:#d8dadd;--outline:#c6c5d4;--outline-2:#e4e7ee;--primary:#000666;--primary-2:#1a237e;--secondary:#0048d8;--secondary-2:#2761fe;--success:#5aa958;--success-bg:#a3f69c;--warning:#d97706;--warning-bg:#fff1c2;--danger:#ba1a1a;--danger-bg:#ffdad6;--text:#191c1e;--text-2:#454652;--text-3:#767683;--r:24px;--rs:14px;--blur:18px;--gb:rgba(255,255,255,.78);--gbh:#ffffff;--gbo:rgba(25,28,30,.08);--gbl:rgba(0,6,102,.14);--a:var(--secondary);--a2:var(--primary);--a3:var(--secondary-2);--ok:var(--success);--warn:var(--warning);--err:var(--danger);--t1:var(--text);--t2:var(--text-2);--t3:var(--text-3)}
+html,body,#root{min-height:100%}
+body,#root{font-family:'Inter',sans-serif;background:var(--surface);color:var(--text)}
+body{background:var(--surface)}
+img{max-width:100%}
+.abg{min-height:100vh;background:radial-gradient(circle at top left,rgba(39,97,254,.08),transparent 22%),radial-gradient(circle at bottom right,rgba(26,35,126,.08),transparent 24%),linear-gradient(180deg,#fbfcfe 0%,var(--surface) 30%,#eef2f8 100%);color:var(--text);position:relative;overflow-x:hidden}
+.abg::before{content:'';position:fixed;inset:0;pointer-events:none;background:radial-gradient(circle at 18% 12%,rgba(39,97,254,.08),transparent 18%),radial-gradient(circle at 85% 0%,rgba(26,35,126,.06),transparent 20%);opacity:.9}
+.gl{background:rgba(255,255,255,.72);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(198,197,212,.18);border-radius:24px;box-shadow:0 18px 45px rgba(25,28,30,.06)}
+.gc{background:var(--surface-strong);border:1px solid rgba(198,197,212,.22);border-radius:22px;padding:22px;box-shadow:0 12px 28px rgba(25,28,30,.05);transition:transform .2s ease,box-shadow .2s ease,background .2s ease}
+.gc:hover{transform:translateY(-1px);box-shadow:0 16px 34px rgba(25,28,30,.08)}
+.gi,.gs,textarea.gi,select.gs{width:100%;padding:13px 15px;background:var(--surface-low);border:1px solid transparent;border-radius:14px;color:var(--text);font-family:'Inter',sans-serif;font-size:14px;outline:none;transition:background .2s ease,border-color .2s ease,box-shadow .2s ease}
+.gi:focus,.gs:focus,textarea.gi:focus,select.gs:focus{background:#eef3ff;border-color:rgba(0,72,216,.14);box-shadow:inset 0 -2px 0 var(--secondary),0 0 0 3px rgba(0,72,216,.08)}
+.gi::placeholder{color:#8b90a0}
+.gs{appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--text-3) 50%),linear-gradient(135deg,var(--text-3) 50%,transparent 50%);background-position:calc(100% - 18px) calc(50% - 3px),calc(100% - 12px) calc(50% - 3px);background-size:6px 6px,6px 6px;background-repeat:no-repeat;padding-right:34px}
+.gs option{background:#fff;color:var(--text)}
+.bp,.bs,.bg,.bd{min-height:44px;border-radius:14px;font-family:'Inter',sans-serif;font-weight:700;font-size:13px;letter-spacing:.01em;cursor:pointer;transition:transform .2s ease,box-shadow .2s ease,background .2s ease,color .2s ease,border-color .2s ease;display:inline-flex;align-items:center;gap:8px;padding:12px 18px}
+.bp{border:none;color:#fff;background:linear-gradient(135deg,var(--secondary),var(--secondary-2));box-shadow:0 10px 20px rgba(0,72,216,.18)}
+.bp:hover{transform:translateY(-1px);box-shadow:0 14px 24px rgba(0,72,216,.24)}
+.bs{border:none;color:#fff;background:linear-gradient(135deg,#0f7b3b,#5aa958);box-shadow:0 10px 20px rgba(90,169,88,.2)}
+.bg{background:var(--surface-low);border:1px solid rgba(198,197,212,.55);color:var(--text)}
+.bg:hover{background:var(--surface-mid);color:var(--primary)}
+.bd{background:var(--danger-bg);border:1px solid rgba(186,26,26,.14);color:var(--danger)}
+.ba{display:inline-flex;align-items:center;gap:4px;padding:5px 10px;border-radius:999px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em}
+.bn{background:#dce1ff;color:#001550}
+.br{background:var(--warning-bg);color:#7c4a03}
+.bu{background:var(--surface-mid);color:var(--text-2)}
+.bi{background:rgba(163,246,156,.3);color:#005312}
+.bso{background:rgba(255,218,214,.95);color:#93000a}
+.bre{background:#e0e0ff;color:#343d96}
+.ni{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:18px;color:var(--text-2);cursor:pointer;transition:all .2s ease;font-size:14px;font-weight:600;border:1px solid transparent}
+.ni:hover{background:rgba(255,255,255,.7);color:var(--primary);transform:translateX(2px)}
+.ni.ac{background:#fff;color:var(--primary);box-shadow:0 8px 18px rgba(25,28,30,.06);border-color:rgba(198,197,212,.22)}
+.fi{animation:fi .32s ease-out}@keyframes fi{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.tr{transition:background .2s ease,transform .2s ease}.tr:hover{background:rgba(236,238,241,.75)}
+.action-row{display:flex;gap:10px;margin-top:20px;flex-wrap:wrap}.action-row .bp,.action-row .bg,.action-row .bs,.action-row .bd{justify-content:center}
 .gi,.gs,.bp,.bg,.bd,.bs,.ni,.pa,.pt,.ptd,.cs{touch-action:manipulation}
 .stock-tools{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-.stock-search{flex:1 1 200px;position:relative}
+.stock-search{flex:1 1 240px;position:relative}
 .stock-view-toggle{display:flex;gap:4px}
-.stock-header{display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px;margin-bottom:24px}
-.stock-header>div:first-child{min-width:0}
-.stock-hero-actions{display:flex;gap:8px;flex-wrap:wrap}
-.stock-hero-actions .btn-label{display:inline}
-.stock-filter-card{margin-bottom:20px;padding:16px}
-.stock-search .gi{padding-left:36px}
-.hcard-actions{display:flex;gap:3px}
-.repair-status-select{width:auto;min-width:0;max-width:104px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.35px;padding:4px 20px 4px 8px;border-radius:999px;line-height:1}
+.stock-header{display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px;margin-bottom:22px}.stock-header>div:first-child{min-width:0}
+.stock-hero-actions{display:flex;gap:8px;flex-wrap:wrap}.stock-hero-actions .btn-label{display:inline}
+.stock-filter-card{margin-bottom:18px;padding:16px;border-radius:20px;background:rgba(255,255,255,.78);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
+.stock-search .gi{padding-left:38px}
+.hcard-actions{display:flex;gap:6px}
+.repair-status-select{width:auto;min-width:0;max-width:108px;font-size:10px!important;font-weight:800;text-transform:uppercase;letter-spacing:.05em;padding:4px 22px;border-radius:999px;line-height:1.05;min-height:30px;text-align:center;text-align-last:center;background-position:calc(100% - 14px) calc(50% - 2px),calc(100% - 9px) calc(50% - 2px);background-size:5px 5px,5px 5px}
+.repair-status-select.status-received{background:#e8f0ff;border-color:#cad9ff;color:#1842b4}
+.repair-status-select.status-ready,.repair-status-select.status-delivered{background:#e7f8ed;border-color:#bde8cb;color:#0d8a55}
+.repair-status-select.status-cancelled{background:#ffebeb;border-color:#f4c4c4;color:#b42323}
+.repair-status-select.payment-unpaid{background:#f3efd7;border-color:#e7dab1;color:#a26a00}
+.repair-status-select.payment-advance{background:#fff1dd;border-color:#f2ddb3;color:#a46400}
+.repair-status-select.payment-paid{background:#e7f8ed;border-color:#bde8cb;color:#0d8a55}
 .stock-controls-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .parts-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:14px}
-.parts-stat-card{padding:14px}
-.parts-sheet-wrap{z-index:930;background:rgba(0,0,0,.78);padding:20px}
+.parts-stat-card{padding:16px}
+.parts-sheet-wrap{z-index:930;background:rgba(25,28,30,.24);padding:20px}
 .parts-sheet{width:min(520px,92vw);max-height:min(88vh,88dvh);overflow:auto}
-.mfd{position:fixed;left:0;right:0;bottom:0;height:156px;pointer-events:none;z-index:44;display:none}
-.mfd::before{content:'';position:absolute;left:0;right:0;bottom:0;height:136px;background:linear-gradient(180deg,rgba(10,10,26,0),rgba(10,10,26,.56) 48%,rgba(10,10,26,.9));opacity:.96}
-.mfd::after{content:'';position:absolute;left:12px;right:12px;bottom:calc(6px + env(safe-area-inset-bottom,0px));height:96px;border-radius:28px;background:radial-gradient(circle at 20% 18%,rgba(0,212,255,.16),transparent 42%),radial-gradient(circle at 82% 24%,rgba(139,92,246,.2),transparent 44%),rgba(255,255,255,.03);backdrop-filter:blur(26px);-webkit-backdrop-filter:blur(26px);filter:blur(12px);opacity:.95}
-@keyframes pu{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(52,211,153,.5)}50%{opacity:.8;box-shadow:0 0 0 8px rgba(52,211,153,0)}}
-@media(max-width:1024px){.ds{display:none!important}.mn{display:flex!important}.mfd{display:block!important}.mth{display:flex!important}.mc{margin-left:0!important;padding:calc(86px + env(safe-area-inset-top,0px)) 16px calc(130px + env(safe-area-inset-bottom,0px))!important}}
-@media(max-width:768px){.hcard{min-height:164px!important}.hcard-photo{width:108px!important;min-width:108px!important}.hcard-details{padding:11px 12px!important}.hcard-title{font-size:13px!important}.hcard-imei{font-size:10px!important}.hcard-price{padding:6px 8px!important;gap:6px!important;margin-bottom:10px!important}.action-row>*{width:100%;justify-content:center}.gi,.gs{font-size:16px!important}.stock-header{display:grid!important;grid-template-columns:minmax(0,1fr) auto;align-items:start!important;margin-bottom:16px}.stock-hero-actions{width:auto;display:flex;gap:8px;justify-self:end}.stock-hero-actions .bp{padding:11px 14px;font-size:13px;min-height:46px;justify-content:center}.stock-filter-card{margin-bottom:14px;padding:12px!important}.stock-tools{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:start}.stock-search{min-width:0}.stock-search .gi{padding:11px 14px 11px 34px}.stock-controls-row{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-start}.stock-controls-row .gs{flex:1 1 132px;min-width:0;padding:10px 11px;font-size:14px!important}.stock-view-toggle{flex:0 0 auto}.stock-view-toggle .bg{padding:8px 9px;min-width:38px}.hcard-ab,.hcard-actions .bg,.hcard-actions .bd{padding:8px!important;min-width:34px!important;min-height:34px!important}.parts-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:560px){.gc{padding:16px!important}.mth{padding-inline:12px!important}.mc{padding-inline:12px!important}.stock-tools{grid-template-columns:1fr}.stock-controls-row{display:grid;grid-template-columns:1fr 1fr auto;gap:8px}.stock-controls-row .gs{flex:initial;min-width:0}.stock-view-toggle{justify-self:end}.stock-header h1{font-size:24px!important}.stock-header p{font-size:13px!important}.stock-hero-actions .btn-label{display:none}.stock-hero-actions .bp{width:42px;min-width:42px;height:42px;min-height:42px;padding:0}.hcard{flex-direction:row!important;align-items:stretch!important}.hcard-photo{width:112px!important;min-width:112px!important;height:auto!important;min-height:190px!important;border-right:1px solid rgba(255,255,255,.06)!important;border-bottom:none!important}.hcard-details{padding:12px!important}.hcard-price{gap:8px!important}.mfd::after{left:8px;right:8px}.hcard-ab,.hcard-actions .bg,.hcard-actions .bd{padding:9px!important;min-width:38px!important;min-height:38px!important}.repair-status-select{max-width:92px!important;font-size:9px!important;padding:3px 18px 3px 7px!important;letter-spacing:.25px!important}.parts-stat-card{padding:12px!important}.parts-sheet-wrap{align-items:stretch!important;justify-content:flex-end!important;padding:0!important}.parts-sheet{width:100vw!important;max-width:none!important;max-height:min(86vh,86dvh)!important;border-bottom-left-radius:0!important;border-bottom-right-radius:0!important;padding:18px 16px calc(18px + env(safe-area-inset-bottom,0px))!important}}
-@media(max-width:430px){.stock-controls-row{grid-template-columns:1fr 1fr auto}.stock-controls-row .gs{padding:9px 8px;font-size:13px!important}.stock-view-toggle .bg{padding:8px;min-width:34px}.hcard{flex-direction:row!important}.hcard-photo{width:96px!important;min-width:96px!important;min-height:176px!important}.hcard-details{padding:11px!important}.hcard-ab{padding:10px!important;min-width:40px!important;min-height:40px!important}.repair-status-select{max-width:84px!important;font-size:8.5px!important;padding:3px 16px 3px 6px!important;letter-spacing:.15px!important}}
-@media(max-height:760px){.co{padding-top:calc(10px + env(safe-area-inset-top,0px));padding-bottom:calc(12px + env(safe-area-inset-bottom,0px))}.cc{gap:10px}.cv{max-height:min(48vh,48dvh)}}
-@media(min-width:1025px){.mn,.mth,.mfd{display:none!important}}
-.so{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.92);display:flex;flex-direction:column;align-items:center;justify-content:center}
-.sf{width:280px;height:160px;border:2px solid var(--a);border-radius:12px;position:relative;overflow:hidden;box-shadow:0 0 40px rgba(0,212,255,.2)}
-.sl{position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--a),transparent);animation:sla 2s ease-in-out infinite}
-.sbx{position:absolute;left:10%;right:10%;top:24%;bottom:24%;border:2px solid rgba(255,255,255,.9);border-radius:10px;box-shadow:0 0 0 999px rgba(0,0,0,.18);pointer-events:none}
-.sbt{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);padding:4px 10px;border-radius:999px;background:rgba(0,0,0,.6);color:#fff;font-size:10px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;pointer-events:none}
-@keyframes sla{0%,100%{top:0}50%{top:calc(100% - 2px)}}
-.pg{display:grid;grid-template-columns:repeat(auto-fill,minmax(76px,1fr));gap:8px}
-.pt{position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;cursor:pointer;border:1px solid var(--gbo);transition:all .25s}
-.pt:hover{border-color:var(--a);transform:scale(1.04);box-shadow:0 4px 16px rgba(0,212,255,.15)}
+.mfd{display:none!important}
+.pd{width:8px;height:8px;border-radius:50%;background:var(--ok);animation:pu 2s infinite}@keyframes pu{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(90,169,88,.35)}50%{opacity:.72;box-shadow:0 0 0 8px rgba(90,169,88,0)}}
+.so{position:fixed;inset:0;z-index:100;background:rgba(9,16,32,.55);backdrop-filter:blur(10px);display:flex;flex-direction:column;align-items:center;justify-content:center}
+.sf{width:280px;height:160px;border:2px solid var(--secondary);border-radius:18px;position:relative;overflow:hidden;box-shadow:0 24px 48px rgba(0,72,216,.18);background:#081528}
+.sl{position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--secondary),transparent);animation:sla 2s ease-in-out infinite}
+.sbx{position:absolute;left:10%;right:10%;top:24%;bottom:24%;border:2px solid rgba(255,255,255,.9);border-radius:12px;box-shadow:0 0 0 999px rgba(0,0,0,.18);pointer-events:none}
+.sbt{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);padding:4px 10px;border-radius:999px;background:rgba(0,0,0,.6);color:#fff;font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;pointer-events:none}@keyframes sla{0%,100%{top:0}50%{top:calc(100% - 2px)}}
+.pg{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:10px}
+.pt{position:relative;aspect-ratio:1;border-radius:14px;overflow:hidden;cursor:pointer;border:1px solid rgba(198,197,212,.42);transition:all .2s ease;background:var(--surface-low)}
+.pt:hover{border-color:rgba(0,72,216,.4);transform:translateY(-1px);box-shadow:0 10px 16px rgba(25,28,30,.08)}
 .pt img{width:100%;height:100%;object-fit:cover}
-.ptd{position:absolute;top:4px;right:4px;width:20px;height:20px;border-radius:50%;background:rgba(248,113,113,.9);display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:0;transition:opacity .2s}
+.ptd{position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:50%;background:rgba(186,26,26,.9);display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:0;transition:opacity .2s}
 .pt:hover .ptd{opacity:1}
-.pa{aspect-ratio:1;border-radius:10px;border:2px dashed var(--gbo);background:rgba(255,255,255,.02);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:pointer;transition:all .25s;color:var(--t3);font-size:10px;font-weight:500}
-.pa:hover{border-color:var(--a);color:var(--a);background:rgba(0,212,255,.04)}
+.pa{aspect-ratio:1;border-radius:14px;border:1.5px dashed rgba(0,72,216,.25);background:#f3f6ff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;cursor:pointer;transition:all .2s;color:var(--secondary);font-size:11px;font-weight:700}
+.pa:hover{border-color:var(--secondary);background:#ebf1ff}
 .lo{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.95);display:flex;flex-direction:column;align-items:center;justify-content:center;animation:fi .2s ease}
-.li{max-width:90vw;max-height:75vh;border-radius:12px;object-fit:contain;box-shadow:0 12px 60px rgba(0,0,0,.6)}
-.ln{position:absolute;top:50%;transform:translateY(-50%);width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;cursor:pointer;color:#fff;transition:all .2s}
-.ln:hover{background:rgba(255,255,255,.15)}
-.co{position:fixed;inset:0;z-index:150;background:rgba(0,0,0,.95);display:flex;align-items:center;justify-content:center;padding:calc(12px + env(safe-area-inset-top,0px)) 16px calc(20px + env(safe-area-inset-bottom,0px));min-height:100vh;min-height:100dvh;overflow:hidden}
+.li{max-width:90vw;max-height:75vh;border-radius:16px;object-fit:contain;box-shadow:0 12px 60px rgba(0,0,0,.35)}
+.ln{position:absolute;top:50%;transform:translateY(-50%);width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.3);display:flex;align-items:center;justify-content:center;cursor:pointer;color:#fff;transition:all .2s}.ln:hover{background:rgba(255,255,255,.2)}
+.co{position:fixed;inset:0;z-index:150;background:rgba(4,10,24,.86);display:flex;align-items:center;justify-content:center;padding:calc(12px + env(safe-area-inset-top,0px)) 16px calc(20px + env(safe-area-inset-bottom,0px));min-height:100vh;min-height:100dvh;overflow:hidden}
 .cc{width:min(360px,100%);height:100%;max-height:calc(100vh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 32px);max-height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 32px);display:grid;grid-template-rows:auto minmax(0,1fr) auto auto;align-items:center;justify-items:center;gap:12px}
-.cv{width:min(320px,100%);max-width:100%;aspect-ratio:3/4;max-height:min(56vh,56dvh);border-radius:16px;overflow:hidden;border:2px solid rgba(255,255,255,.15);position:relative;box-shadow:0 0 60px rgba(0,212,255,.1)}
+.cv{width:min(320px,100%);max-width:100%;aspect-ratio:3/4;max-height:min(56vh,56dvh);border-radius:20px;overflow:hidden;border:2px solid rgba(255,255,255,.18);position:relative;box-shadow:0 0 60px rgba(0,72,216,.18)}
 .cv video{width:100%;height:100%;object-fit:cover}
-.cs{width:64px;height:64px;border-radius:50%;border:3px solid #fff;background:rgba(255,255,255,.15);cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center}
-.cs:hover{background:rgba(255,255,255,.3);transform:scale(1.05)}.cs:active{transform:scale(.95);background:rgba(255,255,255,.5)}
-.ip{width:100%;height:140px;border-radius:10px;overflow:hidden;margin-bottom:14px;position:relative;cursor:pointer}
-.ip img{width:100%;height:100%;object-fit:cover;transition:transform .4s}.ip:hover img{transform:scale(1.06)}
-.ipl{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:rgba(255,255,255,.3);font-size:12px}
-.ipc{position:absolute;bottom:8px;right:8px;background:rgba(0,0,0,.7);backdrop-filter:blur(8px);padding:3px 8px;border-radius:12px;color:#fff;font-size:11px;font-weight:600;display:flex;align-items:center;gap:4px}
+.cs{width:64px;height:64px;border-radius:50%;border:3px solid #fff;background:rgba(255,255,255,.15);cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center}.cs:hover{background:rgba(255,255,255,.3);transform:scale(1.05)}.cs:active{transform:scale(.95);background:rgba(255,255,255,.5)}
+.ip{width:100%;height:140px;border-radius:14px;overflow:hidden;margin-bottom:14px;position:relative;cursor:pointer;background:var(--surface-low)}
+.ip img{width:100%;height:100%;object-fit:cover;transition:transform .4s}.ip:hover img{transform:scale(1.04)}
+.ipl{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:var(--text-3);font-size:12px}
+.ipc{position:absolute;bottom:8px;right:8px;background:rgba(25,28,30,.72);backdrop-filter:blur(8px);padding:4px 8px;border-radius:12px;color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;gap:4px}
 .sh::-webkit-scrollbar{display:none}.sh{-ms-overflow-style:none;scrollbar-width:none}
-.sgc{box-shadow:inset 0 0 30px rgba(0,212,255,.05),0 0 40px rgba(0,212,255,.03)}
-.sgv{box-shadow:inset 0 0 30px rgba(139,92,246,.05),0 0 40px rgba(139,92,246,.03)}
-.sgp{box-shadow:inset 0 0 30px rgba(244,114,182,.05),0 0 40px rgba(244,114,182,.03)}
-.sgg{box-shadow:inset 0 0 30px rgba(52,211,153,.05),0 0 40px rgba(52,211,153,.03)}
-.lic-gate{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px}
-.lic-box{max-width:420px;width:100%;padding:36px 32px;display:flex;flex-direction:column;gap:20px;box-shadow:0 0 80px rgba(0,212,255,.1),0 0 40px rgba(139,92,246,.06);border-color:rgba(0,212,255,.18)!important}
-.lic-logo{display:flex;align-items:center;gap:14px;justify-content:center;padding-bottom:4px}
-.lic-input{font-family:'Outfit',sans-serif!important;font-size:16px!important;letter-spacing:normal;text-align:center;text-transform:none}
-.lic-input::placeholder{letter-spacing:normal;font-size:13px}
-@media(max-width:480px){.lic-box{padding:24px 16px}.lic-input{font-size:14px!important}}
+.sgc,.sgv,.sgp,.sgg{position:relative;overflow:hidden}.sgc::after,.sgv::after,.sgp::after,.sgg::after{content:'';position:absolute;top:-24px;right:-24px;width:128px;height:128px;border-radius:50%;opacity:.08}.sgc::after{background:var(--secondary)}.sgv::after{background:var(--primary)}.sgp::after{background:#7c3aed}.sgg::after{background:var(--success)}
+.auth-shell{display:flex;min-height:100vh;background:var(--surface)}
+.auth-hero{display:flex;flex:1 1 50%;min-height:100vh;position:relative;background:linear-gradient(180deg,rgba(0,6,102,.86),rgba(0,6,102,.72)),radial-gradient(circle at top,rgba(255,255,255,.18),transparent 32%),linear-gradient(160deg,#1a237e 0%,#000666 60%,#0c205f 100%);color:#fff;padding:56px 56px 48px;overflow:hidden}
+.auth-hero::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 70% 15%,rgba(224,224,255,.22),transparent 24%),radial-gradient(circle at 25% 78%,rgba(39,97,254,.2),transparent 28%)}
+.auth-hero::after{content:'';position:absolute;right:-14%;bottom:-12%;width:44vw;height:44vw;max-width:480px;max-height:480px;border-radius:50%;background:rgba(255,255,255,.05);filter:blur(1px)}
+.auth-hero-content{position:relative;z-index:1;display:flex;flex-direction:column;justify-content:space-between;gap:32px;width:100%}
+.auth-badge{display:inline-flex;align-items:center;gap:8px;padding:10px 16px;border-radius:999px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.14);font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;width:max-content}
+.auth-hero h1{font-family:'Plus Jakarta Sans',sans-serif;font-size:clamp(2.6rem,4vw,4.2rem);line-height:1.04;font-weight:800;letter-spacing:-.04em;max-width:540px}
+.auth-hero p{max-width:520px;font-size:17px;line-height:1.75;color:rgba(255,255,255,.82);font-weight:500}
+.auth-hero-points{display:flex;gap:18px;flex-wrap:wrap;color:rgba(255,255,255,.76);font-size:13px;font-weight:600}
+.auth-panel{display:flex;flex:1 1 50%;min-height:100vh;background:var(--surface-strong);padding:40px 48px;position:relative}
+.auth-form-wrap{width:min(460px,100%);margin:auto;display:grid;gap:20px}
+.auth-mobile-brand{display:none;align-items:center;gap:10px;color:var(--primary);font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:28px;letter-spacing:-.03em}
+.auth-header h2{font-family:'Plus Jakarta Sans',sans-serif;font-size:36px;line-height:1.1;letter-spacing:-.03em;color:var(--text);margin-bottom:8px}
+.auth-header p{color:var(--text-2);font-size:15px;line-height:1.7}
+.auth-segment{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:6px;background:var(--surface-low);border-radius:18px}
+.auth-segment button{min-height:42px;border-radius:14px;border:none;background:transparent;color:var(--text-2);font-weight:700;font-size:13px;cursor:pointer;transition:all .2s}
+.auth-segment button.active{background:#fff;color:var(--primary);box-shadow:0 8px 18px rgba(25,28,30,.06)}
+.auth-card{display:grid;gap:16px}
+.auth-field{display:grid;gap:8px}
+.auth-field label{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-2)}
+.auth-field .auth-input{display:flex;align-items:center;gap:10px;padding-left:14px}
+.auth-input .gi,.auth-input .gs{border:none;background:transparent;box-shadow:none;padding:14px 14px 14px 0}
+.auth-input:focus-within{background:#eef3ff;box-shadow:inset 0 -2px 0 var(--secondary),0 0 0 3px rgba(0,72,216,.08)}
+.auth-input-icon{display:flex;align-items:center;justify-content:center;color:var(--text-3)}
+.auth-error{display:flex;align-items:center;gap:8px;padding:12px 14px;border-radius:16px;background:rgba(255,218,214,.64);border:1px solid rgba(186,26,26,.12);color:var(--danger);font-size:13px;font-weight:600}
+.auth-submit{width:100%;justify-content:center;min-height:50px;border-radius:18px;font-size:14px}
+.auth-meta{display:flex;justify-content:space-between;align-items:center;gap:14px;font-size:13px;color:var(--text-2);flex-wrap:wrap}
+.auth-link{color:var(--secondary);font-weight:700;cursor:pointer;background:none;border:none;padding:0}
+.auth-foot{margin-top:auto;padding-top:16px}
+.auth-foot-card{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:18px 20px;border-radius:20px;background:var(--surface-low);border:1px solid rgba(198,197,212,.18)}
+.auth-foot-title{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-3);margin-bottom:4px}
+.auth-foot-value{font-size:14px;font-weight:700;color:var(--text)}
+.auth-status-pill{display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border-radius:999px;background:rgba(163,246,156,.4);color:#005312;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+.shell{display:flex;min-height:100vh;width:100%;background:#f7f9fc}
+.shell-sidebar{width:316px;position:fixed;top:0;left:0;bottom:0;padding:18px 18px 14px;display:flex;flex-direction:column;z-index:60;background:linear-gradient(180deg,#f8fafc 0%,#f1f4f8 100%);border-right:1px solid rgba(198,197,212,.3);box-shadow:18px 0 38px rgba(25,28,30,.04)}
+.shell-brand{display:grid;grid-template-columns:54px minmax(0,1fr);align-items:center;gap:14px;padding:10px 12px 28px}
+.shell-brand-mark{width:54px;height:54px;border-radius:16px;background:linear-gradient(160deg,#0f46d8 0%,#162b95 100%);display:flex;align-items:center;justify-content:center;box-shadow:0 12px 20px rgba(15,70,216,.22)}
+.shell-brand-mark img{width:28px;height:28px;border-radius:10px}
+.shell-brand-copy{min-width:0}
+.shell-brand-copy strong{display:block;font-family:'Plus Jakarta Sans',sans-serif;font-size:15px;font-weight:800;letter-spacing:-.03em;color:#1f2d8d;line-height:1.15}
+.shell-brand small{display:block;margin-top:4px;color:#6f7890;font-size:11px;letter-spacing:.12em;text-transform:uppercase;font-weight:800}
+.shell-footer{display:grid;gap:8px;padding:0 12px;margin-top:8px}
+.shell-footer-bottom{display:grid;gap:8px;margin-top:auto;padding-top:8px}
+.shell-footer-link{display:flex;align-items:center;gap:12px;padding:12px 14px;border:none;border-radius:16px;background:transparent;color:#465368;font-size:15px;font-weight:600;cursor:pointer;transition:all .2s ease;text-align:left}
+.shell-footer-link:hover{background:rgba(255,255,255,.72);color:#23358f}
+.shell-status{display:flex;align-items:center;gap:8px;padding:12px 14px;border-radius:16px;background:#fff;color:#5b6579;font-size:12px;font-weight:700;border:1px solid rgba(198,197,212,.2)}
+.shell-main{margin-left:316px;flex:1;min-width:0;padding:18px 28px 36px;position:relative}
+.shell-main.shell-main-add{padding-top:18px}
+.shell-main.shell-main-inventory{padding-top:18px}
+.shell-main.shell-main-no-mth{padding-top:18px}
+.shell-title{min-width:0}.shell-title h1{font-family:'Plus Jakarta Sans',sans-serif;font-size:32px;letter-spacing:-.05em;font-weight:800;color:#171f3f;line-height:1.04}.shell-title p{margin-top:8px;color:#697386;font-size:14px;line-height:1.6;max-width:760px}
+.shell-pill{display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border-radius:999px;background:rgba(163,246,156,.34);color:#005312;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+.mth{position:fixed;top:0;left:0;right:0;z-index:55;display:none;align-items:center;justify-content:space-between;padding:calc(10px + env(safe-area-inset-top,0px)) 16px 10px;background:rgba(247,249,252,.88);backdrop-filter:blur(18px);border-bottom:1px solid rgba(198,197,212,.18)}
+.mth-brand{display:flex;align-items:center;gap:10px;min-width:0}.mth-title{min-width:0}.mth-title strong{display:block;font-family:'Plus Jakarta Sans',sans-serif;font-size:16px;font-weight:800;color:var(--primary);letter-spacing:-.02em}.mth-title span{display:block;font-size:11px;color:var(--text-3);font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.mn{position:fixed;bottom:calc(8px + env(safe-area-inset-bottom,0px));left:8px;right:8px;z-index:60;display:none;gap:4px;padding:6px;border-radius:22px;background:rgba(255,255,255,.96);backdrop-filter:blur(18px);border:1px solid rgba(198,197,212,.2);box-shadow:0 10px 24px rgba(25,28,30,.1);overflow-x:auto}
+.mn-item{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 12px;min-width:64px;flex:1 0 auto;border-radius:18px;color:var(--text-3);cursor:pointer;transition:all .2s ease;font-size:10px;font-weight:700}
+.mn-item.active{background:#eef3ff;color:var(--primary)}
+.dashboard-actions{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px}
+.dashboard-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:22px}
+.metric-card{position:relative;overflow:hidden}.metric-card .metric-label{color:var(--text-2);font-size:12px;font-weight:700;letter-spacing:.02em}.metric-card .metric-value{font-family:'Plus Jakarta Sans',sans-serif;font-size:30px;font-weight:800;letter-spacing:-.04em;color:var(--text);line-height:1.1;margin-top:10px}.metric-card .metric-sub{color:var(--text-3);font-size:12px;margin-top:8px}
+.metric-card.featured{background:linear-gradient(140deg,var(--primary-2),var(--primary));color:#fff;border-color:rgba(0,6,102,.08)}
+.metric-card.featured .metric-label,.metric-card.featured .metric-sub,.metric-card.featured .metric-value{color:#fff}
+.metric-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:10px;background:rgba(163,246,156,.34);color:#005312;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
+.dashboard-retail{width:min(880px,100%);margin:0 auto;display:grid;gap:14px}
+.dashboard-retail-hero{display:grid;gap:14px;padding:16px 18px;border-radius:24px;background:linear-gradient(180deg,#ffffff 0%,#f2f5fb 100%);border:1px solid rgba(198,197,212,.22);box-shadow:0 12px 24px rgba(25,28,30,.05)}
+.dashboard-retail-top{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}.dashboard-retail-brand{display:flex;align-items:center;gap:14px;min-width:0}.dashboard-retail-brand-mark{width:52px;height:52px;border-radius:18px;background:#e8eefb;display:flex;align-items:center;justify-content:center;box-shadow:inset 0 1px 0 rgba(255,255,255,.9)}.dashboard-retail-brand-mark img{width:28px;height:28px;border-radius:10px}.dashboard-retail-brand h1{font-family:'Plus Jakarta Sans',sans-serif;font-size:34px;line-height:1;font-weight:800;letter-spacing:-.05em;color:#183a90}.dashboard-retail-brand p{margin-top:6px;color:var(--text-2);font-size:13px;line-height:1.6}
+.dashboard-retail-top-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.dashboard-retail-status{display:inline-flex;align-items:center;gap:8px;padding:10px 16px;border-radius:999px;background:#98f09b;color:#063f16;font-size:12px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;box-shadow:inset 0 -1px 0 rgba(0,0,0,.06)}.dashboard-retail-status.offline{background:#ffe8b3;color:#7c4a03}.dashboard-retail-icon-btn{width:46px;height:46px;border:none;border-radius:16px;background:#edf1f8;color:#6a778f;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .2s ease}.dashboard-retail-icon-btn:hover{background:#e1e8f6;color:var(--primary)}
+.dashboard-retail-search{display:flex;align-items:center;gap:12px;width:100%;padding:15px 18px;border:none;border-radius:20px;background:#fff;color:#707789;font-size:15px;text-align:left;box-shadow:0 8px 18px rgba(25,28,30,.04);border:1px solid rgba(198,197,212,.18);cursor:pointer}.dashboard-retail-search span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dashboard-retail-alert{display:flex;align-items:center;gap:10px;padding:11px 14px;border-radius:16px;font-size:12px;font-weight:700}.dashboard-retail-alert.danger{background:rgba(255,218,214,.82);color:var(--err);border:1px solid rgba(186,26,26,.12)}.dashboard-retail-alert.warn{background:rgba(255,241,194,.92);color:var(--warn);border:1px solid rgba(217,119,6,.14)}
+.dashboard-retail-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.dashboard-retail-metric{padding:14px 15px;border-radius:20px;background:#fff;border:1px solid rgba(198,197,212,.18);box-shadow:0 8px 20px rgba(25,28,30,.05);display:grid;gap:10px;min-width:0}.dashboard-retail-metric-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.dashboard-retail-metric-icon{width:42px;height:42px;border-radius:12px;background:#eaf0fd;color:#243f9f;display:flex;align-items:center;justify-content:center}.dashboard-retail-metric-tag{padding:5px 8px;border-radius:9px;background:#a8f1a7;color:#1b7c2e;font-size:10px;font-weight:800}.dashboard-retail-metric-label{color:#697386;font-size:12px;font-weight:700}.dashboard-retail-metric-value{font-family:'Plus Jakarta Sans',sans-serif;font-size:22px;font-weight:800;letter-spacing:-.04em;color:#111827}.dashboard-retail-metric-sub{color:var(--text-2);font-size:11px;line-height:1.45}
+.dashboard-retail-actions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.dashboard-retail-action{border:none;border-radius:18px;padding:14px 12px;background:linear-gradient(135deg,#1253d8,#0c4ad0);color:#fff;display:grid;justify-items:center;gap:9px;cursor:pointer;box-shadow:0 10px 20px rgba(18,83,216,.18)}.dashboard-retail-action:nth-child(2){background:linear-gradient(135deg,#24349f,#1a2f93)}.dashboard-retail-action:nth-child(3){background:linear-gradient(135deg,#4f46e5,#4338ca)}.dashboard-retail-action:nth-child(4){background:linear-gradient(135deg,#5a47ea,#4d39d7)}.dashboard-retail-action strong{font-size:14px;font-weight:800;letter-spacing:-.02em}.dashboard-retail-action span{width:36px;height:36px;border-radius:10px;background:rgba(255,255,255,.16);display:flex;align-items:center;justify-content:center}
+.dashboard-retail-panels{display:grid;grid-template-columns:minmax(260px,.8fr) minmax(0,1.2fr);gap:12px;align-items:start}.dashboard-retail-panel{padding:13px;border-radius:18px;background:#fff;border:1px solid rgba(198,197,212,.18);box-shadow:0 10px 20px rgba(25,28,30,.05)}.dashboard-retail-panel-head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:10px}.dashboard-retail-panel-head h3{font-family:'Plus Jakarta Sans',sans-serif;font-size:16px;font-weight:800;letter-spacing:-.03em;color:#111827}.dashboard-retail-panel-head button{border:none;background:none;color:#0d4cff;font-size:12px;font-weight:800;cursor:pointer;padding:0}.dashboard-retail-fill{display:inline-flex;align-items:center;justify-content:center;padding:5px 8px;border-radius:9px;background:#eef3ff;color:#21399a;font-size:10px;font-weight:800}
+.dashboard-retail-mix{display:grid;gap:8px}.dashboard-retail-mix-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px;align-items:center}.dashboard-retail-mix-tone{width:4px;height:22px;border-radius:999px}.dashboard-retail-mix-copy{display:grid;gap:4px}.dashboard-retail-mix-title{display:flex;justify-content:space-between;gap:8px;color:#111827;font-size:12px;font-weight:700}.dashboard-retail-mix-bar{width:100%;height:4px;border-radius:999px;background:#edf2f8;overflow:hidden}.dashboard-retail-mix-bar div{height:100%;border-radius:999px}.dashboard-retail-mix-row strong{font-size:12px;color:#111827}
+.dashboard-retail-activity{display:grid;gap:10px}.dashboard-retail-activity-item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;padding:12px 14px 12px 16px;border-radius:14px;background:#f5f7fb;border-left:4px solid #0d4cff}.dashboard-retail-activity-item.nongst{border-left-color:#7f8598}.dashboard-retail-activity-main{display:flex;align-items:center;gap:10px;min-width:0}.dashboard-retail-activity-icon{width:36px;height:36px;border-radius:10px;background:#e8eefc;color:#0d4cff;display:flex;align-items:center;justify-content:center;flex-shrink:0}.dashboard-retail-activity-copy{min-width:0}.dashboard-retail-activity-title{font-size:14px;font-weight:800;color:#111827;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.dashboard-retail-activity-meta{margin-top:2px;color:#717b8f;font-size:12px}.dashboard-retail-activity-side{text-align:right;display:grid;gap:6px;justify-items:end}.dashboard-retail-activity-amount{font-family:'Plus Jakarta Sans',sans-serif;font-size:15px;font-weight:800;color:#111827}.dashboard-retail-bill{display:inline-flex;align-items:center;justify-content:center;padding:3px 8px;border-radius:7px;font-size:10px;font-weight:800}.dashboard-retail-bill.gst{background:#a8f1a7;color:#135b25}.dashboard-retail-bill.nongst{background:#e2e7f0;color:#66738b}
+.mth.dashboard-retail-mobile{padding:calc(18px + env(safe-area-inset-top,0px)) 18px 16px;background:#f7f9fc;border-bottom:1px solid rgba(198,197,212,.18)}.mth.dashboard-retail-mobile .mth-brand{gap:12px}.mth.dashboard-retail-mobile .mth-brand-mark{width:44px;height:44px;border-radius:16px;background:#e8eefb;display:flex;align-items:center;justify-content:center}.mth.dashboard-retail-mobile .mth-brand-mark img{width:24px;height:24px;border-radius:8px}.mth.dashboard-retail-mobile .mth-title strong{font-size:16px;color:#183a90}.mth.dashboard-retail-mobile .mth-title span{display:none}.mth.dashboard-retail-mobile .dashboard-retail-status{padding:8px 12px;font-size:10px}.mth.dashboard-retail-mobile .dashboard-retail-icon-btn{width:40px;height:40px;border-radius:14px}
+.dashboard-retail-desktop,.stock-modern-desktop-head,.stock-modern-table,.transactions-desktop-head,.transactions-summary-grid,.transactions-desktop-table,.reports-desktop-hero{display:none}
+.dashboard-retail-mobile-stack,.transactions-mobile-stack,.stock-modern-mobile-grid{display:grid}
+.dashboard-executive-head{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:18px}
+.dashboard-executive-copy h1{font-family:'Plus Jakarta Sans',sans-serif;font-size:34px;font-weight:800;letter-spacing:-.05em;color:#202c8e;line-height:1.04}
+.dashboard-executive-copy p{margin-top:8px;color:#374151;font-size:15px;line-height:1.65}
+.dashboard-executive-actions{display:flex;align-items:center;gap:14px;flex-wrap:wrap;justify-content:flex-end}
+.dashboard-action-ghost,.dashboard-action-primary{display:inline-flex;align-items:center;gap:10px;min-height:54px;padding:0 22px;border-radius:16px;font-size:14px;font-weight:700;cursor:pointer;border:1px solid rgba(198,197,212,.18);box-shadow:0 10px 22px rgba(25,28,30,.04)}
+.dashboard-action-ghost{background:#fff;color:#24359a}.dashboard-action-primary{background:#163cae;color:#fff;border-color:#163cae}
+.dashboard-kpi-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}
+.dashboard-kpi-card{position:relative;padding:24px 26px;border-radius:26px;background:#fff;border:1px solid rgba(198,197,212,.18);box-shadow:0 16px 26px rgba(25,28,30,.04);overflow:hidden;display:grid;gap:14px;min-height:136px;align-content:start}
+.dashboard-kpi-label{font-size:12px;font-weight:900;letter-spacing:.16em;text-transform:uppercase;color:#1f2937;position:relative;z-index:1;max-width:calc(100% - 60px)}
+.dashboard-kpi-value{display:flex;align-items:center;gap:10px;font-family:'Plus Jakarta Sans',sans-serif;font-size:40px;font-weight:800;letter-spacing:-.05em;color:#26319d;line-height:1.05;position:relative;z-index:1;flex-wrap:wrap}
+.dashboard-main-grid{display:grid;grid-template-columns:minmax(300px,.58fr) minmax(0,1.42fr);gap:20px;align-items:start}
+.dashboard-card{background:#fff;border:1px solid rgba(198,197,212,.18);box-shadow:0 20px 30px rgba(25,28,30,.04);border-radius:30px;overflow:hidden}
+.dashboard-card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:32px 40px 18px}
+.dashboard-card-head h2{font-family:'Plus Jakarta Sans',sans-serif;font-size:20px;font-weight:800;letter-spacing:-.04em;color:#202c8e}
+.dashboard-card-head button{border:none;background:none;color:#3845ff;font-size:14px;font-weight:700;cursor:pointer}
+.dashboard-stock-body{padding:6px 40px 36px;display:grid;gap:20px}
+.dashboard-mix-track{display:grid;gap:18px}
+.dashboard-mix-item{display:grid;gap:10px}
+.dashboard-mix-item-top{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:13px;font-weight:700;color:#111827}
+.dashboard-mix-item-top strong{font-size:14px;color:#3845ff}
+.dashboard-mix-bar{height:14px;border-radius:999px;background:#eef2f7;overflow:hidden}
+.dashboard-mix-bar div{height:100%;border-radius:999px}
+.dashboard-transactions-head{display:grid;grid-template-columns:minmax(0,1.52fr) 190px 130px 170px;gap:16px;padding:0 40px 18px;color:#94a3b8;font-size:12px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;border-top:1px solid rgba(198,197,212,.12)}
+.dashboard-transactions-head span{white-space:nowrap}
+.dashboard-transactions-list{display:grid}
+.dashboard-transactions-row{display:grid;grid-template-columns:minmax(0,1.52fr) 190px 130px 170px;gap:16px;align-items:center;padding:22px 40px;border-top:1px solid #edf0f6}
+.dashboard-transactions-row > *{min-width:0}
+.dashboard-transactions-item{display:grid;grid-template-columns:44px minmax(0,1fr);gap:14px;align-items:center;min-width:0}
+.dashboard-transactions-item > div{min-width:0}
+.dashboard-transactions-icon{width:44px;height:44px;border-radius:14px;background:#eef2f7;color:#95a2b7;display:flex;align-items:center;justify-content:center}
+.dashboard-transactions-item strong{display:-webkit-box;font-size:16px;font-weight:800;color:#111827;line-height:1.25;overflow:hidden;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:normal}
+.dashboard-transactions-item span{display:-webkit-box;margin-top:6px;font-size:13px;color:#94a3b8;line-height:1.5;overflow:hidden;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:normal}
+.dashboard-transactions-amount{min-width:0}
+.dashboard-transactions-amount strong{display:block;font-family:'Plus Jakarta Sans',sans-serif;font-size:18px;font-weight:800;color:#1d2b92;line-height:1.2;white-space:nowrap}
+.dashboard-transactions-amount span{display:block;margin-top:6px;color:#0b6a2f;font-size:12px;font-weight:800;line-height:1.3;white-space:nowrap}
+.dashboard-status-pill{display:inline-flex;align-items:center;justify-content:center;padding:6px 14px;border-radius:999px;background:#dff7df;color:#2b7f3b;font-size:12px;font-weight:800}
+.dashboard-status-pill.pending{background:#eceff3;color:#5f6778}
+.dashboard-transactions-time{color:#334155;font-size:14px;line-height:1.55;white-space:nowrap}
+.stock-modern-desktop-head{grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:18px;padding:6px 4px 4px}
+.stock-modern-desktop-copy h1,.transactions-desktop-copy h1,.reports-desktop-copy h1{font-family:'Plus Jakarta Sans',sans-serif;font-size:34px;font-weight:800;letter-spacing:-.05em;color:#202c8e;line-height:1.04}
+.stock-modern-desktop-copy p,.transactions-desktop-copy p,.reports-desktop-copy p{margin-top:8px;color:#475467;font-size:14px;line-height:1.7}
+.stock-modern-desktop-meta{display:flex;align-items:center;gap:10px;flex-wrap:wrap;color:#64748b;font-size:13px;font-weight:700}
+.stock-modern-desktop-meta strong{color:#111827}
+.stock-modern-desktop-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:flex-end}
+.stock-modern-desktop-actions .bp{min-height:52px;padding:0 22px;border-radius:16px}
+.stock-modern-table{border-radius:28px;background:#fff;border:1px solid rgba(198,197,212,.18);box-shadow:0 18px 30px rgba(25,28,30,.04);overflow:hidden}
+.stock-modern-table-head,.stock-modern-table-row{display:grid;grid-template-columns:minmax(0,1.4fr) 160px 170px 130px 110px 140px 160px;gap:14px;align-items:center}
+.stock-modern-table-head{padding:18px 24px;background:#f8fafc;color:#94a3b8;font-size:11px;font-weight:900;letter-spacing:.14em;text-transform:uppercase}
+.stock-modern-table-row{padding:18px 24px;border-top:1px solid #edf0f6}
+.stock-device-cell{display:grid;grid-template-columns:52px minmax(0,1fr);gap:14px;align-items:center}
+.stock-device-thumb{width:52px;height:52px;border-radius:16px;overflow:hidden;background:#eef2f7;display:flex;align-items:center;justify-content:center;color:#667085}
+.stock-device-thumb img{width:100%;height:100%;object-fit:cover}
+.stock-device-copy strong{display:block;font-size:15px;font-weight:800;color:#111827}.stock-device-copy span{display:block;margin-top:5px;font-size:13px;color:#94a3b8}
+.stock-status-pill{display:inline-flex;align-items:center;justify-content:center;padding:6px 12px;border-radius:999px;font-size:11px;font-weight:800;background:#eef2ff;color:#3241b7}
+.stock-status-pill.good{background:#ddf8e5;color:#17603a}.stock-status-pill.warn{background:#fff1e6;color:#9a5600}
+.table-action-row{display:flex;align-items:center;gap:8px;justify-content:flex-end}
+.table-action-btn{width:36px;height:36px;border-radius:12px;border:1px solid rgba(198,197,212,.22);background:#f8fafc;color:#55627a;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.table-action-btn.primary{background:#163cae;border-color:#163cae;color:#fff}
+.table-action-btn.danger{background:#ffe7e3;border-color:#ffd0ca;color:#b42323}
+.transactions-desktop-head,.reports-desktop-hero{grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:18px}
+.transactions-desktop-actions,.reports-desktop-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:flex-end}
+.transactions-summary-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.transactions-summary-card{padding:24px 26px;border-radius:24px;background:#fff;border:1px solid rgba(198,197,212,.18);box-shadow:0 18px 28px rgba(25,28,30,.04);display:grid;gap:10px}
+.transactions-summary-card span{font-size:12px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:#94a3b8}
+.transactions-summary-card strong{font-family:'Plus Jakarta Sans',sans-serif;font-size:30px;font-weight:800;letter-spacing:-.05em;color:#202c8e}
+.transactions-summary-card em{font-style:normal;color:#64748b;font-size:13px}
+.transactions-desktop-table{border-radius:28px;background:#fff;border:1px solid rgba(198,197,212,.18);box-shadow:0 18px 28px rgba(25,28,30,.04);overflow:hidden}
+.transactions-table-head,.transactions-table-row{display:grid;grid-template-columns:130px minmax(0,1.25fr) 170px 120px 130px 150px;gap:16px;align-items:center}
+.transactions-table-head{padding:18px 26px;background:#f8fafc;color:#94a3b8;font-size:11px;font-weight:900;letter-spacing:.14em;text-transform:uppercase}
+.transactions-table-row{padding:20px 26px;border-top:1px solid #edf0f6}
+.transactions-table-row > *{min-width:0}
+.transactions-table-cell strong{display:block;font-size:16px;font-weight:800;color:#111827;word-break:break-word}.transactions-table-cell span{display:block;margin-top:5px;font-size:13px;color:#94a3b8;line-height:1.55;word-break:break-word}
+.transactions-table-amount{font-family:'Plus Jakarta Sans',sans-serif;font-size:20px;font-weight:800;color:#1d2b92}
+.transactions-table-actions{display:flex;align-items:center;gap:8px;justify-content:flex-end}
+.reports-desktop-actions .bp,.reports-desktop-actions .bg{min-height:50px;padding:0 18px;border-radius:16px}
+.reports-modern-feed.mobile-preview{display:grid}
+.section-grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:16px}.section-grid>.span-7{grid-column:span 7}.section-grid>.span-5{grid-column:span 5}.section-grid>.span-12{grid-column:span 12}
+.list-row{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;padding:14px 0;border-top:1px solid rgba(198,197,212,.16)}.list-row:first-child{border-top:none;padding-top:0}.list-row:last-child{padding-bottom:0}
+.list-row-title{color:var(--text);font-size:14px;font-weight:700}.list-row-meta{color:var(--text-2);font-size:12px;line-height:1.6;margin-top:4px}.list-row-value{font-size:14px;font-weight:800;color:var(--text)}
+.inventory-list{display:flex;flex-direction:column;gap:10px}
+.hcard{border-radius:20px!important;border:1px solid rgba(198,197,212,.18)!important;background:#fff!important;box-shadow:0 10px 26px rgba(25,28,30,.05)!important}
+.hcard-photo{background:var(--surface-low)}.hcard-details{gap:12px}.hcard-title{font-family:'Plus Jakarta Sans',sans-serif;letter-spacing:-.02em}.hcard-imei{font-variant-numeric:tabular-nums;color:var(--text-3)!important}.hcard-actions .bg,.hcard-actions .bd,.hcard-ab{min-width:36px;min-height:36px;padding:8px!important;border-radius:12px!important}
+.stock-modern{width:min(1120px,100%);margin:0 auto;display:grid;gap:14px}
+.stock-modern-controls{position:relative;z-index:32;display:grid;gap:10px;padding-bottom:8px;background:linear-gradient(180deg,#f7f9fc 0%,rgba(247,249,252,.96) 78%,rgba(247,249,252,0) 100%)}
+.stock-modern-topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 2px}
+.stock-modern-brand{display:flex;align-items:center;gap:12px;font-family:'Plus Jakarta Sans',sans-serif;font-size:22px;font-weight:800;color:#15358f;letter-spacing:-.03em}
+.stock-modern-brand span{width:34px;height:34px;border-radius:12px;background:#e8eefb;display:flex;align-items:center;justify-content:center;color:#1b4dd8}
+.stock-modern-icon-btn{width:42px;height:42px;border-radius:14px;border:1px solid rgba(198,197,212,.2);background:#fff;color:#1b3e98;display:flex;align-items:center;justify-content:center}
+.stock-modern-search{display:flex;align-items:center;gap:10px;padding:14px 16px;border-radius:16px;background:#f2f4f9;border:1px solid rgba(198,197,212,.22)}
+.stock-modern-search svg{color:#737e95;flex-shrink:0}
+.stock-modern-search .gi{border:none!important;background:transparent!important;padding:0!important;min-height:0!important;font-size:16px;color:#3f4a5e}
+.stock-modern-search .gi:focus{box-shadow:none}
+.stock-modern-filters{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;background:#fff;padding:6px;border:1px solid rgba(198,197,212,.26);border-radius:14px}
+.stock-modern-pill{background:#f3f4f8!important;border:1px solid rgba(198,197,212,.28)!important;border-radius:14px!important;padding:11px 33px 11px 14px!important;font-size:14px!important;color:#1f2430;min-height:48px;background-position:calc(100% - 16px) calc(50% - 2px),calc(100% - 10px) calc(50% - 2px)}
+.stock-modern-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.stock-modern-card{display:grid;grid-template-rows:auto 1fr;border-radius:16px;border:1px solid rgba(198,197,212,.22);background:#fff;overflow:hidden;box-shadow:0 8px 20px rgba(25,28,30,.05)}
+.stock-modern-card-media{position:relative;aspect-ratio:4/4;cursor:pointer;background:#dfe5ef;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.stock-modern-card-media img{width:100%;height:100%;object-fit:cover}
+.stock-modern-condition{position:absolute;top:10px;right:10px;padding:4px 12px;border-radius:999px;font-size:12px;font-weight:900;letter-spacing:.04em;z-index:2}
+.stock-modern-condition.mint{background:#95f1b1;color:#004f26}
+.stock-modern-condition.good{background:#e8edff;color:#132768}
+.stock-modern-condition.fair{background:#ffe0de;color:#9b1d1d}
+.stock-modern-placeholder{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:#fff}
+.stock-modern-placeholder span{font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;opacity:.8}
+.stock-modern-placeholder svg{opacity:.55}
+.stock-modern-card-body{padding:12px 12px 13px;display:grid;gap:8px}
+.stock-modern-brand-name{font-size:13px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:#0e4ce1}
+.stock-modern-card-body h3{font-family:'Plus Jakarta Sans',sans-serif;font-size:17px;font-weight:800;letter-spacing:-.03em;color:#171a26;line-height:1.2;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.stock-modern-imei{font-size:12px;color:#838b9e}
+.stock-modern-specs{display:flex;gap:6px;flex-wrap:wrap}
+.stock-modern-specs span{font-size:11px;font-weight:800;color:#5f6678;background:#eef1f7;border-radius:6px;padding:4px 7px}
+.stock-modern-price-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding-top:8px;border-top:1px solid rgba(198,197,212,.3)}
+.stock-modern-price-row small{display:block;font-size:11px;font-weight:800;text-transform:uppercase;color:#7f8798}
+.stock-modern-price-row strong{display:block;margin-top:2px;font-family:'Plus Jakarta Sans',sans-serif;font-size:16px;font-weight:800;color:#0b1e70;line-height:1.2}
+.stock-modern-price-row strong.up{color:#1f9f58}
+.stock-modern-price-row strong.down{color:#b42323}
+.stock-modern-actions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.stock-modern-action{height:42px;border-radius:10px;border:1px solid rgba(198,197,212,.25);background:#e8ebf2;color:#3e4658;display:flex;align-items:center;justify-content:center}
+.stock-modern-action.primary{background:#0c4fde;border-color:#0c4fde;color:#fff}
+.stock-modern-action.danger{background:#ffe3e1;border-color:#ffc8c2;color:#9d1111}
+.stock-modern-footer-note{display:flex;justify-content:space-between;align-items:center;font-size:28px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:#dbe1ec;padding:2px 4px 0}
+.stock-modern-footer-note span{color:#d0d8e7}
+.invoices-modern{width:min(760px,100%);margin:0 auto;display:grid;gap:10px}
+.invoices-toolbar{display:grid;grid-template-columns:minmax(0,1fr) 42px;gap:8px}
+.invoices-searchbar{display:flex;align-items:center;gap:8px;padding:0 10px;background:#fff;border:1px solid rgba(198,197,212,.26);border-radius:3px;min-height:40px}
+.invoices-searchbar svg{color:#96a0b6;flex-shrink:0}
+.invoices-searchbar .gi{border:none!important;background:transparent!important;padding:0!important;min-height:0!important;font-size:13px;color:#46516a}
+.invoices-searchbar .gi:focus{box-shadow:none}
+.invoices-filter-btn{border:1px solid rgba(198,197,212,.26);background:#fff;border-radius:3px;color:#5f6f8f;display:flex;align-items:center;justify-content:center;min-height:40px}
+.invoices-ledger{background:#fff;border:1px solid rgba(198,197,212,.24);border-radius:0;overflow:hidden}
+.invoice-row{display:grid;grid-template-columns:68px minmax(0,1fr) auto;gap:10px;align-items:start;padding:12px 8px 12px 10px;border-bottom:1px solid #edf0f6}
+.invoice-row:last-child{border-bottom:none}
+.invoice-row-id strong{display:block;font-size:18px;line-height:1.1;font-weight:800;color:#8da0bf;letter-spacing:.02em}
+.invoice-row-id span{display:block;margin-top:2px;font-size:11px;color:#8490a7}
+.invoice-row-main{min-width:0;display:grid;gap:2px}
+.invoice-row-main strong{display:block;font-size:17px;font-weight:700;color:#101828;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.invoice-row-item{margin-top:3px;display:inline-flex;align-items:center;gap:4px;font-size:15px;color:#8b97ad;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.invoice-row-item svg{width:13px;height:13px;flex-shrink:0}
+.invoice-row-finance{display:grid;justify-items:end;gap:4px}
+.invoice-row-finance strong{font-family:'Plus Jakarta Sans',sans-serif;font-size:20px;line-height:1;font-weight:800;color:#0d2b87;white-space:nowrap}
+.invoice-row-status{display:inline-flex;align-items:center;justify-content:center;padding:3px 8px;border-radius:4px;font-size:13px;font-weight:800;letter-spacing:.04em}
+.invoice-row-status.paid{background:#d9f2e4;color:#1f8e57}
+.invoice-row-status.due{background:#ffe2dd;color:#d14343}
+.invoice-row-actions{display:flex;align-items:center;gap:7px;margin-top:4px}
+.invoice-row-icon{width:28px;height:28px;border:1px solid transparent;border-radius:7px;background:#eef2ff;color:#4c5ec7;display:flex;align-items:center;justify-content:center}
+.invoice-row-icon.icon-share{background:#e9efff;border-color:#cad8ff;color:#3555d7}
+.invoice-row-icon.icon-msg{background:#e8f8ef;border-color:#bde8cc;color:#1e9f5a}
+.invoice-row-icon.icon-download{background:#fff2dd;border-color:#f3ddb1;color:#aa6a00}
+.invoice-row-icon svg{width:14px;height:14px}
+.invoices-end{padding:12px 0 2px;text-align:center;font-size:14px;font-weight:800;letter-spacing:.14em;color:#9aabc8}
+.reports-modern{width:min(940px,100%);margin:0 auto;display:grid;gap:8px}
+.reports-modern-top{display:grid;gap:6px;padding:0 2px}
+.reports-modern-head h1{font-family:'Plus Jakarta Sans',sans-serif;font-size:23px;font-weight:800;letter-spacing:-.03em;color:#1b2234;line-height:1.05}
+.reports-modern-head p{margin-top:2px;color:#6f778a;font-size:11px;font-weight:700;line-height:1.4}
+.reports-modern-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.reports-modern-actions .bp,.reports-modern-actions .bg{min-height:34px;padding:7px 8px;border-radius:10px;font-size:11px;justify-content:center;gap:5px}
+.reports-modern-controls{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;padding:8px;border-radius:14px;background:#fff;border:1px solid rgba(198,197,212,.24)}
+.reports-modern-control{display:flex;align-items:center;gap:6px;padding:0 8px;min-height:36px;border-radius:10px;background:#f4f6fa;border:1px solid rgba(198,197,212,.2)}
+.reports-modern-control svg{width:13px;height:13px;color:#7f8aa3;flex-shrink:0}
+.reports-modern-control .gs,.reports-modern-control .gi{border:none!important;background:transparent!important;padding:0!important;min-height:0!important;font-size:12px;color:#364152}
+.reports-modern-control .gs:focus,.reports-modern-control .gi:focus{box-shadow:none}
+.reports-modern-dates{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;padding:0 2px}
+.reports-modern-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.reports-modern-kpi{padding:8px 7px;border-radius:12px;background:#fff;border:1px solid rgba(198,197,212,.22);display:grid;gap:4px}
+.reports-modern-kpi-label{font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#788298}
+.reports-modern-kpi-value{font-family:'Plus Jakarta Sans',sans-serif;font-size:16px;font-weight:800;color:#1f2937;line-height:1.1}
+.reports-modern-kpi-value.sales{color:#1d4ed8}
+.reports-modern-kpi-value.warn{color:#b45309}
+.reports-modern-kpi-value.ok{color:#1f9f58}
+.reports-modern-feed{padding:8px;border-radius:14px;background:#fff;border:1px solid rgba(198,197,212,.24);display:grid;gap:6px}
+.reports-modern-feed-head{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:0 2px}
+.reports-modern-feed-head strong{font-size:12px;color:#1f2937}
+.reports-modern-feed-head span{font-size:10px;color:#7b8498;font-weight:700}
+.reports-modern-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px;align-items:center;padding:8px;border-radius:10px;background:#f4f7fb}
+.reports-modern-type{display:inline-flex;align-items:center;justify-content:center;padding:3px 6px;border-radius:7px;font-size:9px;font-weight:900;letter-spacing:.06em;text-transform:uppercase;background:#e8eefc;color:#3555d7}
+.reports-modern-type.buy{background:#fff2dd;color:#a46400}
+.reports-modern-type.add{background:#ece8ff;color:#5c43c7}
+.reports-modern-type.repair{background:#e8f8ef;color:#1e9f5a}
+.reports-modern-row-main{min-width:0}
+.reports-modern-row-main strong{display:block;font-size:12px;font-weight:700;color:#111827;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.reports-modern-row-main span{display:block;margin-top:1px;font-size:10px;color:#7f8798;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.reports-modern-amt{font-size:12px;font-weight:800;color:#0f172a;white-space:nowrap}
+.reports-modern-empty{padding:16px 10px;text-align:center;font-size:12px;color:#6f778a}
+.reports-modern-more{padding:2px 2px 0;text-align:center;font-size:10px;font-weight:700;color:#7d879c}
+.reports-modern-morefilters{border:1px solid rgba(198,197,212,.24);background:#fff;border-radius:12px;padding:6px 8px}
+.reports-modern-morefilters summary{cursor:pointer;list-style:none;font-size:11px;font-weight:800;color:#3659d8;letter-spacing:.04em;text-transform:uppercase}
+.reports-modern-morefilters[open] summary{margin-bottom:6px}
+.reports-modern-filter-note{padding:0 2px;font-size:10px;color:#7b8498;line-height:1.35}
+@media(min-width:1080px){.stock-modern-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(min-width:1500px){.stock-modern-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:1024px){.stock-modern{padding-top:146px}.stock-modern-controls{position:fixed;left:0;right:0;top:0;transform:none;width:100%;max-width:none;z-index:70;padding:calc(8px + env(safe-area-inset-top,0px)) 16px 10px}}
+@media(max-width:768px){.stock-modern{gap:11px;padding-top:140px}.stock-modern-controls{padding-bottom:7px}.stock-modern-brand{font-size:18px}.stock-modern-brand span{width:30px;height:30px;border-radius:10px}.stock-modern-search{padding:12px 13px}.stock-modern-filters{gap:8px}.stock-modern-pill{min-height:44px;padding:10px 29px 10px 11px!important;font-size:13px!important}.stock-modern-grid{gap:10px}.stock-modern-card-body{padding:10px}.stock-modern-card-body h3{font-size:16px}.stock-modern-imei{font-size:11px}.stock-modern-price-row small{font-size:10px}.stock-modern-price-row strong{font-size:15px}.stock-modern-action{height:38px;border-radius:9px}.stock-modern-footer-note{font-size:22px}}
+@media(max-width:560px){.stock-modern{padding-top:128px}.stock-modern-brand{font-size:17px}.stock-modern-icon-btn{width:38px;height:38px;border-radius:12px}.stock-modern-search{padding:11px 12px;border-radius:14px}.stock-modern-search .gi{font-size:14px}.stock-modern-pill{min-height:40px;padding:8px 26px 8px 10px!important;font-size:12px!important}.stock-modern-grid{gap:9px}.stock-modern-condition{top:8px;right:8px;padding:4px 10px;font-size:10px}.stock-modern-card-body{gap:7px;padding:9px 9px 10px}.stock-modern-brand-name{font-size:10px}.stock-modern-card-body h3{font-size:15px}.stock-modern-specs span{font-size:10px;padding:3px 6px}.stock-modern-price-row{gap:7px;padding-top:7px}.stock-modern-price-row strong{font-size:14px}.stock-modern-action{height:36px}.stock-modern-footer-note{font-size:18px}.invoices-modern{gap:8px}.invoices-toolbar{grid-template-columns:minmax(0,1fr) 40px;gap:6px}.invoices-searchbar{min-height:38px;padding:0 9px}.invoices-ledger{border-radius:0}.invoice-row{grid-template-columns:58px minmax(0,1fr) auto;gap:8px;padding:10px 6px 10px 8px}.invoice-row-id strong{font-size:13px}.invoice-row-id span{font-size:10px}.invoice-row-main strong{font-size:14px}.invoice-row-item{font-size:12px}.invoice-row-finance strong{font-size:17px}.invoice-row-status{font-size:10px;padding:2px 6px}.invoice-row-actions{gap:6px;margin-top:3px}.invoice-row-icon{width:24px;height:24px;border-radius:6px}.invoice-row-icon svg{width:12px;height:12px}.invoices-end{font-size:12px;letter-spacing:.12em}.reports-modern{gap:7px}.reports-modern-top{gap:5px}.reports-modern-head h1{font-size:20px}.reports-modern-head p{font-size:10px}.reports-modern-actions .bp,.reports-modern-actions .bg{min-height:32px;font-size:10px;padding:6px 6px}.reports-modern-controls{grid-template-columns:repeat(2,minmax(0,1fr));padding:7px;gap:5px}.reports-modern-control{min-height:34px;padding:0 7px}.reports-modern-control .gs,.reports-modern-control .gi{font-size:11px}.reports-modern-dates{gap:5px}.reports-modern-kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}.reports-modern-kpi{padding:7px 6px;border-radius:11px}.reports-modern-kpi-label{font-size:8px}.reports-modern-kpi-value{font-size:14px}.reports-modern-feed{padding:7px;gap:5px}.reports-modern-row{padding:7px;gap:6px}.reports-modern-type{font-size:8px;padding:2px 5px}.reports-modern-row-main strong{font-size:11px}.reports-modern-row-main span{font-size:9px}.reports-modern-amt{font-size:11px}.reports-modern-morefilters{padding:5px 7px}.reports-modern-morefilters summary{font-size:10px}}
+.empty-state{display:grid;justify-items:center;gap:10px;text-align:center}
+.add-desktop-only{display:block}.add-mobile-only{display:none}
+.add-pos{width:min(980px,100%);margin:0 auto;display:grid;gap:14px}.add-pos-hero{display:grid;gap:12px;padding:16px 18px;border-radius:24px;background:linear-gradient(180deg,#ffffff 0%,#f2f5fb 100%);border:1px solid rgba(198,197,212,.22);box-shadow:0 12px 24px rgba(25,28,30,.05)}.add-pos-top{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-wrap:wrap}.add-pos-title{display:flex;align-items:flex-start;gap:12px;min-width:0}.add-pos-mark{width:46px;height:46px;border-radius:16px;background:#e8eefb;display:flex;align-items:center;justify-content:center;color:#1f46aa;flex-shrink:0}.add-pos-title h1{font-family:'Plus Jakarta Sans',sans-serif;font-size:30px;line-height:1.02;font-weight:800;letter-spacing:-.05em;color:#183a90}.add-pos-title p{margin-top:6px;color:var(--text-2);font-size:13px;line-height:1.6;max-width:620px}.add-pos-chip{display:inline-flex;align-items:center;gap:8px;padding:9px 12px;border-radius:999px;background:#eef3ff;color:#2141a3;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+.add-mobile-hero{display:none}.add-mobile-top{display:flex;align-items:center;gap:12px}.add-mobile-back{width:44px;height:44px;border:none;border-radius:14px;background:transparent;color:#1b2230;display:flex;align-items:center;justify-content:center;cursor:pointer}.add-mobile-header-title{font-family:'Plus Jakarta Sans',sans-serif;font-size:24px;font-weight:800;letter-spacing:-.04em;color:#111827}
+.add-stock-layout{gap:14px}.add-step-header{display:grid;gap:12px;padding:0}
+.add-step-track{display:flex;justify-content:center;gap:16px}.add-step-dot{width:12px;height:12px;border-radius:999px;background:#d5d9e5;transition:all .2s ease}.add-step-dot.active{width:48px;background:var(--primary)}
+.add-step-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.add-step-tab{appearance:none;background:#edf1f8;border:1px solid transparent;border-radius:16px;padding:12px 8px;color:#6b7488;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;transition:all .2s ease}
+.add-step-tab.active{color:var(--primary);border-bottom-color:var(--primary)}
+.add-step-tab.active{background:#fff;color:var(--primary);border-color:rgba(0,72,216,.14);box-shadow:0 8px 18px rgba(25,28,30,.05)}
+.add-step-copy h2{font-family:'Plus Jakarta Sans',sans-serif;font-size:20px;font-weight:800;letter-spacing:-.03em;color:var(--text)}
+.add-step-copy p{margin-top:6px;color:var(--text-2);font-size:13px;line-height:1.6}.add-step-frame{padding:14px;border-radius:20px;background:#fff;border:1px solid rgba(198,197,212,.18);box-shadow:0 10px 20px rgba(25,28,30,.05)}.add-mobile-divider{height:1px;background:rgba(198,197,212,.55);margin:2px -16px 0}
+.add-step-sections{display:grid;gap:12px}.add-section-group{display:grid;gap:12px}
+.add-ref-card{background:#f3f6fb;border:1px solid rgba(198,197,212,.16);border-radius:20px;box-shadow:none}
+.add-ref-title{color:#3d4051;font-size:11px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;margin-bottom:12px}
+.add-brand-grid{display:grid;grid-template-columns:minmax(110px,.5fr) minmax(0,1fr);gap:10px}.add-grid-2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.add-grid-3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.add-input-shell{display:flex;align-items:center;gap:8px;padding:0 10px;background:#fff;border:1px solid rgba(198,197,212,.22);border-radius:14px;box-shadow:none}
+.add-input-shell .gi,.add-input-shell .gs{background:transparent;border:none;box-shadow:none;padding:12px 2px;font-size:15px}.add-input-shell .gi:focus,.add-input-shell .gs:focus{background:transparent;box-shadow:none}
+.add-scan-btn{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border:none;background:transparent;color:#6f7282;cursor:pointer;border-radius:12px;transition:background .2s ease,color .2s ease}.add-scan-btn:hover{background:#eef1f7;color:var(--primary)}
+.add-inline-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.add-link-btn{appearance:none;background:transparent;border:none;color:#1141da;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;display:inline-flex;align-items:center;gap:6px;cursor:pointer;padding:0}
+.add-condition-pills{display:flex;gap:8px;flex-wrap:wrap}.add-condition-pill{appearance:none;border:none;border-radius:999px;padding:12px 16px;background:#dfe3ec;color:#3e4252;font-size:12px;font-weight:800;cursor:pointer;transition:all .2s ease}.add-condition-pill.active{background:var(--primary);color:#fff;box-shadow:0 8px 16px rgba(0,6,102,.18)}
+.add-helper-copy{color:var(--text-2);font-size:13px;line-height:1.6}
+.add-mobile-actions{display:none;width:100%}.add-desktop-actions{display:flex}.add-save-draft{background:#e1e5ee;color:#1f2231;border:1px solid rgba(198,197,212,.45);box-shadow:none}.add-note-card{background:#fff;border:1px solid rgba(198,197,212,.18);border-radius:16px;padding:14px;display:grid;gap:8px}.add-note-card strong{color:var(--text);font-size:13px;font-weight:800}.add-note-card span{color:var(--text-2);font-size:12px;line-height:1.6}.add-side-note{position:sticky;top:16px}.add-mobile-actions .bg,.add-mobile-actions .bp,.add-mobile-actions .bs{width:100%;min-width:0;min-height:54px;border-radius:18px;justify-content:center;font-size:14px}.add-mobile-actions .bg{background:#e4e8f0;color:#293041;border:1px solid rgba(198,197,212,.18);box-shadow:none}.add-mobile-actions .bp{box-shadow:0 12px 22px rgba(0,72,216,.18)}.add-mobile-actions .bs{box-shadow:0 12px 22px rgba(26,127,55,.18)}
+.add-compact{width:min(820px,100%);margin:0 auto;display:grid;gap:10px}.add-compact-top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.add-compact-toolbar{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}.add-compact-card{display:grid;gap:10px;padding:14px;border-radius:22px;background:#fff;border:1px solid rgba(198,197,212,.18);box-shadow:0 10px 20px rgba(25,28,30,.05)}.add-compact-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.add-compact-head h2{font-family:'Plus Jakarta Sans',sans-serif;font-size:17px;font-weight:800;letter-spacing:-.03em;color:#111827}.add-compact-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.add-compact-field{display:grid;gap:7px;padding:10px;border-radius:16px;background:#f3f6fb;border:1px solid rgba(198,197,212,.16)}.add-compact-field.span-2{grid-column:1 / -1}.add-compact-field.mini{padding:8px;border-radius:14px;gap:6px}.add-compact-field.photos{padding:6px 6px 5px}.add-compact-label{color:#3d4051;font-size:10px;font-weight:900;letter-spacing:.08em;text-transform:uppercase}.add-compact-brand-row{display:grid;grid-template-columns:minmax(110px,.55fr) minmax(0,1fr);gap:8px}.add-compact-mini-grid{grid-column:1 / -1;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.add-compact .add-input-shell{background:#fff}.add-compact .add-input-shell .gi,.add-compact .add-input-shell .gs{padding:9px 2px;font-size:14px}.add-compact-field.mini .add-input-shell .gi,.add-compact-field.mini .add-input-shell .gs{padding:6px 2px;font-size:13px}.add-compact-collapses{display:grid;gap:8px}.add-compact-collapse{border-radius:18px;background:#fff;border:1px solid rgba(198,197,212,.18);box-shadow:0 6px 14px rgba(25,28,30,.04)}.add-compact-collapse summary{list-style:none;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;cursor:pointer;color:#111827;font-size:12px;font-weight:800}.add-compact-collapse summary::-webkit-details-marker{display:none}.add-compact-collapse summary span{color:var(--text-2);font-size:11px;font-weight:700}.add-compact-collapse-body{padding:0 12px 12px}.add-compact-check{display:flex;align-items:flex-start;gap:10px;padding:12px;border-radius:14px;background:#f3f6fb;border:1px solid rgba(198,197,212,.16);color:var(--text-2);font-size:12px;line-height:1.5;cursor:pointer}.add-compact-check input{margin-top:2px}.add-compact .pg{grid-template-columns:repeat(auto-fill,minmax(70px,1fr));gap:8px}.add-compact .pt{border-radius:12px}.add-compact .pa{border-radius:12px;gap:4px;font-size:10px;min-height:70px}.add-compact .pa svg{width:18px;height:18px}.add-compact-field.photos .pg{grid-template-columns:repeat(auto-fill,minmax(48px,60px));gap:5px}.add-compact-field.photos .pt{border-radius:9px}.add-compact-field.photos .pa{border-radius:9px;gap:2px;font-size:8px;min-height:48px}.add-compact-field.photos .pa svg{width:13px;height:13px}.add-compact-field.photos .pg + input + div{margin-top:2px}.add-compact-queue-list{display:grid;gap:8px;max-height:188px;overflow:auto}.add-compact-queue-item{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;border-radius:14px;background:#f7f9fc;border:1px solid rgba(198,197,212,.16)}.add-compact-queue-item strong{display:block;color:var(--text);font-size:13px;font-family:'Space Mono',monospace}.add-compact-queue-item span{display:block;color:var(--text-3);font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;margin-bottom:3px}.add-compact-actions{display:flex;gap:10px;flex-wrap:wrap}.add-compact-actions .bg,.add-compact-actions .bp{min-height:46px;border-radius:16px;justify-content:center}
+.page-shell{display:grid;gap:18px}
+.page-hero{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap}
+.page-hero h1{font-family:'Plus Jakarta Sans',sans-serif;font-size:32px;line-height:1.04;font-weight:800;letter-spacing:-.04em;color:var(--text)}
+.page-hero p{margin-top:8px;color:var(--text-2);font-size:14px;line-height:1.65;max-width:760px}
+.page-chip{display:inline-flex;align-items:center;gap:8px;padding:9px 14px;border-radius:999px;background:#eef3ff;color:var(--primary);font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+.workflow-grid{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(280px,.8fr);gap:18px;align-items:start}
+.workflow-main,.workflow-side{display:grid;gap:16px}
+.editor-card{padding:20px;border-radius:24px}
+.editor-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.editor-head h2,.editor-title{font-family:'Plus Jakarta Sans',sans-serif;font-size:18px;font-weight:800;letter-spacing:-.02em;color:var(--text)}
+.editor-copy,.editor-subcopy{color:var(--text-2);font-size:13px;line-height:1.65}
+.editor-block{display:grid;gap:14px}
+.editor-note{padding:18px;border-radius:22px;background:linear-gradient(160deg,#ffffff 0%,#eef3ff 100%);border:1px solid rgba(198,197,212,.2);box-shadow:0 12px 26px rgba(25,28,30,.05)}
+.editor-note.dark{background:linear-gradient(160deg,#1f2328 0%,#13161b 100%);border-color:rgba(255,255,255,.06);color:#e0e3e6}
+.editor-note.dark .editor-title,.editor-note.dark .editor-copy,.editor-note.dark .editor-subcopy{color:inherit}
+.editor-stat-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.editor-stat{padding:12px 14px;border-radius:16px;background:rgba(255,255,255,.72);border:1px solid rgba(198,197,212,.18)}
+.editor-note.dark .editor-stat{background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.06)}
+.editor-stat-label{color:var(--text-3);font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px}
+.editor-note.dark .editor-stat-label{color:#aab1be}
+.editor-stat-value{color:var(--text);font-family:'Plus Jakarta Sans',sans-serif;font-size:20px;font-weight:800;letter-spacing:-.03em}
+.editor-note.dark .editor-stat-value{color:#f4f7ff}
+.editor-list{display:grid;gap:10px}
+.editor-list-row{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:12px 0;border-top:1px solid rgba(198,197,212,.18)}
+.editor-note.dark .editor-list-row{border-top-color:rgba(255,255,255,.06)}
+.editor-list-row:first-child{border-top:none;padding-top:0}
+.editor-list-row:last-child{padding-bottom:0}
+.editor-list-row strong{color:var(--text);font-size:13px;font-weight:700}
+.editor-note.dark .editor-list-row strong{color:#f4f7ff}
+.editor-list-row span{color:var(--text-2);font-size:12px;line-height:1.6;text-align:right}
+.editor-note.dark .editor-list-row span{color:#aab1be}
+.editor-inline{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.editor-pane{display:grid;gap:14px;padding:18px;border-radius:20px;background:var(--surface-low);border:1px solid rgba(198,197,212,.16)}
+.editor-pane.dark{background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.06)}
+.repair-shell{display:grid;gap:16px;padding:20px;border-radius:28px;background:linear-gradient(180deg,#191c1e 0%,#17191e 100%);color:#e0e3e6;box-shadow:0 24px 44px rgba(8,12,20,.28)}
+.repair-shell h1,.repair-shell h2,.repair-shell h3{font-family:'Plus Jakarta Sans',sans-serif;color:#f4f7ff}
+.repair-shell p{color:#aab1be}
+.repair-bento{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:12px}
+.repair-bento-primary{grid-column:span 12;padding:18px;border-radius:22px;background:linear-gradient(135deg,#1a237e,#000666);position:relative;overflow:hidden}
+.repair-bento-primary::after{content:'';position:absolute;right:-18px;bottom:-18px;width:124px;height:124px;border-radius:50%;background:rgba(255,255,255,.08)}
+.repair-bento-half{grid-column:span 6;padding:16px;border-radius:20px;background:#23272d;border:1px solid rgba(255,255,255,.04)}
+.repair-search{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;padding:14px;border-radius:20px;background:#1c1f24;border:1px solid rgba(255,255,255,.05)}
+.repair-queue{display:grid;gap:14px}
+.repair-card{display:grid;gap:12px;padding:16px;border-radius:22px;background:#1c1f24;border-left:4px solid #2761fe;border-top:1px solid rgba(255,255,255,.04);border-right:1px solid rgba(255,255,255,.04);border-bottom:1px solid rgba(255,255,255,.04)}
+.repair-card.ready{border-left-color:#88d982}
+.repair-form-actions{display:flex;gap:10px;flex-wrap:wrap}.repair-form-actions>*{min-width:0}
+.repair-form-shell{display:grid;gap:16px;padding:18px;border-radius:28px;background:linear-gradient(180deg,#fbfcfe 0%,#f2f5fb 100%);color:var(--text);box-shadow:0 20px 38px rgba(25,28,30,.08);border:1px solid rgba(198,197,212,.18)}.repair-form-shell h1,.repair-form-shell h2,.repair-form-shell h3{font-family:'Plus Jakarta Sans',sans-serif;color:var(--text)}.repair-form-shell p{color:var(--text-2)}.repair-form-grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(280px,.8fr);gap:18px;align-items:start}.repair-form-panel{background:#fff!important;border:1px solid rgba(198,197,212,.18)!important}.repair-form-panel .editor-title,.repair-form-panel .editor-subcopy{color:var(--text)!important}.repair-form-side{background:linear-gradient(160deg,#ffffff 0%,#eef3ff 100%)!important;border:1px solid rgba(198,197,212,.2)!important;color:var(--text)!important}.repair-form-side .editor-title,.repair-form-side .editor-copy,.repair-form-side .editor-subcopy,.repair-form-side .editor-stat-value,.repair-form-side .editor-list-row strong{color:var(--text)!important}.repair-form-side .editor-stat-label,.repair-form-side .editor-list-row span{color:var(--text-2)!important}.repair-form-side .editor-stat{background:#fff;border:1px solid rgba(198,197,212,.18)}
+.repair-card.cancelled{border-left-color:#ba1a1a}
+.repair-card-title{color:#f4f7ff;font-size:16px;font-weight:800}
+.repair-card-meta{color:#aab1be;font-size:12px;line-height:1.6}
+.repair-card-actions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;width:100%}
+.repair-card-media{width:78px;height:78px;border-radius:14px;overflow:hidden;flex-shrink:0;background:#2d3133}
+.repair-detail-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+.repair-detail-tile{padding:14px;border-radius:18px;background:#23272d;border:1px solid rgba(255,255,255,.05)}
+.repair-detail-label{color:#aab1be;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px}
+.repair-detail-value{color:#f4f7ff;font-size:14px;font-weight:700;line-height:1.5}
+.repair-lab{width:min(940px,100%);margin:0 auto;display:grid;gap:12px;padding:0 2px}.repair-lab-hero{display:grid;gap:12px;padding:14px 16px 12px;border-radius:0;background:linear-gradient(180deg,#ffffff 0%,#f8faff 100%);border-top:3px solid #3659d8;border-left:1px solid rgba(54,89,216,.22);border-right:1px solid rgba(54,89,216,.22);border-bottom:1px solid rgba(198,197,212,.18);box-shadow:none}.repair-lab-top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.repair-lab-title{display:flex;align-items:center;gap:10px}.repair-lab-mark{width:28px;height:28px;border-radius:10px;background:#edf1ff;display:flex;align-items:center;justify-content:center;color:#3659d8;flex-shrink:0}.repair-lab-title h1{font-family:'Plus Jakarta Sans',sans-serif;font-size:20px;line-height:1;font-weight:800;letter-spacing:-.04em;color:#2750d7}.repair-lab-title p{margin-top:0;color:#6f778a;font-size:11px;line-height:1.5;letter-spacing:.08em;text-transform:uppercase}.repair-lab-cta{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.repair-lab-cta .bp{padding:10px 14px;border-radius:12px;min-height:40px;background:linear-gradient(135deg,#4b67dd,#3859d7)}.repair-lab-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.repair-lab-stat{padding:14px 10px 12px;border-radius:16px;background:#fff;border:1px solid rgba(198,197,212,.16);box-shadow:0 6px 14px rgba(25,28,30,.04);display:grid;justify-items:center;gap:4px;text-align:center}.repair-lab-stat.primary{background:#fff;color:#111827;border-color:rgba(198,197,212,.16)}.repair-lab-stat.primary::after{display:none}.repair-lab-stat.queue{background:#ffffff}.repair-lab-stat.open{background:#fdeeee}.repair-lab-stat.ready{background:#e5fbf0}.repair-lab-stat-label{font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#6f778a}.repair-lab-stat-value{font-family:'Plus Jakarta Sans',sans-serif;font-size:30px;font-weight:800;letter-spacing:-.05em;color:#2750d7;line-height:1}.repair-lab-stat.open .repair-lab-stat-value{color:#e63535}.repair-lab-stat.ready .repair-lab-stat-value{color:#0c8b55}.repair-lab-stat-meta{font-size:9px;color:#6f778a;font-weight:800;letter-spacing:.08em;text-transform:uppercase}.repair-lab-search{display:grid;grid-template-columns:minmax(0,1fr) 44px;gap:10px;padding:10px;border-radius:14px;background:transparent;border:none;box-shadow:none}.repair-lab-searchbox{position:relative}.repair-lab-searchbox .gi{padding-left:36px;background:#eef2f7;border-radius:12px;min-height:44px;border-color:rgba(198,197,212,.16)}.repair-lab-searchbox svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#98a1b3}.repair-lab-filter{width:44px;height:44px;border:none;border-radius:12px;background:#edf1f7;color:#66738b;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:inset 0 0 0 1px rgba(198,197,212,.16)}.repair-lab-list{display:grid;gap:10px}.repair-lab-card{display:grid;gap:10px;padding:14px;border-radius:18px;background:#fff;border:1px solid rgba(198,197,212,.16);box-shadow:0 6px 16px rgba(25,28,30,.04)}.repair-lab-card.ready,.repair-lab-card.cancelled{border-left:1px solid rgba(198,197,212,.16)}.repair-lab-card-top{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:start}.repair-lab-card-title{color:#111827;font-size:15px;font-weight:800}.repair-lab-card-ref{color:#6b7488;font-size:11px;font-weight:700;white-space:nowrap}.repair-lab-card-body{display:grid;grid-template-columns:minmax(0,1fr) 52px;gap:10px;align-items:start}.repair-lab-card-media{width:52px;height:64px;border-radius:12px;overflow:hidden;flex-shrink:0;background:#eef3ff;display:flex;align-items:center;justify-content:center;justify-self:end}.repair-lab-card-copy{min-width:0;flex:1}.repair-lab-card-device{display:block;color:#1e3a8a;font-size:14px;font-weight:800}.repair-lab-card-copy span{display:block;color:#8c95a8;font-size:11px;line-height:1.45;margin-top:2px}.repair-lab-card-copy .problem{color:#6f778a}.repair-lab-card-finance{display:flex;gap:12px;flex-wrap:wrap;align-items:center}.repair-lab-card-finance strong{color:#244ed6;font-size:14px;font-weight:800}.repair-lab-card-finance span{color:#6f778a;font-size:12px}.repair-lab-card-statuses{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.repair-chip{display:inline-flex;align-items:center;justify-content:center;padding:4px 8px;border-radius:999px;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}.repair-chip.open{background:#ffefef;color:#e63535}.repair-chip.ready{background:#e5fbf0;color:#0c8b55}.repair-chip.pending{background:#eef3ff;color:#3659d8}.repair-chip.cancelled{background:#f2f4f7;color:#6f778a}.repair-chip.unpaid{background:#fff7dd;color:#c38700}.repair-chip.partial{background:#eef3ff;color:#3659d8}.repair-chip.paid{background:#e5fbf0;color:#0c8b55}.repair-lab-card-footer{display:grid;grid-template-columns:minmax(0,1fr) 48px;gap:10px;align-items:center}.repair-lab-card-actions{display:flex;gap:14px;align-items:center;flex-wrap:wrap;width:auto}.repair-lab-icon-btn{border:none;background:transparent;color:#b1b8c7;display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer}.repair-lab-icon-btn:hover{color:#3659d8}.repair-lab-msg-btn{width:48px;height:48px;border:none;border-radius:14px;background:#e6faf0;color:#20a663;display:flex;align-items:center;justify-content:center;cursor:pointer;justify-self:end}.repair-lab-empty{padding:28px 18px;text-align:center;border-radius:22px;background:#fff;border:1px solid rgba(198,197,212,.18);box-shadow:0 10px 22px rgba(25,28,30,.04)}
+.settings-shell{display:grid;gap:12px}
+.settings-shell-home{min-height:calc(100dvh - 152px);align-content:stretch}
+.settings-terminal{display:grid;grid-template-rows:auto minmax(0,1fr);gap:10px}
+.settings-home-title{font-family:'Plus Jakarta Sans',sans-serif;font-size:22px;font-weight:800;letter-spacing:-.03em;color:#102a7a;padding:0 2px}
+.settings-home-content{display:grid;gap:10px;align-content:center}
+.settings-terminal-head h1{font-family:'Plus Jakarta Sans',sans-serif;font-size:34px;font-weight:800;letter-spacing:-.04em;color:#0f2a77;line-height:1.05}
+.settings-terminal-head p{margin-top:4px;color:#4f5a72;font-size:14px;font-weight:600;line-height:1.35}
+.settings-terminal-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.settings-terminal-card{appearance:none;border:1px solid rgba(198,197,212,.24);background:#eef2fa;border-radius:16px;padding:16px 14px;display:grid;gap:11px;text-align:left;cursor:pointer;transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease}
+.settings-shell-home .settings-terminal-card{min-height:126px;align-content:space-between}
+.settings-terminal-card.active{border-color:#2f56d7;box-shadow:0 10px 20px rgba(47,86,215,.18)}
+.settings-terminal-card.profile{background:#eaf0ff}.settings-terminal-card.invoice{background:#ebf1ff}.settings-terminal-card.status{background:#dff4e8}.settings-terminal-card.mode{background:#eceff4}
+.settings-terminal-icon{width:52px;height:52px;border-radius:14px;background:#fff;display:flex;align-items:center;justify-content:center;color:#1840bf}
+.settings-terminal-card.status .settings-terminal-icon{color:#0c7a46}
+.settings-terminal-card.mode .settings-terminal-icon{color:#3b3f4d}
+.settings-terminal-card h3{font-family:'Plus Jakarta Sans',sans-serif;font-size:17px;font-weight:800;letter-spacing:-.02em;color:#0e2f97;line-height:1.1}
+.settings-terminal-card.status h3{color:#0f5b37}
+.settings-terminal-card.mode h3{color:#282f3f}
+.settings-terminal-card p{font-size:13px;font-weight:600;color:#3d5db4;line-height:1.35}
+.settings-terminal-card.status p{color:#2d7d4f}
+.settings-terminal-card.mode p{color:#5c6579}
+.settings-terminal-actions{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center}
+.settings-terminal-cta{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+.settings-terminal-btn{min-height:48px;padding:0 24px;border-radius:15px;font-family:'Plus Jakarta Sans',sans-serif;font-size:16px;font-weight:700;letter-spacing:-.01em;display:inline-flex;align-items:center;justify-content:center;gap:8px;transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease}
+.settings-terminal-btn.save{background:linear-gradient(135deg,#2f65f6,#1f4fd8)!important;border:1px solid #2a58df!important;color:#fff!important;box-shadow:0 10px 20px rgba(47,101,246,.28)}
+.settings-terminal-btn.save:disabled{opacity:.72;box-shadow:none}
+.settings-terminal-btn.signout{background:#fff!important;border:1px solid rgba(166,175,195,.45)!important;color:#1f2937!important}
+.settings-terminal-btn.signout svg{color:#5c6478}
+.settings-terminal-btn:hover{transform:translateY(-1px)}
+.settings-detail-screen{display:grid;gap:10px}
+.settings-detail-head{display:flex;align-items:center;gap:10px;padding:2px 2px 0}
+.settings-detail-back{min-height:36px;padding:8px 12px;border-radius:10px}
+.settings-detail-copy h2{font-family:'Plus Jakarta Sans',sans-serif;font-size:22px;font-weight:800;letter-spacing:-.03em;color:#0f2a77;line-height:1.08}
+.settings-detail-copy p{margin-top:2px;font-size:12px;font-weight:600;color:#5b6478;line-height:1.35}
+.settings-grid{display:grid;grid-template-columns:1fr;gap:12px}
+.settings-mini-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.settings-mini-card{padding:14px;border-radius:18px;background:var(--surface-low);border:1px solid rgba(198,197,212,.16)}
+.settings-mini-card strong{display:block;color:var(--text);font-size:13px;font-weight:700;margin-bottom:6px}
+.settings-mini-card span{display:block;color:var(--text-2);font-size:12px;line-height:1.6}
+.desktop-enhanced-only{display:none}
+@media(min-width:1025px){
+.ni{padding:15px 18px;border-radius:18px;font-size:15px;font-weight:600;color:#465368}
+.ni svg{color:#5f6b80}
+.ni.ac{position:relative;background:#fff;color:#26319d;box-shadow:0 10px 22px rgba(25,28,30,.04);border-color:rgba(198,197,212,.2)}
+.ni.ac svg{color:#26319d}
+.ni.ac::before{content:'';position:absolute;left:-18px;top:10px;bottom:10px;width:4px;border-radius:999px;background:#4f46e5}
+.shell-main{padding:18px 34px 44px}
+.shell-main.shell-main-inventory{padding-top:18px}
+.dashboard-retail{width:100%;max-width:none;margin:0;gap:22px}
+.dashboard-retail-desktop{display:grid;gap:22px}
+.dashboard-retail-mobile-stack{display:none}
+.desktop-workspace{display:grid;grid-template-columns:minmax(0,1.08fr) minmax(300px,.48fr);gap:22px;align-items:start}
+.desktop-workspace-main{display:grid;gap:14px;min-width:0}
+.desktop-workspace-side{display:grid;gap:16px;position:sticky;top:94px}
+.desktop-workspace-side .add-desktop-actions,.desktop-workspace-side .repair-form-actions{display:grid;grid-template-columns:1fr;gap:10px}
+.desktop-workspace-side .bg,.desktop-workspace-side .bp,.desktop-workspace-side .bs{width:100%;justify-content:center;min-height:48px;border-radius:16px}
+.desktop-side-card{display:grid;gap:14px;padding:18px;border-radius:24px;background:#fff;border:1px solid rgba(198,197,212,.18);box-shadow:0 16px 28px rgba(25,28,30,.04)}
+.desktop-side-card.dark{background:linear-gradient(180deg,#3e3794 0%,#322c8a 100%);border-color:rgba(62,55,148,.12);color:#fff}
+.desktop-side-card.dark .desktop-side-eyebrow,.desktop-side-card.dark .desktop-side-title,.desktop-side-card.dark .desktop-side-copy,.desktop-side-card.dark .desktop-side-list strong,.desktop-side-card.dark .desktop-side-list span{color:inherit}
+.desktop-side-eyebrow{font-size:11px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:#6b7bf2}
+.desktop-side-title{font-family:'Plus Jakarta Sans',sans-serif;font-size:22px;font-weight:800;letter-spacing:-.04em;color:#202c8e;line-height:1.15}
+.desktop-side-copy{color:#64748b;font-size:13px;line-height:1.7}
+.desktop-side-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.desktop-side-stat{padding:12px;border-radius:18px;background:#f8fafc;border:1px solid rgba(198,197,212,.16);display:grid;gap:4px}
+.desktop-side-stat strong{font-family:'Plus Jakarta Sans',sans-serif;font-size:18px;font-weight:800;color:#202c8e}
+.desktop-side-stat span{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#74829b}
+.desktop-side-list{display:grid;gap:10px}
+.desktop-side-list li{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;padding-bottom:10px;border-bottom:1px solid rgba(198,197,212,.18);list-style:none}
+.desktop-side-list li:last-child{padding-bottom:0;border-bottom:none}
+.desktop-side-list strong{color:#1f2937;font-size:12px;font-weight:800}
+.desktop-side-list span{color:#56657f;font-size:13px;text-align:right;line-height:1.5}
+.desktop-inline-actions{display:none!important}
+.add-compact{width:min(1320px,100%);gap:16px}
+.add-compact-card,.add-compact-collapse,.repair-form-shell{border-radius:24px;box-shadow:0 16px 28px rgba(25,28,30,.04)}
+.stock-modern{width:100%;max-width:none;margin:0;gap:18px}
+.stock-modern-desktop-head{display:grid}
+.stock-modern-desktop-hero{display:none}
+.stock-modern-controls{gap:12px}
+.stock-modern-search{padding:16px 18px;border-radius:18px}
+.stock-modern-filters{padding:8px;border-radius:18px}
+.stock-modern-pill{border-radius:14px!important;min-height:48px}
+.stock-modern-mobile-grid{display:grid}
+.stock-modern-table{display:none}
+.invoices-modern{width:100%;max-width:none;margin:0;gap:18px}
+.transactions-desktop-head{display:grid}
+.transactions-summary-grid{display:grid}
+.transactions-desktop-table{display:grid}
+.transactions-mobile-stack{display:none}
+.reports-modern{width:100%;max-width:none;margin:0;gap:16px}
+.reports-desktop-hero{display:grid}
+.reports-modern-top{grid-template-columns:minmax(0,1fr) 360px;align-items:end;gap:16px}
+.reports-modern-head h1{font-size:34px}
+.reports-modern-head p{font-size:13px}
+.reports-modern-actions{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.reports-modern-actions .bp,.reports-modern-actions .bg{min-height:48px;border-radius:16px;font-size:13px}
+.reports-modern-controls{grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;padding:12px;border-radius:20px}
+.reports-modern-control{min-height:46px;border-radius:16px;padding:0 12px}
+.reports-modern-control .gs,.reports-modern-control .gi{font-size:13px}
+.reports-modern-dates{gap:10px;padding:0}
+.reports-modern-kpis{gap:12px}.reports-modern-kpi{padding:16px;border-radius:22px;box-shadow:0 16px 28px rgba(25,28,30,.04)}.reports-modern-kpi-value{font-size:24px}
+.reports-modern-feed.mobile-preview{display:none}
+.reports-modern-desktop-table{display:grid;gap:0;padding:0;border-radius:28px;background:#fff;border:1px solid rgba(198,197,212,.18);box-shadow:0 18px 28px rgba(25,28,30,.04)}
+.reports-modern-desktop-head,.reports-modern-desktop-row{display:grid;grid-template-columns:110px minmax(0,1.4fr) minmax(180px,.8fr) 170px 130px;gap:16px;align-items:center}
+.reports-modern-desktop-head{padding:18px 24px;background:#f8fafc;font-size:11px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:#94a3b8}
+.reports-modern-desktop-row{padding:18px 24px;border-top:1px solid #edf0f6}
+.reports-modern-desktop-row strong{font-size:14px;color:#111827}.reports-modern-desktop-row span{font-size:13px;color:#64748b;line-height:1.6}
+.repair-lab{width:100%;max-width:none;margin:0;gap:18px}
+.repair-lab-hero,.repair-lab-controls{border-radius:24px;box-shadow:0 16px 28px rgba(25,28,30,.04)}
+.repair-lab-desktop-grid{display:grid;grid-template-columns:minmax(0,1.12fr) 320px;gap:18px;align-items:start}
+.repair-lab-list{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;align-items:start}.repair-lab-card{padding:18px;border-radius:24px;box-shadow:0 12px 24px rgba(25,28,30,.04);height:100%}
+.repair-desktop-side{display:grid;gap:16px;position:sticky;top:94px}
+.repair-desktop-side .desktop-side-card.dark{background:linear-gradient(180deg,#3e3794 0%,#322c8a 100%)}
+.repair-shell{background:#fff;color:#111827;border:1px solid rgba(198,197,212,.18);box-shadow:0 18px 30px rgba(25,28,30,.04)}
+.repair-shell h1,.repair-shell h2,.repair-shell h3{color:#111827}
+.repair-shell p{color:#64748b}
+.repair-detail-tile{background:#f8fafc;border:1px solid rgba(198,197,212,.18)}
+.repair-detail-label{color:#94a3b8}
+.repair-detail-value{color:#111827}
+.settings-shell{width:min(1240px,100%)}
+.settings-shell-home{min-height:calc(100dvh - 176px)}
+.settings-terminal{gap:16px}.settings-home-title{font-size:30px}.settings-terminal-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+.settings-terminal-card{padding:20px;border-radius:22px;min-height:172px;background:#fff;border:1px solid rgba(198,197,212,.18);box-shadow:0 14px 24px rgba(25,28,30,.04)}
+.settings-terminal-card.profile,.settings-terminal-card.invoice,.settings-terminal-card.status,.settings-terminal-card.mode{background:#fff}
+.settings-terminal-icon{width:58px;height:58px;border-radius:18px;background:#eef2ff}
+.settings-terminal-card h3{font-size:18px}.settings-terminal-card p{font-size:13px;color:#64748b}
+.settings-detail-screen{gap:16px}
+.settings-desktop-layout{display:grid;grid-template-columns:260px minmax(0,1fr);gap:22px;align-items:start}
+.settings-desktop-nav{display:grid;gap:10px;position:sticky;top:94px;padding:16px;border-radius:24px;background:#fff;border:1px solid rgba(198,197,212,.18);box-shadow:0 16px 26px rgba(25,28,30,.04)}
+.settings-desktop-nav button{appearance:none;text-align:left;padding:14px 16px;border-radius:18px;border:1px solid transparent;background:#fff;display:grid;gap:4px;cursor:pointer}
+.settings-desktop-nav button.active{background:#eef2ff;border-color:rgba(79,70,229,.16);box-shadow:none}
+.settings-desktop-nav strong{font-size:14px;font-weight:800;color:#202c8e}.settings-desktop-nav span{font-size:12px;color:#6c7890;line-height:1.5}
+.settings-detail-head{padding:2px 4px 0}.settings-detail-copy h2{font-size:30px}.settings-detail-copy p{font-size:13px}
+.desktop-enhanced-only{display:grid}
+}
+@media(max-width:768px){.settings-shell-home{min-height:calc(100dvh - 164px)}.settings-home-title{font-size:20px}.settings-terminal-head h1{font-size:30px}.settings-terminal-head p{font-size:13px}.settings-terminal-grid{gap:10px}.settings-terminal-card{padding:14px 12px;border-radius:14px}.settings-shell-home .settings-terminal-card{min-height:132px}.settings-terminal-icon{width:46px;height:46px;border-radius:12px}.settings-terminal-card h3{font-size:16px}.settings-terminal-card p{font-size:12px}.settings-terminal-actions{grid-template-columns:1fr}.settings-terminal-cta{justify-content:center}.settings-terminal-btn{min-height:44px;min-width:112px;padding:0 18px;font-size:15px;border-radius:14px}.settings-detail-copy h2{font-size:20px}.settings-detail-copy p{font-size:11px}}
+@media(max-width:560px){.settings-shell-home{min-height:calc(100dvh - 170px)}.settings-terminal{gap:8px}.settings-home-title{font-size:18px}.settings-home-content{gap:8px}.settings-terminal-head h1{font-size:28px}.settings-terminal-head p{font-size:12px}.settings-terminal-grid{gap:8px}.settings-terminal-card{padding:12px 10px;gap:9px}.settings-shell-home .settings-terminal-card{min-height:124px}.settings-terminal-icon{width:40px;height:40px;border-radius:10px}.settings-terminal-card h3{font-size:15px}.settings-terminal-card p{font-size:11px;line-height:1.25}.settings-terminal-btn{min-height:42px;min-width:106px;padding:0 16px;font-size:14px;border-radius:13px}.settings-detail-head{gap:8px}.settings-detail-back{min-height:34px;padding:7px 10px}.settings-detail-copy h2{font-size:18px}.settings-detail-copy p{font-size:10px}}
+@media(max-width:1200px){.section-grid{grid-template-columns:1fr}.section-grid>.span-7,.section-grid>.span-5,.section-grid>.span-12{grid-column:span 1}}
+@media(max-width:1024px){.shell-sidebar{display:none}.mth{display:flex}.mn{display:flex}.shell-main{margin-left:0;padding:calc(82px + env(safe-area-inset-top,0px)) 16px calc(104px + env(safe-area-inset-bottom,0px))}.shell-main.shell-main-no-mth{padding:calc(12px + env(safe-area-inset-top,0px)) 16px calc(104px + env(safe-area-inset-bottom,0px))}.shell-main.shell-main-inventory{padding:calc(14px + env(safe-area-inset-top,0px)) 16px calc(104px + env(safe-area-inset-bottom,0px))}.auth-hero{display:none}.auth-panel{padding:32px 18px 24px}.auth-mobile-brand{display:flex}.workflow-grid,.settings-grid{grid-template-columns:1fr}.repair-bento-half{grid-column:span 12}}
+@media(max-width:768px){.action-row>*{width:100%;justify-content:center}.gi,.gs{font-size:16px!important}.stock-header{display:grid!important;grid-template-columns:minmax(0,1fr) auto;align-items:start!important;margin-bottom:16px}.stock-hero-actions{width:auto;display:flex;gap:8px;justify-self:end}.stock-hero-actions .bp{padding:11px 14px;font-size:13px;min-height:46px;justify-content:center}.stock-filter-card{margin-bottom:14px;padding:12px!important}.stock-tools{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:start}.stock-search{min-width:0}.stock-search .gi{padding:11px 14px 11px 34px}.stock-controls-row{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-start}.stock-controls-row .gs{flex:1 1 132px;min-width:0;padding:10px 11px;font-size:14px!important}.parts-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.dashboard-grid{display:flex;gap:12px;overflow:auto;padding-bottom:4px;scrollbar-width:none}.dashboard-grid::-webkit-scrollbar{display:none}.metric-card{min-width:220px}.auth-header h2{font-size:28px}.repair-search{grid-template-columns:1fr}.repair-card-actions{grid-template-columns:repeat(2,minmax(0,1fr))}.page-hero,.settings-topbar{align-items:flex-start}.add-desktop-only{display:none!important}.add-mobile-only{display:block!important}.add-stock-layout .workflow-side{display:none}.add-mobile-actions{display:grid;grid-template-columns:160px minmax(0,1fr);gap:14px;position:sticky;bottom:calc(88px + env(safe-area-inset-bottom,0px));z-index:35;padding:14px 0;background:linear-gradient(180deg,rgba(247,249,252,0),rgba(247,249,252,.94) 32%,rgba(247,249,252,.98))}.add-desktop-actions{display:none}.add-step-sections[data-step="0"] .add-step-section[data-step="1"],.add-step-sections[data-step="0"] .add-step-section[data-step="2"],.add-step-sections[data-step="1"] .add-step-section[data-step="0"],.add-step-sections[data-step="1"] .add-step-section[data-step="2"],.add-step-sections[data-step="2"] .add-step-section[data-step="0"],.add-step-sections[data-step="2"] .add-step-section[data-step="1"]{display:none}.add-brand-grid,.add-grid-2,.add-grid-3{grid-template-columns:1fr}.add-ref-card{padding:22px 18px!important}.add-step-header{padding-top:0}}
+@media(max-width:560px){.gc{padding:12px!important;border-radius:16px!important}.stock-tools{grid-template-columns:1fr}.stock-controls-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}.stock-view-toggle{justify-self:end}.stock-header h1{font-size:24px!important}.stock-header p{font-size:13px!important}.stock-hero-actions .btn-label{display:none}.stock-hero-actions .bp{width:42px;min-width:42px;height:42px;min-height:42px;padding:0}.parts-stat-card{padding:12px!important}.parts-sheet-wrap{align-items:stretch!important;justify-content:flex-end!important;padding:0!important}.parts-sheet{width:100vw!important;max-width:none!important;max-height:min(86vh,86dvh)!important;border-bottom-left-radius:0!important;border-bottom-right-radius:0!important;padding:18px 16px calc(18px + env(safe-area-inset-bottom,0px))!important}.auth-panel{padding-inline:14px}.auth-segment{grid-template-columns:1fr}.auth-foot-card{align-items:flex-start;flex-direction:column}.editor-stat-grid,.settings-mini-grid{grid-template-columns:1fr}.repair-shell{padding:16px}.repair-card-actions{grid-template-columns:1fr}.page-chip{width:100%;justify-content:center}.add-mobile-actions{grid-template-columns:1fr 1.65fr;bottom:calc(84px + env(safe-area-inset-bottom,0px));padding-top:10px}.add-step-tab{font-size:10px;letter-spacing:.1em;padding-inline:4px}.add-condition-pills{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.add-condition-pill{padding:14px 8px;text-align:center}.add-ref-title{font-size:11px}}
+@media(max-width:560px){.repair-form-actions{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:10px}.repair-form-actions .bg,.repair-form-actions .bp{width:100%;justify-content:center}}
+@media(max-width:1024px){.repair-form-grid{grid-template-columns:1fr}.repair-form-shell{padding:16px}.repair-form-side{order:2}}
+@media(max-width:560px){.repair-form-shell{padding:14px;border-radius:22px}.repair-form-grid{gap:12px}}
+.repair-lab{width:100%;max-width:none;margin:0;display:grid;gap:10px;padding:0}
+.repair-lab-hero{display:grid;gap:10px;padding:12px;border-radius:20px;background:#fff;border:1px solid rgba(198,197,212,.22);box-shadow:0 10px 24px rgba(25,28,30,.05)}
+.repair-lab-top{display:flex;align-items:center;justify-content:flex-end;gap:10px}
+.repair-lab-title{display:flex;align-items:center;gap:10px}
+.repair-lab-mark{width:30px;height:30px;border-radius:10px;background:#e8efff;color:#2d55d7;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.repair-lab-title h1{font-family:'Plus Jakarta Sans',sans-serif;font-size:20px;line-height:1.05;font-weight:800;letter-spacing:-.04em;color:#1f2937}
+.repair-lab-title p{margin-top:2px;color:#6b7280;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.repair-lab-top .bp{padding:10px 14px;min-height:40px;border-radius:12px;gap:6px;box-shadow:none}
+.repair-lab-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.repair-lab-stat{padding:10px 8px 9px;border-radius:14px;background:#f8f9ff;border:1px solid rgba(198,197,212,.16);display:grid;gap:2px;justify-items:center;text-align:center}
+.repair-lab-stat.open{background:#fff1f1}
+.repair-lab-stat.ready{background:#ebfbf1}
+.repair-lab-stat-label{font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#6b7280}
+.repair-lab-stat-value{font-family:'Plus Jakarta Sans',sans-serif;font-size:26px;font-weight:800;line-height:1;color:#1f2937}
+.repair-lab-stat-meta{font-size:10px;color:#6b7280}
+.repair-lab-controls{display:grid;gap:8px;padding:10px 12px;border-radius:18px;background:#fff;border:1px solid rgba(198,197,212,.18)}
+.repair-lab-searchbox{display:grid;grid-template-columns:16px minmax(0,1fr);align-items:center;column-gap:8px;background:#f4f6fa;border:1px solid rgba(198,197,212,.2);border-radius:12px;padding:0 10px}
+.repair-lab-searchbox svg{position:static!important;left:auto!important;top:auto!important;transform:none!important;color:#7f8aa3;flex-shrink:0}
+.repair-lab-searchbox .gi{border:none!important;background:transparent!important;min-height:40px;padding:9px 0!important;font-size:14px;text-indent:0!important}
+.repair-lab-searchbox .gi:focus{box-shadow:none}
+.repair-lab-filters{display:flex;flex-wrap:wrap;gap:6px}
+.repair-lab-filter-pill{display:inline-flex;align-items:center;gap:5px;padding:6px 9px;border-radius:999px;border:1px solid rgba(198,197,212,.24);background:#fff;color:#5f6778;font-size:10px;font-weight:700;letter-spacing:.01em;line-height:1}
+.repair-lab-filter-pill.active{background:#3659d8;color:#fff;border-color:#3659d8}
+.repair-lab-filter-pill svg{width:11px;height:11px;stroke-width:2}
+.repair-lab-list{display:grid;gap:8px}
+.repair-lab-card{display:grid;gap:9px;padding:11px 12px;border-radius:18px;background:#fff;border:1px solid rgba(198,197,212,.2);border-left:4px solid #4363da;box-shadow:0 8px 16px rgba(25,28,30,.04)}
+.repair-lab-card.ready{border-left-color:#1ea465}
+.repair-lab-card.cancelled{border-left-color:#c93838}
+.repair-lab-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.repair-lab-card-title{font-size:15px;font-weight:800;color:#111827;line-height:1.25}
+.repair-lab-card-customer{margin-top:2px;font-size:12px;font-weight:600;color:#6b7280}
+.repair-lab-card-ref{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#667085;white-space:nowrap}
+.repair-lab-card-body{display:grid;grid-template-columns:minmax(0,1fr) 78px;gap:10px;align-items:start}
+.repair-lab-card-copy{display:grid;gap:2px;min-width:0}
+.repair-lab-card-copy span{font-size:12px;color:#5f6778;line-height:1.45;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.repair-lab-card-copy span.problem{display:inline-flex;align-items:center;gap:5px;white-space:normal;color:#4b5565;background:#fff4dd;border:1px solid #f2ddb3;border-radius:999px;padding:2px 8px;justify-self:start;max-width:100%}
+.repair-lab-card-copy span.problem strong{font-size:11px;font-weight:800;color:#7a4700;letter-spacing:.01em;white-space:nowrap}
+.repair-lab-card-copy span.problem em{font-style:normal;font-weight:700;color:#111827;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.repair-lab-card-media{width:78px;height:78px;border-radius:12px;overflow:hidden;background:#eef2f9;display:flex;align-items:center;justify-content:center}
+.repair-lab-card-footer{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:10px}
+.repair-lab-card-finance{display:inline-grid;grid-template-columns:auto auto auto auto;align-items:center;column-gap:8px;row-gap:2px}
+.repair-lab-card-finance strong{font-size:13px;color:#111827;line-height:1}
+.repair-lab-card-finance span{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#7a8294}
+.repair-lab-card-statuses{display:flex;gap:6px;flex-wrap:wrap}
+.repair-lab-card-actions{display:flex;align-items:center;gap:8px}
+.repair-lab-icon-btn{width:34px;height:34px;border-radius:10px;border:1px solid rgba(198,197,212,.22);background:#fff;color:#4f5f7c;display:flex;align-items:center;justify-content:center}
+.repair-lab-icon-btn svg{stroke-width:1.9}
+.repair-lab-msg-btn{width:36px;height:36px;border-radius:11px;border:1px solid #1f8f53;background:#1db463;color:#fff;display:flex;align-items:center;justify-content:center}
+.repair-lab-empty{padding:28px 14px;border-radius:18px;background:#fff;border:1px dashed rgba(198,197,212,.55);text-align:center}
+@media(max-width:768px){.repair-lab{gap:9px}.repair-lab-top{align-items:flex-start;flex-wrap:wrap}.repair-lab-top .bp{width:100%;justify-content:center}.repair-lab-stats{gap:6px}.repair-lab-controls{padding:9px 10px}.repair-lab-card-footer{grid-template-columns:1fr}.repair-lab-card-actions{justify-content:space-between;width:100%}}
+@media(max-width:560px){.repair-lab{gap:8px}.repair-lab-hero{padding:10px;border-radius:16px}.repair-lab-mark{width:26px;height:26px;border-radius:8px}.repair-lab-title h1{font-size:18px}.repair-lab-title p{font-size:10px}.repair-lab-top .bp{min-height:38px;padding:8px 10px;font-size:12px}.repair-lab-stats{grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}.repair-lab-stat{padding:8px 6px}.repair-lab-stat-value{font-size:22px}.repair-lab-stat-meta{font-size:9px}.repair-lab-controls{gap:6px;padding:7px}.repair-lab-searchbox .gi{min-height:38px;font-size:13px}.repair-lab-filters{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}.repair-lab-filter-pill{justify-content:center;padding:5px 3px;font-size:8.5px;line-height:1;gap:3px;white-space:nowrap}.repair-lab-filter-pill svg{width:9px;height:9px}.repair-lab-card{padding:10px 10px 9px;border-radius:14px}.repair-lab-card-title{font-size:14px}.repair-lab-card-customer{font-size:11px}.repair-lab-card-ref{font-size:9px}.repair-lab-card-body{grid-template-columns:minmax(0,1fr) 72px;gap:8px}.repair-lab-card-copy span{font-size:11px}.repair-lab-card-copy span.problem{gap:4px;padding:2px 7px}.repair-lab-card-copy span.problem strong{font-size:10px}.repair-lab-card-copy span.problem em{font-size:11px}.repair-lab-card-media{width:72px;height:72px;border-radius:10px}.repair-lab-card-finance{column-gap:6px}.repair-lab-card-finance strong{font-size:12px}.repair-lab-card-finance span{font-size:9px}.repair-lab-card-statuses .repair-status-select{max-width:96px;min-height:28px;padding:3px 20px;font-size:9px!important;text-align:center;text-align-last:center}.repair-lab-card-actions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;width:100%}.repair-lab-icon-btn{width:100%;height:34px;border-radius:9px}.repair-lab-msg-btn{width:100%;height:34px;border-radius:10px}}
+@media(max-width:768px){.dashboard-retail{gap:10px}.dashboard-retail-hero{display:none}.dashboard-retail-metrics{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.dashboard-retail-metric{min-width:0;padding:12px 11px;border-radius:18px}.dashboard-retail-metric:last-child{grid-column:1 / -1}.dashboard-retail-metric-icon{width:38px;height:38px}.dashboard-retail-metric-tag{padding:4px 7px;font-size:9px}.dashboard-retail-metric-value{font-size:20px}.dashboard-retail-actions{gap:8px}.dashboard-retail-action{padding:10px 8px;border-radius:14px}.dashboard-retail-action span{width:32px;height:32px}.dashboard-retail-panels{grid-template-columns:1fr;gap:10px}.dashboard-retail-panel{padding:12px}.dashboard-retail-panel-head{margin-bottom:9px}.dashboard-retail-activity-item{padding:11px 12px 11px 14px}}
+@media(max-width:560px){.dashboard-retail{gap:8px}.dashboard-retail-search{padding:12px 14px;font-size:13px;border-radius:14px}.dashboard-retail-metrics{gap:6px}.dashboard-retail-metric{padding:10px 9px;border-radius:16px;gap:8px}.dashboard-retail-metric-icon{width:32px;height:32px}.dashboard-retail-metric-label{font-size:11px}.dashboard-retail-metric-value{font-size:17px}.dashboard-retail-metric-sub{font-size:9px;line-height:1.35}.dashboard-retail-actions{grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}.dashboard-retail-action{padding:9px 5px;gap:6px;border-radius:13px}.dashboard-retail-action strong{font-size:9px;line-height:1.15}.dashboard-retail-action span{width:26px;height:26px}.dashboard-retail-action svg,.dashboard-retail-metric-icon svg{transform:scale(.85)}.dashboard-retail-panel{padding:9px;border-radius:15px}.dashboard-retail-panel-head{margin-bottom:7px}.dashboard-retail-panel-head h3{font-size:15px}.dashboard-retail-fill{padding:4px 7px;font-size:9px}.dashboard-retail-mix{gap:7px}.dashboard-retail-mix-row{grid-template-columns:auto minmax(0,1fr);gap:7px}.dashboard-retail-mix-tone{height:18px}.dashboard-retail-mix-title{font-size:11px}.dashboard-retail-mix-row strong{grid-column:2;justify-self:end;font-size:11px}.dashboard-retail-mix-bar{height:3px}.dashboard-retail-activity{gap:7px}.dashboard-retail-activity-item{grid-template-columns:minmax(0,1fr) auto;gap:8px;padding:10px 10px 10px 12px;border-radius:12px}.dashboard-retail-activity-main{gap:8px}.dashboard-retail-activity-icon{width:30px;height:30px;border-radius:9px}.dashboard-retail-activity-title{font-size:13px}.dashboard-retail-activity-meta{font-size:11px}.dashboard-retail-activity-side{justify-items:end;text-align:right;gap:4px}.dashboard-retail-activity-amount{font-size:14px}}
+@media(max-width:768px){.shell-main.shell-main-add{padding:calc(12px + env(safe-area-inset-top,0px)) 14px calc(86px + env(safe-area-inset-bottom,0px))}.add-mobile-hero{display:block}.add-compact{gap:10px}.add-compact-card{padding:14px;border-radius:20px}.add-compact-form{gap:8px}.add-compact-field{padding:10px;border-radius:16px}.add-compact-mini-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.add-compact-head h2{font-size:17px}.add-compact-actions{display:none}.add-mobile-actions{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:10px;position:sticky;bottom:calc(8px + env(safe-area-inset-bottom,0px));z-index:35;padding:10px 0;background:linear-gradient(180deg,rgba(247,249,252,0),rgba(247,249,252,.94) 32%,rgba(247,249,252,.98))}}
+@media(max-width:560px){.shell-main.shell-main-add{padding:calc(10px + env(safe-area-inset-top,0px)) 12px calc(84px + env(safe-area-inset-bottom,0px))}.add-compact{gap:8px}.add-mobile-header-title{font-size:22px}.add-mobile-back{width:40px;height:40px}.add-compact-toolbar{gap:8px}.add-compact-card{padding:12px;border-radius:18px}.add-compact-head p{font-size:11px}.add-compact-form{gap:8px}.add-compact-field{padding:9px}.add-compact-field.mini{padding:8px}.add-compact-brand-row{grid-template-columns:100px minmax(0,1fr);gap:8px}.add-compact-mini-grid{gap:6px}.add-compact .add-input-shell .gi,.add-compact .add-input-shell .gs{padding:9px 2px;font-size:13px}.add-compact-field.mini .add-input-shell .gi,.add-compact-field.mini .add-input-shell .gs{padding:7px 2px;font-size:12px}.add-compact-collapse summary{padding:12px 14px}.add-compact-collapse-body{padding:0 12px 12px}.add-compact .pg{grid-template-columns:repeat(2,minmax(0,88px));justify-content:start}.add-compact .pa{min-height:64px;font-size:9px}.add-compact .pa svg{width:16px;height:16px}.add-compact-field.photos{padding:5px 5px 4px}.add-compact-field.photos .pg{grid-template-columns:repeat(2,minmax(0,56px));gap:5px}.add-compact-field.photos .pa{min-height:42px;font-size:7px}.add-compact-field.photos .pa svg{width:12px;height:12px}.add-condition-pills{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.add-condition-pill{padding:12px 6px;text-align:center}.add-mobile-actions{grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);bottom:calc(6px + env(safe-area-inset-bottom,0px));padding-top:8px}}
+.add-compact-mini-grid > .add-compact-field.mini{padding:5px 6px;gap:4px;border-radius:13px}
+.add-compact-mini-grid > .add-compact-field.mini .add-input-shell .gi,.add-compact-mini-grid > .add-compact-field.mini .add-input-shell .gs{padding:3px 2px;font-size:12px;min-height:34px}
+.add-compact .add-input-shell{overflow:hidden}
+.add-compact .add-input-shell .gi[type="date"]{padding-right:12px;min-width:0}
+.add-compact-mini-grid > .add-compact-field.mini .add-input-shell .gi[type="date"]{padding-right:14px;min-height:34px}
+.sell-form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.sell-found-card{background:rgba(163,246,156,.18);border-color:rgba(90,169,88,.2)}
+@media(max-width:768px){.sell-form-grid{grid-template-columns:1fr 1fr;gap:10px}.sell-found-card{padding:14px!important}.sell-found-card>div{gap:12px!important}.sell-found-card img{width:64px!important;height:64px!important}}
+@media(max-width:560px){.sell-form-grid{grid-template-columns:1fr;gap:8px}.sell-found-card{padding:12px!important}.sell-found-card>div{display:grid!important;grid-template-columns:52px minmax(0,1fr);align-items:start!important;gap:10px!important}.sell-found-card img{width:52px!important;height:52px!important}.sell-found-card div[style*="IMEI 1"]{word-break:break-all}.sell-quick-actions{display:grid!important;grid-template-columns:1fr;gap:8px!important}.sell-side-notes .editor-head,.sell-side-notes .editor-list-row{align-items:flex-start}.sell-side-notes .ba{align-self:flex-start}}
 `;
 
 // ═══ Camera Capture ═══
@@ -2039,7 +2620,7 @@ function IMEIS({ onScan, onClose, getCameraStream, releaseCameraLater }) {
 function F({ l, ic: I, children }) {
     return (
         <div style={{ marginBottom: 16 }}>
-            <label style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--t2)", fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--t2)", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.1, marginBottom: 8 }}>
                 {I && <I size={13} />} {l}
             </label>
             {children}
@@ -2056,8 +2637,8 @@ function SettingsSection({ title, summary, open, onToggle, children, style = {} 
             style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, background: "transparent", border: "none", padding: 0, cursor: "pointer", textAlign: "left" }}
         >
             <div style={{ minWidth: 0 }}>
-                <div style={{ color: "var(--t1)", fontSize: 15, fontWeight: 600 }}>{title}</div>
-                {summary ? <div style={{ color: "var(--t3)", fontSize: 12, marginTop: 4, lineHeight: 1.5 }}>{summary}</div> : null}
+                <div style={{ color: "var(--t1)", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 17, fontWeight: 700, letterSpacing: "-.02em" }}>{title}</div>
+                {summary ? <div style={{ color: "var(--t2)", fontSize: 12, marginTop: 6, lineHeight: 1.6 }}>{summary}</div> : null}
             </div>
             <ChevronDown size={18} style={{ color: "var(--t3)", flexShrink: 0, transform: open ? "rotate(180deg)" : "rotate(0deg)", transition: "transform .2s ease" }} />
         </button>
@@ -2068,12 +2649,12 @@ function SettingsSection({ title, summary, open, onToggle, children, style = {} 
 function StorageInput({ value, onChange }) {
     const usingCustom = !isPresetStorage(value);
     return (
-        <div style={{ display: "grid", gap: 8 }}>
+        <div style={{ display: "grid", gap: 6 }}>
             <select className="gs" value={usingCustom ? CUSTOM_STORAGE : value} onChange={e => onChange(e.target.value === CUSTOM_STORAGE ? (usingCustom ? value : "") : e.target.value)}>
                 {STORAGE_PRESETS.map(s => <option key={s} value={s}>{s}</option>)}
                 <option value={CUSTOM_STORAGE}>Custom</option>
             </select>
-            {usingCustom && <input className="gi" value={value} onChange={e => onChange(e.target.value)} placeholder="Custom storage e.g. 2TB" />}
+            {usingCustom && <input className="gi" value={value} onChange={e => onChange(e.target.value)} placeholder="Custom storage e.g. 2TB" style={{ paddingTop: 10, paddingBottom: 10 }} />}
         </div>
     );
 }
@@ -2081,13 +2662,13 @@ function StorageInput({ value, onChange }) {
 function RamInput({ value, onChange }) {
     const usingCustom = value && !RAM_PRESETS.includes(value);
     return (
-        <div style={{ display: "grid", gap: 8 }}>
+        <div style={{ display: "grid", gap: 6 }}>
             <select className="gs" value={usingCustom ? CUSTOM_RAM : value} onChange={e => onChange(e.target.value === CUSTOM_RAM ? (usingCustom ? value : "") : e.target.value)}>
                 <option value="">Select RAM</option>
                 {RAM_PRESETS.map(ram => <option key={ram} value={ram}>{ram}</option>)}
                 <option value={CUSTOM_RAM}>Custom</option>
             </select>
-            {usingCustom && <input className="gi" value={value} onChange={e => onChange(e.target.value)} placeholder="Custom RAM e.g. 18GB" />}
+            {usingCustom && <input className="gi" value={value} onChange={e => onChange(e.target.value)} placeholder="Custom RAM e.g. 18GB" style={{ paddingTop: 10, paddingBottom: 10 }} />}
         </div>
     );
 }
@@ -2139,6 +2720,7 @@ export default function App() {
     const [st, sSt] = useState(null);
     const [sq, sSq] = useState("");
     const [iq, sIq] = useState("");
+    const [invoiceStatusFilter, setInvoiceStatusFilter] = useState("All");
     const [reportType, setReportType] = useState("All");
     const [reportView, setReportView] = useState("Transactions");
     const [reportPreset, setReportPreset] = useState("Today");
@@ -2152,9 +2734,11 @@ export default function App() {
     const [reportDueFilter, setReportDueFilter] = useState("All Status");
     const [reportRepairStatusFilter, setReportRepairStatusFilter] = useState("All Repair Statuses");
     const [reportVisibleCount, setReportVisibleCount] = useState(REPORT_PAGE_SIZE);
-    const [fc, sFc] = useState("All");
-    const [fs, sFs] = useState("In Stock");
+    const [stockBrandFilter, setStockBrandFilter] = useState("All Brands");
+    const [stockConditionFilter, setStockConditionFilter] = useState("Any Condition");
+    const [stockPriceFilter, setStockPriceFilter] = useState("Price Range");
     const [ei, sEi] = useState(null);
+    const [addFlowStep, setAddFlowStep] = useState(0);
     const [bulkAdd, setBulkAdd] = useState(false);
     const [bulkImeis, setBulkImeis] = useState([]);
     const [bulkManualImei, setBulkManualImei] = useState("");
@@ -2179,7 +2763,7 @@ export default function App() {
     const [syncBusy, setSyncBusy] = useState(false);
     const [profileSaveBusy, setProfileSaveBusy] = useState(false);
     const [shopProfileDirty, setShopProfileDirty] = useState(false);
-    const [settingsOpenSection, setSettingsOpenSection] = useState("shop-profile");
+    const [settingsOpenSection, setSettingsOpenSection] = useState("");
     const [syncEditMode, setSyncEditMode] = useState(false);
     const [storageReady, setStorageReady] = useState(false);
     const [syncMeta, setSyncMeta] = useState(() => normalizeSyncMeta());
@@ -2192,7 +2776,7 @@ export default function App() {
     const reportLoadMoreRef = useRef(null);
     const lastRemoteCheckAtRef = useRef(0);
     const loadPocketBaseDataRef = useRef(null);
-    const lastSavedShopProfileSignatureRef = useRef('');
+    const lastSavedShopProfileSignatureRef = useRef(JSON.stringify(normalizeShopProfile(seed.current.shop || DEFAULT_SHOP_PROFILE)));
     const notifyTimeoutRef = useRef(null);
     const shopProfileDirtyRef = useRef(false);
     const scannerBufRef = useRef("");
@@ -2513,12 +3097,15 @@ export default function App() {
         window.localStorage.removeItem(AUTH_SESSION_KEY);
         setShopSession(null);
         setAuthReady(true);
+        setShopProfileDirty(false);
+        shopProfileDirtyRef.current = false;
         setSyncCfg(current => normalizeSyncCfg({ ...current, connected: false, scriptUrl: activeSyncUrl, syncKey: "", lastStatus: "Login required" }));
         notify("Logged out.", "success");
     };
     const openSc = (t) => { sSt(t); setScs(true); };
     const resetForm = () => {
         sEi(null);
+        setAddFlowStep(0);
         setBulkAdd(false);
         setBulkImeis([]);
         setBulkManualImei("");
@@ -2534,7 +3121,7 @@ export default function App() {
             return page;
         });
     };
-    const editFromStock = (item) => { setBulkAdd(false); setBulkImeis([]); setBulkManualImei(""); sEi(item); sFm(toForm(item)); sSf(false); sDi(null); sPg(prev => { if (typeof window !== "undefined" && prev !== "add") window.history.pushState({ page: prev }, "", window.location.pathname); return "add"; }); };
+    const editFromStock = (item) => { setBulkAdd(false); setBulkImeis([]); setBulkManualImei(""); setAddFlowStep(1); sEi(item); sFm(toForm(item)); sSf(false); sDi(null); sPg(prev => { if (typeof window !== "undefined" && prev !== "add") window.history.pushState({ page: prev }, "", window.location.pathname); return "add"; }); };
     const setSyncField = (k, v) => setSyncCfg(p => normalizeSyncCfg({ ...p, [k]: v, ...(k === "scriptUrl" || k === "shopId" || k === "syncKey" ? { connected: false } : {}) }));
     const setShopField = (k, v) => {
         setShopProfileDirty(true);
@@ -2881,6 +3468,12 @@ export default function App() {
     }, [canPersist, syncCfg]);
     useEffect(() => { syncBusyRef.current = syncBusy; }, [syncBusy]);
     useEffect(() => {
+        const signature = JSON.stringify(normalizeShopProfile(shopCfg));
+        const dirty = signature !== lastSavedShopProfileSignatureRef.current;
+        if (shopProfileDirty !== dirty) setShopProfileDirty(dirty);
+        shopProfileDirtyRef.current = dirty;
+    }, [shopCfg, shopProfileDirty]);
+    useEffect(() => {
         if (!storageReady) return;
         if (skipNextDirtyMark.current) {
             skipNextDirtyMark.current = false;
@@ -3063,6 +3656,8 @@ export default function App() {
         const profile = normalizeShopProfile(shopCfg);
         const signature = JSON.stringify(profile);
         if (signature === lastSavedShopProfileSignatureRef.current) {
+            setShopProfileDirty(false);
+            shopProfileDirtyRef.current = false;
             notify('No shop profile changes to save.', 'warning');
             return;
         }
@@ -3234,6 +3829,13 @@ export default function App() {
         } finally {
             setBulkSaveBusy(false);
         }
+    };
+    const handleAddPrimaryAction = () => {
+        if (addFlowStep < ADD_FLOW_STEPS.length - 1) {
+            setAddFlowStep(current => Math.min(current + 1, ADD_FLOW_STEPS.length - 1));
+            return;
+        }
+        void (bulkAdd && !ei ? saveBulkInv() : saveInv());
     };
     const saveRepair = async () => {
         if (!repairForm.customerName.trim()) { notify("Customer name is required.", "error"); return; }
@@ -3523,13 +4125,21 @@ export default function App() {
     const fi = useMemo(() => inv.filter(i => {
         if (i.status === "Deleted") return false;
         const ms = !sq || [i.imei, i.imei2, i.brand, i.model, i.color, i.ram, i.storage, i.supplier].some(f => (f || "").toLowerCase().includes(sq.toLowerCase()));
-        return ms && (fc === "All" || i.condition === fc) && (fs === "All" || i.status === fs);
-    }), [inv, sq, fc, fs]);
+        const brandMatch = stockBrandFilter === "All Brands" || i.brand === stockBrandFilter;
+        const conditionMatch = stockConditionFilter === "Any Condition" || i.condition === stockConditionFilter;
+        const sellPrice = Number(i.sellPrice || 0);
+        const priceMatch = stockPriceFilter === "Price Range"
+            || (stockPriceFilter === "Under 20k" && sellPrice < 20000)
+            || (stockPriceFilter === "20k-50k" && sellPrice >= 20000 && sellPrice <= 50000)
+            || (stockPriceFilter === "50k-100k" && sellPrice > 50000 && sellPrice <= 100000)
+            || (stockPriceFilter === "100k+" && sellPrice > 100000);
+        return ms && brandMatch && conditionMatch && priceMatch;
+    }), [inv, sq, stockBrandFilter, stockConditionFilter, stockPriceFilter]);
     const visibleFi = useMemo(() => fi.slice(0, stockVisibleCount), [fi, stockVisibleCount]);
     const hasMoreStock = visibleFi.length < fi.length;
     useEffect(() => {
         setStockVisibleCount(STOCK_PAGE_SIZE);
-    }, [pg, sq, fc, fs]);
+    }, [pg, sq, stockBrandFilter, stockConditionFilter, stockPriceFilter]);
     useEffect(() => {
         if (typeof window === "undefined" || pg !== "inventory" || !hasMoreStock) return;
         const target = stockLoadMoreRef.current;
@@ -3544,7 +4154,19 @@ export default function App() {
     }, [fi.length, hasMoreStock, pg, visibleFi.length]);
     const recycleBinItems = useMemo(() => inv.filter(i => i.status === "Deleted"), [inv]);
     const latestSell = useMemo(() => tx.find(t => t.type === "Sell") || null, [tx]);
-    const latestInvoices = useMemo(() => tx.filter(t => t.type === "Sell").slice(0, 3), [tx]);
+    const latestInvoices = useMemo(() => tx.filter(t => t.type === "Sell").slice(0, 4), [tx]);
+    const retailDashboardInvoices = useMemo(() => latestInvoices.slice(0, 4), [latestInvoices]);
+    const retailMonthlySales = useMemo(() => {
+        const now = new Date();
+        return tx.filter(item => {
+            if (item.type !== "Sell") return false;
+            const saleDate = new Date(item.date);
+            return saleDate.getMonth() === now.getMonth() && saleDate.getFullYear() === now.getFullYear();
+        }).reduce((sum, item) => sum + Number(item.totalAmount || item.amount || 0), 0);
+    }, [tx]);
+    const retailDueTotal = useMemo(() => tx.filter(item => item.type === "Sell").reduce((sum, item) => sum + Number(item.dueAmount || 0), 0), [tx]);
+    const trackedStockUnits = useMemo(() => inv.filter(item => item.status !== "Deleted").reduce((sum, item) => sum + Number(item.qty || 0), 0), [inv]);
+    const retailStockFill = useMemo(() => Math.max(0, Math.min(100, Math.round((stats.ts / Math.max(trackedStockUnits, 1)) * 100))), [stats.ts, trackedStockUnits]);
     const repairRecords = useMemo(() => [...repairs].sort((a, b) => String(b.updatedAt || b.createdAt || "").localeCompare(String(a.updatedAt || a.createdAt || ""))), [repairs]);
     const filteredRepairRecords = useMemo(() => {
         const q = repairQuery.trim().toLowerCase();
@@ -3595,8 +4217,17 @@ export default function App() {
         return tx.filter(t => t.type === "Sell").filter(t => {
             if (!q) return true;
             return [t.invoiceNo, t.customerName, t.phone, t.brand, t.model, t.imei, t.imei2].some(v => String(v || "").toLowerCase().includes(q));
-        });
-    }, [iq, tx]);
+        }).filter(t => {
+            if (invoiceStatusFilter === "Paid") return Number(t.dueAmount || 0) <= 0;
+            if (invoiceStatusFilter === "Due") return Number(t.dueAmount || 0) > 0;
+            return true;
+        }).sort((a, b) => String(b.dateTime || b.date || "").localeCompare(String(a.dateTime || a.date || "")));
+    }, [invoiceStatusFilter, iq, tx]);
+    const invoiceSummary = useMemo(() => ({
+        totalAmount: invoiceRecords.reduce((sum, record) => sum + Number(record.totalAmount || record.amount || 0), 0),
+        dueAmount: invoiceRecords.reduce((sum, record) => sum + Number(record.dueAmount || 0), 0),
+        gstAmount: invoiceRecords.reduce((sum, record) => sum + Number(record.gstAmount || 0), 0),
+    }), [invoiceRecords]);
     const salePreview = useMemo(() => calcInvoiceTotals(fm.amount || 0, fm.billType, fm.gstRate), [fm.amount, fm.billType, fm.gstRate]);
     const reportRange = useMemo(() => getReportRange(reportPreset, reportFrom, reportTo), [reportPreset, reportFrom, reportTo]);
     const reportPartyQueryLower = reportPartyQuery.trim().toLowerCase();
@@ -3819,6 +4450,45 @@ export default function App() {
         a.href = url; a.download = name; a.click();
         setTimeout(() => URL.revokeObjectURL(url), 1000);
     };
+    const downloadCsv = (fileName, headers, rows) => {
+        const escape = (value) => `"${String(value ?? "").replace(/"/g, '""')}"`;
+        const csv = [headers.map(escape).join(","), ...rows.map(row => row.map(escape).join(","))].join("\n");
+        dlBlob(new Blob([csv], { type: "text/csv;charset=utf-8" }), fileName);
+        notify("CSV exported", "success");
+    };
+    const exportDashboardCsv = () => {
+        downloadCsv(
+            `dashboard-${isoDate()}.csv`,
+            ["Invoice", "Customer", "Device", "Bill Type", "Total", "Due", "Updated"],
+            retailDashboardInvoices.map(invoice => [
+                invoice.invoiceNo || "INV",
+                invoice.customerName || "Walk-in Customer",
+                [invoice.brand, invoice.model].filter(Boolean).join(" ") || "Device",
+                invoice.billType || "Regular",
+                Number(invoice.totalAmount || invoice.amount || 0),
+                Number(invoice.dueAmount || 0),
+                fmtDateTime(invoice.updatedAt || invoice.createdAt || invoice.dateTime || invoice.date || new Date()),
+            ])
+        );
+    };
+    const exportTransactionsCsv = () => {
+        downloadCsv(
+            `sales-history-${isoDate()}.csv`,
+            ["Invoice", "Date", "Customer", "Phone", "Brand", "Model", "Total", "Due", "Payment Mode", "Bill Type"],
+            invoiceRecords.map(invoice => [
+                invoice.invoiceNo || "INV",
+                fmtDateTime(invoice.dateTime || `${invoice.date || isoDate()}T12:00:00`),
+                invoice.customerName || "Walk-in Customer",
+                invoice.phone || "",
+                invoice.brand || "",
+                invoice.model || "",
+                Number(invoice.totalAmount || invoice.amount || 0),
+                Number(invoice.dueAmount || 0),
+                invoice.paymentMode || "Cash",
+                invoice.billType || "Regular",
+            ])
+        );
+    };
     const downloadInvoice = async (sale) => {
         if (!sale) return;
         const { blob, fileName } = await makeInvoiceFile(sale, shopCfg);
@@ -3903,9 +4573,6 @@ export default function App() {
     const nav = useMemo(() => {
         const generalNav = [
             { id: "dashboard", ic: Home, l: "Dashboard" },
-            ...(enabledModules.includes("buy") || enabledModules.includes("sell") ? [{ id: "add", ic: Plus, l: "Add" }] : []),
-            ...(enabledModules.includes("buy") ? [{ id: "buy", ic: ArrowDownCircle, l: "Buy" }] : []),
-            ...(enabledModules.includes("sell") ? [{ id: "sell", ic: ArrowUpCircle, l: "Sell" }] : []),
             ...(enabledModules.includes("repair") ? [{ id: "repair", ic: Wrench, l: "Repair" }] : []),
             { id: "transactions", ic: FileText, l: "Invoices" },
             { id: "reports", ic: BarChart3, l: "Reports" },
@@ -3922,7 +4589,103 @@ export default function App() {
             { id: "settings", ic: Settings, l: "Settings" },
         ];
     }, [enabledModules, shopCfg.businessMode]);
+    const desktopSidebarNav = useMemo(() => nav.filter(item => item.id !== "settings"), [nav]);
     const adminTabs = [{ id: "overview", label: "Overview" }, { id: "users", label: "Users" }, { id: "trials", label: "Trials" }, { id: "shops", label: "Shops" }, { id: "settings", label: "Settings" }];
+    const currentPageKey = pg === "repair-form" ? "repair" : pg;
+    const currentNav = nav.find(item => item.id === currentPageKey) || nav[0];
+    const currentPageLabel = {
+        dashboard: shopCfg.businessMode === "repair-pro" ? "Repair Dashboard" : "Retail Dashboard",
+        add: ei ? "Edit Stock" : bulkAdd ? "Bulk Add Stock" : "Add Stock",
+        inventory: "Inventory",
+        recycle: "Recycle Bin",
+        buy: "Purchase Entry",
+        sell: "New Sale",
+        repair: repairDetail ? "Repair Detail" : "Repair Queue",
+        "repair-form": repairForm.id ? "Edit Repair" : "New Repair",
+        parts: "Parts Hub",
+        transactions: "Sales History",
+        reports: "Reports",
+        settings: "Settings Hub",
+    }[pg] || currentNav?.l || "Dashboard";
+    const workspaceLabel = shopCfg.businessMode === "repair-pro" ? "Repair Pro terminal" : "Retail editorial workspace";
+    const isDesktopViewport = typeof window !== "undefined" && window.innerWidth >= 1025;
+    const activeSettingsSection = settingsOpenSection || (isDesktopViewport ? "shop-profile" : "");
+    const showSettingsHub = !isDesktopViewport && settingsOpenSection === "";
+    const isRetailDashboard = pg === "dashboard" && shopCfg.businessMode !== "repair-pro";
+    const isInventoryShowcase = pg === "inventory" && !di;
+    const hideMobileTopHeader = isInventoryShowcase || pg === "repair" || pg === "transactions" || pg === "reports" || pg === "settings";
+    const isAddPage = pg === "add";
+    const isBuyPage = pg === "buy";
+    const isSellPage = pg === "sell";
+    const isRepairFormPage = pg === "repair-form";
+    const isCompactEntryPage = isAddPage || isBuyPage || isSellPage || isRepairFormPage;
+    const buyRequiresSellerVerification = fm.condition === "Used" || fm.condition === "Refurbished";
+    const isNavActive = (id) => id === currentPageKey || (id === "repair" && pg === "repair-form");
+    const repairPanelStyle = { background: "#23272d", border: "1px solid rgba(255,255,255,.05)" };
+    const repairButtonStyle = { background: "#2d3133", borderColor: "rgba(255,255,255,.08)", color: "#d6e3ff" };
+    const settingsSoftPanelStyle = { background: "var(--surface-low)", border: "1px solid rgba(198,197,212,.16)" };
+    const settingsScreenMeta = {
+        "shop-profile": { title: "Shop Profile", subtitle: "Name, GST, address, logo" },
+        "invoice-preferences": { title: "Invoicing", subtitle: "Prefix, footer, invoice rules" },
+        "system-mode": { title: "System Mode", subtitle: "Retail or Repair behavior" },
+        "app-status": { title: "App Status", subtitle: syncReady ? "Connected and healthy" : "Connection and install diagnostics" },
+    }[activeSettingsSection] || { title: "Settings", subtitle: "Quick access to all configurations" };
+    const currentAddStep = ADD_FLOW_STEPS[Math.min(addFlowStep, ADD_FLOW_STEPS.length - 1)] || ADD_FLOW_STEPS[0];
+    const nextAddStep = addFlowStep < ADD_FLOW_STEPS.length - 1 ? ADD_FLOW_STEPS[addFlowStep + 1] : null;
+    const finalAddActionLabel = bulkAdd && !ei ? (bulkSaveBusy ? "Saving Bulk Stock..." : `Add ${bulkImeis.length || ""} to Stock`) : ei ? "Save Changes" : "Add to Stock";
+    const addDesktopSummary = [
+        { label: bulkAdd && !ei ? "Queued Units" : "Mode", value: bulkAdd && !ei ? String(bulkImeis.length) : (ei ? "Edit Existing" : "Single Intake") },
+        { label: "Device", value: [fm.brand, fm.model].filter(Boolean).join(" ") || "Awaiting handset details" },
+        { label: "Expected Margin", value: fmtCurrency(Number(fm.sellPrice || 0) - Number(fm.buyPrice || 0)) },
+        { label: "Supplier", value: fm.supplier || "Not added" },
+    ];
+    const buyDesktopSummary = [
+        { label: "Purchase", value: fmtCurrency(fm.buyPrice || 0) },
+        { label: "Target Sell", value: fmtCurrency(fm.sellPrice || 0) },
+        { label: "Margin Plan", value: fmtCurrency(Number(fm.sellPrice || 0) - Number(fm.buyPrice || 0)) },
+        { label: "Supplier", value: fm.supplier || "Required" },
+    ];
+    const sellDesktopSummary = [
+        { label: "Selected Device", value: [fm.brand, fm.model].filter(Boolean).join(" ") || "Scan IMEI to load device" },
+        { label: "Invoice Total", value: fmtCurrency(fm.amount || 0) },
+        { label: "Paid Now", value: fmtCurrency(fm.paidAmount || 0) },
+        { label: "Due", value: fmtCurrency(fm.dueAmount || 0) },
+    ];
+    const repairDesktopSummary = [
+        { label: "Ticket", value: repairForm.repairNo || "Will be assigned on save" },
+        { label: "Device", value: [repairForm.brand, repairForm.model].filter(Boolean).join(" ") || "Device details pending" },
+        { label: "Estimate", value: fmtCurrency(repairForm.estimatedCost || 0) },
+        { label: "Advance", value: fmtCurrency(repairForm.advance || 0) },
+    ];
+    const desktopSettingsSections = [
+        { id: "shop-profile", title: "Shop Profile", subtitle: "Branding, GST, contacts" },
+        { id: "invoice-preferences", title: "Invoicing", subtitle: "Prefix, footer, invoice defaults" },
+        { id: "system-mode", title: "System Mode", subtitle: "Retail or repair operating focus" },
+        { id: "app-status", title: "App Status", subtitle: "Sync, install, offline health" },
+    ];
+    const currentMonthLabel = new Date().toLocaleDateString("en-IN", { month: "short", year: "numeric" });
+    const brandShopName = String(shopSession?.shopName || APP_NAME).replace(/([a-z])([A-Z])/g, "$1 $2");
+    const retailMixRows = [
+        { label: "New Devices", value: stats.cc.New || 0, tone: "#4f46e5" },
+        { label: "Refurbished", value: stats.cc.Refurbished || 0, tone: "#7c8cf8" },
+        { label: "Used / Exchange", value: stats.cc.Used || 0, tone: "#b7c4f4" },
+    ];
+    const dashboardStockPill = `${Math.max(0, Math.min(100, retailStockFill))}%`;
+    const dashboardSalesPill = tx.filter(item => item.type === "Sell").length ? "0%" : "--";
+    const dashboardDuePill = retailDueTotal > 0 ? "Due" : "Clear";
+    const saveAddDraft = useCallback(() => {
+        if (typeof window === "undefined" || !canPersist) {
+            notify("Drafts are only available in the browser on this device.", "warning");
+            return;
+        }
+        window.localStorage.setItem(ADD_DRAFT_KEY, JSON.stringify({
+            form: fm,
+            bulkAdd,
+            bulkImeis,
+            savedAt: new Date().toISOString(),
+        }));
+        notify("Draft saved on this device.", "success");
+    }, [bulkAdd, bulkImeis, canPersist, fm, notify]);
     const getTrialMeta = (trialEndsAt) => {
         const expiresAt = Date.parse(String(trialEndsAt || ""));
         if (!Number.isFinite(expiresAt)) return { label: "No trial date", tone: "var(--warn)" };
@@ -3955,73 +4718,158 @@ export default function App() {
     );
     if (!shopSession || showAdminPanel) return (
         <><style>{S}</style>
-            <div className="abg lic-gate">
-                <div className="lic-box gl gc">
-                    <div className="lic-logo">
-                        <img src="/pd-icon.png" alt="PhoneDukaan" style={{ width: 52, height: 52, borderRadius: 12 }} />
+            <div className="auth-shell">
+                <aside className="auth-hero">
+                    <div className="auth-hero-content">
                         <div>
-                            <div style={{ fontWeight: 700, fontSize: 20, lineHeight: 1.2 }}>
-                                <span style={{ color: "#fff" }}>Phone</span>
-                                <span style={{ background: "linear-gradient(90deg,#00D4FF,#8B5CF6)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>Dukaan</span>
+                            <div className="auth-badge"><Smartphone size={14} /> PhoneDukaan Retail Terminal</div>
+                            <div style={{ marginTop: 28 }}>
+                                <h1>The precise architect for modern mobile retail.</h1>
+                                <p>High-density utility meets editorial clarity. Track inventory, repairs, invoices, and store operations from a terminal designed for everyday speed.</p>
                             </div>
-                            <div style={{ color: "var(--t3)", fontSize: 11, marginTop: 3 }}>{showAdminPanel ? "Admin Panel" : authMode === "sign-up" ? "Create Account" : authMode === "reset" ? "Reset Password" : "Shop Login"}</div>
+                        </div>
+                        <div className="auth-hero-points">
+                            <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}><ScanLine size={16} /> Fast IMEI workflows</span>
+                            <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}><Package size={16} /> Live stock visibility</span>
+                            <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}><FileText size={16} /> Invoice-ready output</span>
                         </div>
                     </div>
-                    <div style={{ textAlign: "center" }}>
-                        <Lock size={24} style={{ color: "var(--a)", marginBottom: 10 }} />
-                        <h2 style={{ color: "var(--t1)", fontSize: 20, fontWeight: 700, marginBottom: 8 }}>{showAdminPanel ? "PhoneDukaan Admin" : authMode === "sign-up" ? "Create your account" : authMode === "reset" ? "Reset your password" : "Login to PhoneDukaan"}</h2>
-                        <p style={{ color: "var(--t3)", fontSize: 13, lineHeight: 1.7 }}>
-                            {showAdminPanel
-                                ? "Create shop logins once. Shop users only need their ID and password."
-                                : authMode === "sign-up"
-                                    ? `New accounts get ${trialDays} days of access. Use your mobile number to sign in later.`
-                                    : authMode === "reset"
-                                        ? "Enter the email used for signup and we will send a PocketBase reset link."
-                                        : "Login with your registered mobile number and password."}
-                        </p>
-                    </div>
-                    {!showAdminPanel ? <>
-                        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8, width: "100%" }}>
-                            <button className={authMode === "sign-in" ? "bp" : "bg"} onClick={() => switchAuthMode("sign-in")} style={{ justifyContent: "center" }}>Sign in</button>
-                            <button className={authMode === "sign-up" ? "bp" : "bg"} onClick={() => switchAuthMode("sign-up")} style={{ justifyContent: "center" }}>Sign up</button>
-                            <button className={authMode === "reset" ? "bp" : "bg"} onClick={() => switchAuthMode("reset")} style={{ justifyContent: "center" }}>Reset</button>
+                </aside>
+                <main className="auth-panel">
+                    <div className="auth-form-wrap">
+                        <div className="auth-mobile-brand">
+                            <img src="/pd-icon.png" alt="PhoneDukaan" style={{ width: 34, height: 34, borderRadius: 10 }} />
+                            <span>PhoneDukaan</span>
                         </div>
-                        {authMode === "sign-in" ? <>
-                            <input className="gi lic-input" placeholder="Mobile Number" value={loginId} autoComplete="tel" inputMode="numeric" spellCheck={false} onChange={e => { setLoginId(cleanMobileNumber(e.target.value)); setLoginError(""); }} />
-                            <input className="gi lic-input" type="password" placeholder="Password" value={loginPassword} autoComplete="current-password" onChange={e => { setLoginPassword(e.target.value); setLoginError(""); }} onKeyDown={e => e.key === "Enter" && !loginBusy && handleShopLogin()} />
-                            {loginError && <div style={{ color: "var(--err)", fontSize: 13, textAlign: "center", background: "rgba(248,113,113,.08)", border: "1px solid rgba(248,113,113,.2)", borderRadius: "var(--rs)", padding: "10px 14px", display: "flex", alignItems: "center", gap: 6, justifyContent: "center" }}><AlertCircle size={14} /> {loginError}</div>}
-                            <button className="bp" onClick={handleShopLogin} disabled={loginBusy} style={{ justifyContent: "center", opacity: loginBusy ? 0.7 : 1 }}>
-                                {loginBusy ? "Signing in…" : "Login"}
+                        <div className="auth-header">
+                            <h2>{showAdminPanel ? (adminToken ? "Admin Dashboard" : "Admin Access") : authMode === "sign-up" ? "Create your terminal" : authMode === "reset" ? "Reset terminal access" : "Shop Login"}</h2>
+                            <p>
+                                {showAdminPanel
+                                    ? "Create shop logins, manage users, extend trials, and configure the default signup window."
+                                    : authMode === "sign-up"
+                                        ? `New accounts get ${trialDays} days of access. Use your mobile number later to sign into the terminal.`
+                                        : authMode === "reset"
+                                            ? "Enter the email used during signup and we will send a password reset link."
+                                            : "Sign in with your registered mobile number and password to open the terminal workspace."}
+                            </p>
+                        </div>
+                        {!showAdminPanel ? <>
+                            <div className="auth-segment">
+                                {[
+                                    { id: "sign-in", label: "Sign in" },
+                                    { id: "sign-up", label: "Sign up" },
+                                    { id: "reset", label: "Reset" },
+                                ].map(item => <button key={item.id} className={authMode === item.id ? "active" : ""} onClick={() => switchAuthMode(item.id)}>{item.label}</button>)}
+                            </div>
+                            {authMode === "sign-in" ? <div className="auth-card">
+                                <div className="auth-field">
+                                    <label>Mobile Number</label>
+                                    <div className="gi auth-input">
+                                        <span className="auth-input-icon"><Phone size={16} /></span>
+                                        <input className="gi" placeholder="+91 90000 00000" value={loginId} autoComplete="tel" inputMode="numeric" spellCheck={false} onChange={e => { setLoginId(cleanMobileNumber(e.target.value)); setLoginError(""); }} />
+                                    </div>
+                                </div>
+                                <div className="auth-field">
+                                    <label>Password</label>
+                                    <div className="gi auth-input">
+                                        <span className="auth-input-icon"><Lock size={16} /></span>
+                                        <input className="gi" type="password" placeholder="Terminal password" value={loginPassword} autoComplete="current-password" onChange={e => { setLoginPassword(e.target.value); setLoginError(""); }} onKeyDown={e => e.key === "Enter" && !loginBusy && handleShopLogin()} />
+                                    </div>
+                                </div>
+                                {loginError ? <div className="auth-error"><AlertCircle size={14} /> {loginError}</div> : null}
+                                <button className="bp auth-submit" onClick={handleShopLogin} disabled={loginBusy} style={{ opacity: loginBusy ? 0.72 : 1 }}>
+                                    <ArrowUpCircle size={16} /> {loginBusy ? "Signing in..." : "Launch Terminal"}
+                                </button>
+                            </div> : authMode === "sign-up" ? <div className="auth-card">
+                                <div className="auth-field">
+                                    <label>Shop Name</label>
+                                    <div className="gi auth-input">
+                                        <span className="auth-input-icon"><Home size={16} /></span>
+                                        <input className="gi" placeholder="Your shop name" value={signupForm.shopName} autoComplete="organization" onChange={e => { setSignupForm(f => ({ ...f, shopName: e.target.value })); setSignupError(""); }} />
+                                    </div>
+                                </div>
+                                <div className="auth-field">
+                                    <label>Mobile Number</label>
+                                    <div className="gi auth-input">
+                                        <span className="auth-input-icon"><Phone size={16} /></span>
+                                        <input className="gi" placeholder="Registered mobile" value={signupForm.mobileNumber} autoComplete="tel" inputMode="numeric" onChange={e => { const mobileNumber = cleanMobileNumber(e.target.value); setSignupForm(f => ({ ...f, mobileNumber })); setSignupError(""); }} />
+                                    </div>
+                                </div>
+                                <div className="auth-field">
+                                    <label>Business Profile</label>
+                                    <div className="gi auth-input">
+                                        <span className="auth-input-icon"><Wrench size={16} /></span>
+                                        <select className="gs" value={signupForm.profile} onChange={e => { setSignupForm(f => ({ ...f, profile: e.target.value })); setSignupError(""); }}>
+                                            {SIGNUP_PROFILE_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+                                        </select>
+                                    </div>
+                                </div>
+                                <div className="auth-field">
+                                    <label>Email</label>
+                                    <div className="gi auth-input">
+                                        <span className="auth-input-icon"><Mail size={16} /></span>
+                                        <input className="gi" type="email" placeholder="name@shop.com" value={signupForm.email} autoComplete="email" onChange={e => { setSignupForm(f => ({ ...f, email: e.target.value })); setSignupError(""); }} />
+                                    </div>
+                                </div>
+                                <div className="auth-field">
+                                    <label>Password</label>
+                                    <div className="gi auth-input">
+                                        <span className="auth-input-icon"><Lock size={16} /></span>
+                                        <input className="gi" type="password" placeholder="Create password" value={signupForm.password} autoComplete="new-password" onChange={e => { setSignupForm(f => ({ ...f, password: e.target.value })); setSignupError(""); }} />
+                                    </div>
+                                </div>
+                                <div className="auth-field">
+                                    <label>Confirm Password</label>
+                                    <div className="gi auth-input">
+                                        <span className="auth-input-icon"><CheckCircle size={16} /></span>
+                                        <input className="gi" type="password" placeholder="Confirm password" value={signupForm.confirmPassword} autoComplete="new-password" onChange={e => { setSignupForm(f => ({ ...f, confirmPassword: e.target.value })); setSignupError(""); }} onKeyDown={e => e.key === "Enter" && !signupBusy && handleShopSignup()} />
+                                    </div>
+                                </div>
+                                {signupError ? <div className="auth-error"><AlertCircle size={14} /> {signupError}</div> : null}
+                                <button className="bp auth-submit" onClick={handleShopSignup} disabled={signupBusy} style={{ opacity: signupBusy ? 0.72 : 1 }}>
+                                    <Plus size={16} /> {signupBusy ? "Creating account..." : "Create account"}
+                                </button>
+                            </div> : <div className="auth-card">
+                                <div className="auth-field">
+                                    <label>Registered Email</label>
+                                    <div className="gi auth-input">
+                                        <span className="auth-input-icon"><Mail size={16} /></span>
+                                        <input className="gi" type="email" placeholder="Email used at signup" value={resetEmail} autoComplete="email" onChange={e => { setResetEmail(e.target.value); setResetError(""); }} onKeyDown={e => e.key === "Enter" && !resetBusy && handlePasswordReset()} />
+                                    </div>
+                                </div>
+                                {resetError ? <div className="auth-error"><AlertCircle size={14} /> {resetError}</div> : null}
+                                <button className="bp auth-submit" onClick={handlePasswordReset} disabled={resetBusy} style={{ opacity: resetBusy ? 0.72 : 1 }}>
+                                    <Mail size={16} /> {resetBusy ? "Sending reset email..." : "Send reset email"}
+                                </button>
+                            </div>}
+                            <div className="auth-meta">
+                                <span>{authMode === "sign-up" ? `${trialDays}-day access window` : "Secure access for registered shops"}</span>
+                                <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+                                    {authMode !== "reset" ? <button className="auth-link" onClick={() => switchAuthMode("reset")}>Forgot password?</button> : null}
+                                    <button className="auth-link" onClick={openAdminPanel}>Admin panel</button>
+                                </div>
+                            </div>
+                        </> : !adminToken ? <div className="auth-card">
+                            <div className="auth-field">
+                                <label>Admin ID</label>
+                                <div className="gi auth-input">
+                                    <span className="auth-input-icon"><User size={16} /></span>
+                                    <input className="gi" placeholder="Admin ID" value={adminLoginId} autoComplete="off" onChange={e => { setAdminLoginId(e.target.value); setAdminError(""); }} />
+                                </div>
+                            </div>
+                            <div className="auth-field">
+                                <label>Admin Password</label>
+                                <div className="gi auth-input">
+                                    <span className="auth-input-icon"><Lock size={16} /></span>
+                                    <input className="gi" type="password" placeholder="Admin password" value={adminPassword} autoComplete="current-password" onChange={e => { setAdminPassword(e.target.value); setAdminError(""); }} onKeyDown={e => e.key === "Enter" && !adminBusy && handleAdminLogin()} />
+                                </div>
+                            </div>
+                            {adminError ? <div className="auth-error"><AlertCircle size={14} /> {adminError}</div> : null}
+                            <button className="bp auth-submit" onClick={handleAdminLogin} disabled={adminBusy} style={{ opacity: adminBusy ? 0.72 : 1 }}>
+                                <Shield size={16} /> {adminBusy ? "Checking..." : "Login as Admin"}
                             </button>
-                        </> : authMode === "sign-up" ? <>
-                            <input className="gi lic-input" placeholder="Shop Name" value={signupForm.shopName} autoComplete="organization" onChange={e => { setSignupForm(f => ({ ...f, shopName: e.target.value })); setSignupError(""); }} />
-                            <input className="gi lic-input" placeholder="Mobile Number" value={signupForm.mobileNumber} autoComplete="tel" inputMode="numeric" onChange={e => { const mobileNumber = cleanMobileNumber(e.target.value); setSignupForm(f => ({ ...f, mobileNumber })); setSignupError(""); }} />
-                            <select className="gs lic-input" value={signupForm.profile} onChange={e => { setSignupForm(f => ({ ...f, profile: e.target.value })); setSignupError(""); }}>
-                                {SIGNUP_PROFILE_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
-                            </select>
-                            <input className="gi lic-input" type="email" placeholder="Email" value={signupForm.email} autoComplete="email" onChange={e => { setSignupForm(f => ({ ...f, email: e.target.value })); setSignupError(""); }} />
-                            <input className="gi lic-input" type="password" placeholder="Password" value={signupForm.password} autoComplete="new-password" onChange={e => { setSignupForm(f => ({ ...f, password: e.target.value })); setSignupError(""); }} />
-                            <input className="gi lic-input" type="password" placeholder="Confirm Password" value={signupForm.confirmPassword} autoComplete="new-password" onChange={e => { setSignupForm(f => ({ ...f, confirmPassword: e.target.value })); setSignupError(""); }} onKeyDown={e => e.key === "Enter" && !signupBusy && handleShopSignup()} />
-                            {signupError && <div style={{ color: "var(--err)", fontSize: 13, textAlign: "center", background: "rgba(248,113,113,.08)", border: "1px solid rgba(248,113,113,.2)", borderRadius: "var(--rs)", padding: "10px 14px", display: "flex", alignItems: "center", gap: 6, justifyContent: "center" }}><AlertCircle size={14} /> {signupError}</div>}
-                            <button className="bp" onClick={handleShopSignup} disabled={signupBusy} style={{ justifyContent: "center", opacity: signupBusy ? 0.7 : 1 }}>
-                                {signupBusy ? "Creating account…" : "Create account"}
-                            </button>
-                        </> : <>
-                            <input className="gi lic-input" type="email" placeholder="Registered Email" value={resetEmail} autoComplete="email" onChange={e => { setResetEmail(e.target.value); setResetError(""); }} onKeyDown={e => e.key === "Enter" && !resetBusy && handlePasswordReset()} />
-                            {resetError && <div style={{ color: "var(--err)", fontSize: 13, textAlign: "center", background: "rgba(248,113,113,.08)", border: "1px solid rgba(248,113,113,.2)", borderRadius: "var(--rs)", padding: "10px 14px", display: "flex", alignItems: "center", gap: 6, justifyContent: "center" }}><AlertCircle size={14} /> {resetError}</div>}
-                            <button className="bp" onClick={handlePasswordReset} disabled={resetBusy} style={{ justifyContent: "center", opacity: resetBusy ? 0.7 : 1 }}>
-                                {resetBusy ? "Sending reset email…" : "Send reset email"}
-                            </button>
-                        </>}
-                    </> : !adminToken ? <>
-                        <input className="gi lic-input" placeholder="Admin ID" value={adminLoginId} autoComplete="off" onChange={e => { setAdminLoginId(e.target.value); setAdminError(""); }} />
-                        <input className="gi lic-input" type="password" placeholder="Admin Password" value={adminPassword} autoComplete="current-password" onChange={e => { setAdminPassword(e.target.value); setAdminError(""); }} onKeyDown={e => e.key === "Enter" && !adminBusy && handleAdminLogin()} />
-                        {adminError && <div style={{ color: "var(--err)", fontSize: 13, textAlign: "center", background: "rgba(248,113,113,.08)", border: "1px solid rgba(248,113,113,.2)", borderRadius: "var(--rs)", padding: "10px 14px", display: "flex", alignItems: "center", gap: 6, justifyContent: "center" }}><AlertCircle size={14} /> {adminError}</div>}
-                        <button className="bp" onClick={handleAdminLogin} disabled={adminBusy} style={{ justifyContent: "center", opacity: adminBusy ? 0.7 : 1 }}>
-                            {adminBusy ? "Checking…" : "Login as Admin"}
-                        </button>
-                        <button className="bg" onClick={closeAdminPanel} style={{ justifyContent: "center" }}>Back to Shop Login</button>
-                    </> : <>
+                            <button className="bg auth-submit" onClick={closeAdminPanel}>Back to Shop Login</button>
+                        </div> : <>
                         <div style={{ display: "grid", gap: 12, width: "100%", maxHeight: "75vh", overflowY: "auto", paddingRight: 4 }}>
                             <div className="gc" style={{ padding: 12, display: "grid", gap: 10 }}>
                                 <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
@@ -4133,9 +4981,21 @@ export default function App() {
                                 <input className="gi" type="number" min="1" value={adminSettings.trialDays} onChange={e => setAdminSettings(current => ({ ...current, trialDays: e.target.value }))} placeholder="7" />
                                 <button className="bp" onClick={() => void saveAdminSettings()} disabled={adminActionId === "settings"} style={{ justifyContent: "center" }}>{adminActionId === "settings" ? "Saving…" : "Save settings"}</button>
                             </div>}
+                        </div></>}
+                        <div className="auth-foot">
+                            <div className="auth-foot-card">
+                                <div>
+                                    <div className="auth-foot-title">Current Workspace</div>
+                                    <div className="auth-foot-value">{showAdminPanel ? "Admin Terminal" : "PhoneDukaan Editorial Terminal"}</div>
+                                </div>
+                                <div className="auth-status-pill">
+                                    <span style={{ width: 7, height: 7, borderRadius: 999, background: "currentColor", opacity: 0.75 }} />
+                                    {showAdminPanel ? "Secure Admin" : `${trialDays}-day trial`}
+                                </div>
+                            </div>
                         </div>
-                    </>}
-                </div>
+                    </div>
+                </main>
             </div>
             <InstallPopup />
         </>
@@ -4144,256 +5004,618 @@ export default function App() {
 
     return (
         <><style>{S}</style>
-            <div className="abg" style={{ display: "flex", minHeight: "100vh" }}>
-                {/* Sidebar */}
-                <div className="ds gl" style={{ width: 256, position: "fixed", top: 0, left: 0, bottom: 0, padding: "24px 16px", display: "flex", flexDirection: "column", zIndex: 50, borderRadius: 0, borderLeft: "none", borderTop: "none", borderBottom: "none" }}>
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 8, marginBottom: 32, padding: "0 8px" }}>
-                        <img src={APP_WORDMARK_SRC} alt={APP_NAME} style={{ height: 34, width: "auto", maxWidth: 184, display: "block" }} onError={event => { if (event.currentTarget.src.endsWith(APP_WORDMARK_FALLBACK)) return; event.currentTarget.src = APP_WORDMARK_FALLBACK; }} />
-                        <div style={{ color: "var(--t3)", fontSize: 11, marginLeft: 4, letterSpacing: ".04em", textTransform: "uppercase" }}>Mobile Shop Manager</div>
-                    </div>
-                    <nav style={{ flex: 1, display: "flex", flexDirection: "column", gap: 4 }}>
-                        {nav.map(n => <div key={n.id} className={`ni ${pg === n.id ? "ac" : ""}`} onClick={() => goPage(n.id)}><n.ic size={18} /> {n.l}{n.id === "recycle" && recycleBinItems.length > 0 && <span style={{ marginLeft: "auto", background: "var(--err)", color: "#fff", fontSize: 10, fontWeight: 700, borderRadius: 99, minWidth: 18, height: 18, display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "0 5px" }}>{recycleBinItems.length}</span>}</div>)}
-                    </nav>
-                    <div style={{ padding: "16px 8px", borderTop: "1px solid var(--gbo)", display: "grid", gap: 12 }}><div style={{ display: "flex", alignItems: "center", gap: 8 }}>{ol ? <Wifi size={14} color="var(--ok)" /> : <WifiOff size={14} color="var(--warn)" />}<span style={{ color: "var(--t3)", fontSize: 12 }}>{shopSession?.shopName || shopSession?.shopId || "No shop"} · {syncStateLabel}</span></div><button className="bg" onClick={logoutShop} style={{ justifyContent: "center", width: "100%" }}><LogOut size={15} /> Logout</button></div>
-                </div>
+            <div className="abg">
+                <div className="shell">
+                    <aside className="shell-sidebar">
+                        <div className="shell-brand">
+                            <div className="shell-brand-mark"><img src="/pd-icon.png" alt={APP_NAME} /></div>
+                            <div className="shell-brand-copy">
+                                <strong>{brandShopName}</strong>
+                            </div>
+                        </div>
+                        <nav style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                            {desktopSidebarNav.map(n => <div key={n.id} className={`ni ${isNavActive(n.id) ? "ac" : ""}`} onClick={() => goPage(n.id)}><n.ic size={18} /> {n.l}{n.id === "recycle" && recycleBinItems.length > 0 && <span style={{ marginLeft: "auto", background: "var(--err)", color: "#fff", fontSize: 10, fontWeight: 700, borderRadius: 99, minWidth: 18, height: 18, display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "0 5px" }}>{recycleBinItems.length}</span>}</div>)}
+                        </nav>
+                        <div className="shell-footer">
+                            <button className="shell-footer-link" onClick={() => goPage("settings")}><Settings size={18} /> Settings</button>
+                            <div className="shell-footer-bottom">
+                                <button className="shell-footer-link" onClick={logoutShop}><LogOut size={18} /> Sign out</button>
+                                <div className="shell-status">{ol ? <Wifi size={14} color="var(--ok)" /> : <WifiOff size={14} color="var(--warn)" />}<span>{shopSession?.shopName || shopSession?.shopId || "No shop"} · {syncStateLabel}</span></div>
+                            </div>
+                        </div>
+                    </aside>
 
-                {/* Mobile Top Header */}
-                <div className="mth gl" style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 49, display: "none", alignItems: "center", justifyContent: "space-between", padding: "calc(10px + env(safe-area-inset-top,0px)) 16px 10px", borderRadius: 0, borderLeft: "none", borderRight: "none", borderTop: "none", borderBottom: "1px solid var(--gbo)" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <img src={APP_WORDMARK_SRC} alt={APP_NAME} style={{ height: 28, width: "auto", maxWidth: 156, display: "block" }} onError={event => { if (event.currentTarget.src.endsWith(APP_WORDMARK_FALLBACK)) return; event.currentTarget.src = APP_WORDMARK_FALLBACK; }} />
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>{ol ? <Wifi size={14} color="var(--ok)" /> : <WifiOff size={14} color="var(--warn)" />}<span style={{ color: "var(--t3)", fontSize: 11 }}>{ol ? "Online" : "Offline"}</span></div>
-                </div>
+                    {!isCompactEntryPage && !hideMobileTopHeader && <div className={`mth ${isRetailDashboard ? "dashboard-retail-mobile" : ""}`}>
+                        {isRetailDashboard ? <>
+                            <div className="mth-brand">
+                                <div className="mth-brand-mark"><img src="/pd-icon.png" alt={APP_NAME} /></div>
+                                <div className="mth-title">
+                                    <strong>{brandShopName}</strong>
+                                    <span>{workspaceLabel}</span>
+                                </div>
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                <div className={`dashboard-retail-status ${ol ? "" : "offline"}`}>{ol ? <Wifi size={13} /> : <WifiOff size={13} />}{ol ? "Online" : "Offline"}</div>
+                                <button className="dashboard-retail-icon-btn" onClick={() => goPage("inventory")} aria-label="Search inventory"><Search size={19} /></button>
+                                <button className="dashboard-retail-icon-btn" onClick={() => goPage("settings")} aria-label="Open settings"><Bell size={19} /></button>
+                            </div>
+                        </> : <>
+                            <div className="mth-brand">
+                                <img src={APP_WORDMARK_SRC} alt={APP_NAME} style={{ height: 28, width: "auto", maxWidth: 156, display: "block" }} onError={event => { if (event.currentTarget.src.endsWith(APP_WORDMARK_FALLBACK)) return; event.currentTarget.src = APP_WORDMARK_FALLBACK; }} />
+                                <div className="mth-title">
+                                    <strong>{currentPageLabel}</strong>
+                                    <span>{workspaceLabel}</span>
+                                </div>
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>{ol ? <Wifi size={14} color="var(--ok)" /> : <WifiOff size={14} color="var(--warn)" />}<span style={{ color: "var(--t3)", fontSize: 11, fontWeight: 700, letterSpacing: ".05em", textTransform: "uppercase" }}>{ol ? "Online" : "Offline"}</span></div>
+                        </>}
+                    </div>}
 
-                {/* Mobile Nav */}
-                <div className="mfd" aria-hidden="true" />
-                <div className="mn gl sh" style={{ position: "fixed", bottom: "calc(10px + env(safe-area-inset-bottom,0px))", left: 8, right: 8, zIndex: 50, display: "none", justifyContent: shopCfg.businessMode === "repair-pro" ? "space-between" : "flex-start", gap: 2, padding: "8px 6px", borderRadius: 20, overflowX: shopCfg.businessMode === "repair-pro" ? "hidden" : "auto", boxShadow: "0 10px 30px rgba(0,0,0,.28)" }}>
-                    {nav.map(n => <div key={n.id} onClick={() => goPage(n.id)} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, padding: "6px 12px", minWidth: shopCfg.businessMode === "repair-pro" ? 0 : 64, flex: shopCfg.businessMode === "repair-pro" ? 1 : "0 0 auto", cursor: "pointer", color: pg === n.id ? "var(--a)" : "var(--t3)", transition: "color .2s" }}><n.ic size={20} /><span style={{ fontSize: 10, fontWeight: 500 }}>{n.l}</span></div>)}
-                </div>
+                    <div className="mfd" aria-hidden="true" />
+                    {!isCompactEntryPage && <div className="mn sh">
+                        {nav.map(n => <div key={n.id} className={`mn-item ${isNavActive(n.id) ? "active" : ""}`} onClick={() => goPage(n.id)}><n.ic size={20} /><span>{n.l}</span></div>)}
+                    </div>}
 
-                {/* Main */}
-                <div className="mc" style={{ marginLeft: 256, flex: 1, padding: 24, position: "relative" }}>
+                    <div className={`shell-main ${isCompactEntryPage ? "shell-main-add" : ""} ${isInventoryShowcase ? "shell-main-inventory" : ""} ${hideMobileTopHeader ? "shell-main-no-mth" : ""}`}>
+                    {swUpdate && <div style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 300, background: "linear-gradient(90deg,#0048d8,#2761fe)", padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", color: "#fff", fontSize: 13, fontWeight: 700, gap: 12 }}><span style={{ display: "flex", alignItems: "center", gap: 8 }}><RefreshCw size={14} /> Update available — refresh to get the latest version</span><button onClick={() => navigator.serviceWorker.ready.then(r => r.waiting?.postMessage({ type: "SKIP_WAITING" }))} style={{ background: "rgba(255,255,255,.18)", border: "1px solid rgba(255,255,255,.34)", borderRadius: 10, color: "#fff", fontWeight: 700, fontSize: 12, padding: "6px 14px", cursor: "pointer" }}>Refresh</button></div>}
 
-                    {swUpdate && <div style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 300, background: "linear-gradient(90deg,#00D4FF,#8B5CF6)", padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", color: "#fff", fontSize: 13, fontWeight: 600, gap: 12 }}><span style={{ display: "flex", alignItems: "center", gap: 8 }}><RefreshCw size={14} /> Update available — refresh to get the latest version</span><button onClick={() => navigator.serviceWorker.ready.then(r => r.waiting?.postMessage({ type: "SKIP_WAITING" }))} style={{ background: "rgba(255,255,255,.2)", border: "1px solid rgba(255,255,255,.4)", borderRadius: 8, color: "#fff", fontWeight: 700, fontSize: 12, padding: "4px 14px", cursor: "pointer" }}>Refresh</button></div>}
-
-                    {nt && <div className="fi" style={{ position: "fixed", top: 24, right: 24, zIndex: 200, padding: "14px 20px", borderRadius: "var(--rs)", background: nt.t === "success" ? "rgba(52,211,153,.2)" : nt.t === "error" ? "rgba(248,113,113,.2)" : "rgba(251,191,36,.2)", border: `1px solid ${nt.t === "success" ? "rgba(52,211,153,.4)" : nt.t === "error" ? "rgba(248,113,113,.4)" : "rgba(251,191,36,.4)"}`, color: "var(--t1)", fontSize: 14, fontWeight: 500, display: "flex", alignItems: "center", gap: 8, backdropFilter: "blur(20px)" }}>{nt.t === "success" ? <CheckCircle size={16} color="var(--ok)" /> : <AlertCircle size={16} color={nt.t === "error" ? "var(--err)" : "var(--warn)"} />} {nt.m}</div>}
+                    {nt && <div className="fi" style={{ position: "fixed", top: 24, right: 24, zIndex: 200, padding: "14px 20px", borderRadius: "var(--rs)", background: nt.t === "success" ? "rgba(163,246,156,.65)" : nt.t === "error" ? "rgba(255,218,214,.9)" : "rgba(255,241,194,.92)", border: `1px solid ${nt.t === "success" ? "rgba(90,169,88,.24)" : nt.t === "error" ? "rgba(186,26,26,.18)" : "rgba(217,119,6,.18)"}`, color: "var(--t1)", fontSize: 14, fontWeight: 600, display: "flex", alignItems: "center", gap: 8, boxShadow: "0 12px 30px rgba(25,28,30,.08)" }}>{nt.t === "success" ? <CheckCircle size={16} color="var(--ok)" /> : <AlertCircle size={16} color={nt.t === "error" ? "var(--err)" : "var(--warn)"} />} {nt.m}</div>}
 
                     {/* ═══ DASHBOARD ═══ */}
                     {pg === "dashboard" && <div className="fi">
                         {shopCfg.businessMode === "repair-pro" ? <>
-                            <div style={{ marginBottom: 28 }}><h1 style={{ color: "var(--t1)", fontSize: 28, fontWeight: 700, display: "flex", alignItems: "center", gap: 10 }}><Wrench size={28} style={{ color: "var(--warn)" }} /> Repair Dashboard</h1><p style={{ color: "var(--t3)", fontSize: 14, marginTop: 4 }}>Track open jobs, payouts, collections, and the latest repair activity in Repair Pro.</p></div>
-                            {repairOpenCount === 0 && <div className="gl" style={{ padding: "12px 16px", borderColor: "rgba(0,212,255,.28)", background: "rgba(0,212,255,.07)", display: "flex", alignItems: "center", gap: 10, borderRadius: "var(--rs)", marginBottom: 16 }}><AlertCircle size={16} color="var(--a)" /><span style={{ color: "var(--a)", fontWeight: 600, fontSize: 13 }}>No active repair jobs right now. Add a new repair to start tracking devices.</span></div>}
-                            <div className="gc" style={{ marginBottom: 16 }}>
-                                <h3 style={{ color: "var(--t1)", fontSize: 15, fontWeight: 600, marginBottom: 14 }}>Status Breakdown</h3>
-                                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 12 }}>
-                                    {repairStatusCards.map(card => <div key={card.l} className="tr" style={{ padding: "14px 12px", borderRadius: 14, border: "1px solid rgba(255,255,255,.06)", background: "rgba(255,255,255,.03)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", letterSpacing: .8, marginBottom: 8 }}>{card.l}</div><div style={{ color: card.c, fontSize: 24, fontWeight: 700, lineHeight: 1 }}>{card.v}</div></div>)}
+                            {repairOpenCount === 0 ? <div className="gl" style={{ padding: "12px 16px", borderColor: "rgba(0,72,216,.18)", background: "rgba(0,72,216,.06)", display: "flex", alignItems: "center", gap: 10, borderRadius: "var(--rs)", marginBottom: 16 }}><AlertCircle size={16} color="var(--a)" /><span style={{ color: "var(--a)", fontWeight: 700, fontSize: 13 }}>No active repair jobs right now. Add a new repair to start tracking devices.</span></div> : null}
+                            <div className="dashboard-actions">
+                                <button className="bg" onClick={() => openRepairForm()}><Plus size={16} /> New Repair</button>
+                                <button className="bg" onClick={() => goPage("repair")}><Wrench size={16} /> Repair Queue</button>
+                                <button className="bg" onClick={() => goPage("parts")}><Package size={16} /> Parts</button>
+                                <button className="bg" onClick={() => goPage("reports")}><BarChart3 size={16} /> Reports</button>
+                            </div>
+                            <div className="dashboard-grid">
+                                <div className="gc metric-card featured">
+                                    <div className="metric-label">Total Queue</div>
+                                    <div className="metric-value">{repairs.length}</div>
+                                    <div className="metric-sub">{repairOpenCount} open · {repairReadyCount} ready</div>
                                 </div>
-                                <div style={{ color: "var(--t3)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: .8, marginTop: 16, marginBottom: 10 }}>Financial Snapshot</div>
-                                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 12 }}>
-                                    {[
-                                        { l: "Total Income", v: fmtCurrency(repairValueTotal), c: "var(--a2)" },
-                                        { l: "Profit", v: fmtCurrency(repairProfitTotal), c: "var(--ok)" },
-                                        { l: "Net Profit", v: fmtCurrency(repairNetProfit), c: "var(--a)" },
-                                        { l: "Pending Due", v: fmtCurrency(repairDueTotal), c: "var(--err)" },
-                                    ].map(card => <div key={card.l} className="tr" style={{ padding: "14px 12px", borderRadius: 14, border: "1px solid rgba(255,255,255,.06)", background: "rgba(255,255,255,.03)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", letterSpacing: .8, marginBottom: 8 }}>{card.l}</div><div style={{ color: card.c, fontSize: 22, fontWeight: 700, lineHeight: 1.1 }}>{card.v}</div></div>)}
+                                <div className="gc metric-card">
+                                    <div className="metric-label">Total Income</div>
+                                    <div className="metric-value">{fmtCurrency(repairValueTotal)}</div>
+                                    <div className="metric-sub">Collected across repair jobs</div>
+                                </div>
+                                <div className="gc metric-card">
+                                    <div className="metric-label">Net Profit</div>
+                                    <div className="metric-value">{fmtCurrency(repairNetProfit)}</div>
+                                    <div className="metric-sub">Profit after part cost and payouts</div>
+                                </div>
+                                <div className="gc metric-card">
+                                    <div className="metric-label">Pending Due</div>
+                                    <div className="metric-value">{fmtCurrency(repairDueTotal)}</div>
+                                    <div className="metric-sub">Advance and pending collections</div>
                                 </div>
                             </div>
-                            <div className="gc" style={{ marginBottom: 16 }}>
-                                <h3 style={{ color: "var(--t1)", fontSize: 15, fontWeight: 600, marginBottom: 14 }}>Quick Actions</h3>
-                                <div style={{ display: "grid", gap: 10 }}>
-                                    <button className="bp" onClick={() => openRepairForm()} style={{ justifyContent: "center" }}><Plus size={16} /> Add Repair Job</button>
-                                    <button className="bg" onClick={() => goPage("repair")} style={{ justifyContent: "center" }}><Wrench size={16} /> Open Repair Queue</button>
-                                    <button className="bg" onClick={() => goPage("parts")} style={{ justifyContent: "center" }}><Package size={16} /> Open Parts</button>
-                                    <button className="bg" onClick={() => goPage("reports")} style={{ justifyContent: "center" }}><BarChart3 size={16} /> View Repair Reports</button>
-                                </div>
-                            </div>
-                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(min(320px,100%),1fr))", gap: 16, alignItems: "start" }}>
-                                <div className="gc">
-                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 16 }}><h3 style={{ color: "var(--t1)", fontSize: 15, fontWeight: 600 }}>Latest Repair Jobs</h3><button className="bp" onClick={() => openRepairForm()}><Plus size={15} /> Add Repair</button></div>
-                                    {repairRecentJobs.length === 0 && <div style={{ color: "var(--t2)", fontSize: 14 }}>No repair jobs yet. Add your first device to start the workflow.</div>}
+                            <div className="section-grid">
+                                <div className="gc span-7">
+                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 14 }}>
+                                        <div>
+                                            <h3 style={{ color: "var(--t1)", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 18, fontWeight: 800, letterSpacing: "-.02em" }}>Latest Repair Jobs</h3>
+                                            <div style={{ color: "var(--t2)", fontSize: 12, marginTop: 4 }}>Recent intake, progress, and payment state.</div>
+                                        </div>
+                                        <button className="bp" onClick={() => openRepairForm()}><Plus size={15} /> Add Repair</button>
+                                    </div>
+                                    {repairRecentJobs.length === 0 ? <div style={{ color: "var(--t2)", fontSize: 14 }}>No repair jobs yet. Add your first device to start the workflow.</div> : null}
                                     {repairRecentJobs.map(repair => {
                                         const amount = repairAmount(repair);
                                         const due = repairDueAmount(repair);
-                                        return <div key={repair.id} className="tr" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, padding: "12px 8px", borderBottom: "1px solid rgba(255,255,255,.04)", flexWrap: "wrap" }}>
-                                            <div style={{ minWidth: 0 }}><div style={{ color: "var(--t1)", fontSize: 14, fontWeight: 600 }}>{repair.repairNo}</div><div style={{ color: "var(--t3)", fontSize: 12, marginTop: 3 }}>{repair.brand} {repair.model} · {repair.customerName || "Walk-in customer"}{repair.phone ? ` · ${repair.phone}` : ""}</div><div style={{ color: "var(--t3)", fontSize: 11, marginTop: 3 }}>{fmtDate(repair.updatedAt || repair.receivedDate)} · {repair.problem}{repair.imei ? ` · IMEI ${repair.imei}` : ""}{repair.partCost ? ` · Part ${fmtCurrency(repair.partCost)}` : ""}{getRepairPartSupplierLabel(repair) ? ` · ${getRepairPartSupplierLabel(repair)}` : ""}</div></div>
-                                            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}><span className={`ba ${repairStatusTone(repair.status)}`}>{repair.status}</span><span className={`ba ${repairPaymentTone(repair.paymentStatus)}`}>{repair.paymentStatus}</span><div><div style={{ color: "var(--ok)", fontWeight: 600, fontSize: 14 }}>{fmtCurrency(amount)}</div><div style={{ fontSize: 11, color: due > 0 ? "var(--warn)" : "var(--t3)", fontWeight: 600 }}>Due {fmtCurrency(due)}</div></div><button className="bg" onClick={() => setRepairDetail(repair)}><Eye size={14} /> View</button></div>
+                                        return <div key={repair.id} className="list-row">
+                                            <div style={{ minWidth: 0 }}>
+                                                <div className="list-row-title">{repair.repairNo}</div>
+                                                <div className="list-row-meta">{repair.brand} {repair.model} · {repair.customerName || "Walk-in customer"}{repair.phone ? ` · ${repair.phone}` : ""}</div>
+                                                <div className="list-row-meta">{fmtDate(repair.updatedAt || repair.receivedDate)} · {repair.problem}{repair.imei ? ` · IMEI ${repair.imei}` : ""}{repair.partCost ? ` · Part ${fmtCurrency(repair.partCost)}` : ""}{getRepairPartSupplierLabel(repair) ? ` · ${getRepairPartSupplierLabel(repair)}` : ""}</div>
+                                            </div>
+                                            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                                                <span className={`ba ${repairStatusTone(repair.status)}`}>{repair.status}</span>
+                                                <span className={`ba ${repairPaymentTone(repair.paymentStatus)}`}>{repair.paymentStatus}</span>
+                                                <div style={{ textAlign: "right" }}>
+                                                    <div className="list-row-value">{fmtCurrency(amount)}</div>
+                                                    <div style={{ fontSize: 11, color: due > 0 ? "var(--warn)" : "var(--t2)", fontWeight: 700 }}>Due {fmtCurrency(due)}</div>
+                                                </div>
+                                                <button className="bg" onClick={() => setRepairDetail(repair)}><Eye size={14} /> View</button>
+                                            </div>
                                         </div>;
                                     })}
                                 </div>
-                            </div>
-                        </> : <>
-                            <div style={{ marginBottom: 28 }}><h1 style={{ color: "var(--t1)", fontSize: 28, fontWeight: 700 }}>Dashboard</h1><p style={{ color: "var(--t3)", fontSize: 14, marginTop: 4 }}>Overview of stock, sales, dues, condition mix, and latest invoices.</p></div>
-                            {stats.ts === 0 && <div className="gl" style={{ padding: "12px 16px", borderColor: "rgba(248,113,113,.3)", background: "rgba(248,113,113,.08)", display: "flex", alignItems: "center", gap: 10, borderRadius: "var(--rs)", marginBottom: 16 }}><AlertCircle size={16} color="var(--err)" /><span style={{ color: "var(--err)", fontWeight: 600, fontSize: 13 }}>Out of stock — add new inventory to continue selling.</span></div>}
-                            {stats.ts > 0 && stats.ts < 5 && <div className="gl" style={{ padding: "12px 16px", borderColor: "rgba(251,191,36,.3)", background: "rgba(251,191,36,.06)", display: "flex", alignItems: "center", gap: 10, borderRadius: "var(--rs)", marginBottom: 16 }}><AlertCircle size={16} color="var(--warn)" /><span style={{ color: "var(--warn)", fontWeight: 600, fontSize: 13 }}>Low stock — only {stats.ts} item{stats.ts !== 1 ? "s" : ""} left.</span></div>}
-                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 16, marginBottom: 28 }}>
-                                {[{ l: "In Stock", v: stats.ts, s: "ready to sell", ic: Package, c: "var(--a)", g: "sgc" }, { l: "Stock Value", v: fmtCurrency(stats.sv), s: "estimated value", ic: IndianRupee, c: "var(--a2)", g: "sgv" }, { l: "Sales", v: fmtCurrency(stats.tsl), s: `${tx.filter(t => t.type === "Sell").length} invoices`, ic: TrendingUp, c: "var(--a3)", g: "sgp" }, { l: "Due To Collect", v: fmtCurrency(tx.filter(t => t.type === "Sell").reduce((s, t) => s + (t.dueAmount || 0), 0)), s: "customer balance", ic: BarChart3, c: "var(--ok)", g: "sgg" }].map((s, i) =>
-                                    <div key={i} className={`gc ${s.g}`}><div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}><span style={{ color: "var(--t3)", fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1 }}>{s.l}</span><s.ic size={18} style={{ color: s.c, opacity: .7 }} /></div><div style={{ color: "var(--t1)", fontSize: 26, fontWeight: 700, lineHeight: 1 }}>{s.v}</div><div style={{ color: "var(--t3)", fontSize: 12, marginTop: 4 }}>{s.s}</div></div>
-                                )}
-                            </div>
-                            <div className="gc" style={{ marginBottom: 28 }}>
-                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 16 }}><h3 style={{ color: "var(--t1)", fontSize: 15, fontWeight: 600 }}>Stock Condition Mix</h3><div style={{ color: "var(--t3)", fontSize: 12 }}>{stats.ts} live units</div></div>
-                                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 12 }}>
-                                    {[
-                                        { l: "Old", v: stats.cc.Used || 0, s: "used devices", c: "var(--warn)", bg: "rgba(251,191,36,.08)", bd: "rgba(251,191,36,.18)" },
-                                        { l: "New", v: stats.cc.New || 0, s: "fresh sealed stock", c: "var(--a)", bg: "rgba(0,212,255,.08)", bd: "rgba(0,212,255,.18)" },
-                                        { l: "Refurbished", v: stats.cc.Refurbished || 0, s: "renewed devices", c: "#A78BFA", bg: "rgba(167,139,250,.08)", bd: "rgba(167,139,250,.18)" },
-                                    ].map(card => <div key={card.l} className="tr" style={{ padding: "16px 14px", borderRadius: 14, border: `1px solid ${card.bd}`, background: card.bg }}><div style={{ color: "var(--t3)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: .9, marginBottom: 8 }}>{card.l}</div><div style={{ color: card.c, fontSize: 28, fontWeight: 700, lineHeight: 1 }}>{card.v}</div><div style={{ color: "var(--t3)", fontSize: 12, marginTop: 6 }}>{card.s}</div></div>)}
+                                <div className="gc span-5">
+                                    <div style={{ marginBottom: 14 }}>
+                                        <h3 style={{ color: "var(--t1)", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 18, fontWeight: 800, letterSpacing: "-.02em" }}>Status Breakdown</h3>
+                                        <div style={{ color: "var(--t2)", fontSize: 12, marginTop: 4 }}>Queue distribution and financial snapshot.</div>
+                                    </div>
+                                    <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0,1fr))", gap: 10, marginBottom: 14 }}>
+                                        {repairStatusCards.map(card => <div key={card.l} className="gc" style={{ padding: 14, background: "var(--surface-low)", border: "1px solid rgba(198,197,212,.16)" }}><div style={{ color: "var(--t2)", fontSize: 11, textTransform: "uppercase", letterSpacing: .08 + "em", marginBottom: 6 }}>{card.l}</div><div style={{ color: card.c, fontSize: 24, fontWeight: 800 }}>{card.v}</div></div>)}
+                                    </div>
+                                    <div style={{ display: "grid", gap: 10 }}>
+                                        {[
+                                            { l: "Total Income", v: fmtCurrency(repairValueTotal), c: "var(--a2)" },
+                                            { l: "Profit", v: fmtCurrency(repairProfitTotal), c: "var(--ok)" },
+                                            { l: "Pending Due", v: fmtCurrency(repairDueTotal), c: "var(--err)" },
+                                        ].map(card => <div key={card.l} className="list-row" style={{ padding: "12px 0" }}><div className="list-row-title">{card.l}</div><div className="list-row-value" style={{ color: card.c }}>{card.v}</div></div>)}
+                                    </div>
                                 </div>
                             </div>
-                            <div className="gc"><h3 style={{ color: "var(--t1)", fontSize: 15, fontWeight: 600, marginBottom: 16 }}>Latest Invoices</h3>
-                                {latestInvoices.length === 0 && <div style={{ color: "var(--t2)", fontSize: 14 }}>No invoices yet. Start with Add, Buy, or Sell.</div>}
-                                {latestInvoices.map(t => <div key={t.id} className="tr" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, padding: "12px 8px", borderBottom: "1px solid rgba(255,255,255,.04)", flexWrap: "wrap" }}>
-                                    <div style={{ minWidth: 0 }}><div style={{ color: "var(--t1)", fontSize: 14, fontWeight: 600 }}>{t.invoiceNo || "Invoice"}</div><div style={{ color: "var(--t3)", fontSize: 12, marginTop: 3 }}>{t.brand} {t.model} · {t.customerName || "Walk-in customer"}{t.phone ? ` · ${t.phone}` : ""}</div><div style={{ color: "var(--t3)", fontSize: 11, marginTop: 3 }}>{fmtDate(t.date)}{t.billType === "GST" ? " · GST" : ""}{t.whatsAppPdfAt ? " · Share PDF sent" : t.whatsAppMessageAt ? " · WhatsApp msg ready" : ""}</div></div>
-                                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}><div><div style={{ color: "var(--ok)", fontWeight: 600, fontSize: 14 }}>{fmtCurrency(t.totalAmount || t.amount)}</div>{t.type === "Sell" && t.costPrice > 0 && (() => { const p = (t.totalAmount || t.amount) - t.costPrice; return <div style={{ fontSize: 11, color: p >= 0 ? "var(--ok)" : "var(--err)", fontWeight: 600 }}>{p >= 0 ? "+" : ""}{fmtCurrency(p)} profit</div>; })()}</div><button className="bg" onClick={() => void downloadInvoice(t)}><Download size={14} /> PDF</button></div>
-                                </div>)}
+                        </> : <div className="dashboard-retail">
+                            <div className="dashboard-retail-desktop desktop-enhanced-only">
+                                <div className="dashboard-executive-head">
+                                    <div className="dashboard-executive-copy">
+                                        <h1>Executive Dashboard</h1>
+                                        <p>Welcome back. Here is your inventory authority overview.</p>
+                                    </div>
+                                    <div className="dashboard-executive-actions">
+                                        <button className="dashboard-action-ghost" onClick={exportDashboardCsv}><Download size={16} /> Export CSV</button>
+                                        <button className="dashboard-action-primary" onClick={() => goPage("reports")}><Calendar size={16} /> {currentMonthLabel}</button>
+                                    </div>
+                                </div>
+
+                                {stats.ts === 0 ? <div className="dashboard-retail-alert danger"><AlertCircle size={16} /> Out of stock. Add new inventory to continue selling.</div> : null}
+                                {stats.ts > 0 && stats.ts < 5 ? <div className="dashboard-retail-alert warn"><AlertCircle size={16} /> Low stock. Only {stats.ts} item{stats.ts !== 1 ? "s" : ""} left.</div> : null}
+
+                                <div className="dashboard-retail-actions">
+                                    <button className="dashboard-retail-action" onClick={() => openSc("add")}><span><ScanLine size={24} /></span><strong>Quick Scan</strong></button>
+                                    <button className="dashboard-retail-action" onClick={() => goPage("buy")}><span><ArrowDownCircle size={24} /></span><strong>Purchase</strong></button>
+                                    <button className="dashboard-retail-action" onClick={() => enabledModules.includes("sell") ? goPage("sell") : goPage("reports")}><span>{enabledModules.includes("sell") ? <ShoppingCart size={24} /> : <BarChart3 size={24} />}</span><strong>{enabledModules.includes("sell") ? "Sell" : "Reports"}</strong></button>
+                                    <button className="dashboard-retail-action" onClick={() => goPage("add")}><span><Plus size={24} /></span><strong>Add Stock</strong></button>
+                                </div>
+
+                                <div className="dashboard-kpi-grid">
+                                    <div className="dashboard-kpi-card">
+                                        <div className="dashboard-kpi-label">Total Stock Value</div>
+                                        <div className="dashboard-kpi-value">{fmtCompactCurrency(stats.sv)}</div>
+                                    </div>
+                                    <div className="dashboard-kpi-card">
+                                        <div className="dashboard-kpi-label">Monthly Sales</div>
+                                        <div className="dashboard-kpi-value">{fmtCompactCurrency(retailMonthlySales)}</div>
+                                    </div>
+                                    <div className="dashboard-kpi-card">
+                                        <div className="dashboard-kpi-label">Dues To Collect</div>
+                                        <div className="dashboard-kpi-value">{fmtCompactCurrency(retailDueTotal)}</div>
+                                    </div>
+                                </div>
+
+                                <div className="dashboard-main-grid">
+                                    <section className="dashboard-card">
+                                        <div className="dashboard-card-head">
+                                            <h2>Stock Mix Strategy</h2>
+                                        </div>
+                                        <div className="dashboard-stock-body">
+                                            <div className="dashboard-mix-track">
+                                                {retailMixRows.map(item => {
+                                                    const percent = Math.round((item.value / Math.max(stats.ts, 1)) * 100);
+                                                    return <div key={item.label} className="dashboard-mix-item">
+                                                        <div className="dashboard-mix-item-top"><span>{item.label}</span><strong>{percent}%</strong></div>
+                                                        <div className="dashboard-mix-bar"><div style={{ width: `${Math.max(item.value > 0 ? 12 : 0, percent)}%`, background: item.tone }} /></div>
+                                                    </div>;
+                                                })}
+                                            </div>
+                                        </div>
+                                    </section>
+
+                                    <section className="dashboard-card">
+                                        <div className="dashboard-card-head">
+                                            <h2>Recent Transactions</h2>
+                                            <button onClick={() => goPage("transactions")}>View All Activity</button>
+                                        </div>
+                                        <div className="dashboard-transactions-head"><span>Item Details</span><span>Amount</span><span>Status</span><span>Timestamp</span></div>
+                                        <div className="dashboard-transactions-list">
+                                            {retailDashboardInvoices.length === 0 ? <div className="reports-modern-empty">No invoices yet. Start with Add, Buy, or Sell.</div> : null}
+                                            {retailDashboardInvoices.map(t => {
+                                                const dueOpen = Number(t.dueAmount || 0) > 0;
+                                                return <div key={t.id} className="dashboard-transactions-row">
+                                                    <div className="dashboard-transactions-item">
+                                                        <div className="dashboard-transactions-icon"><Smartphone size={18} /></div>
+                                                        <div>
+                                                            <strong>{[t.brand, t.model].filter(Boolean).join(" ") || "Device"}</strong>
+                                                            <span>{(t.invoiceNo || "INV") + " · " + ([t.storage, t.color].filter(Boolean).join(", ") || (t.customerName || "Walk-in Customer"))}</span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="dashboard-transactions-amount">
+                                                        <strong>{fmtCurrency(t.totalAmount || t.amount)}</strong>
+                                                        <span>{t.billType === "GST" ? "+ GST Included" : "Regular Bill"}</span>
+                                                    </div>
+                                                    <div><span className={`dashboard-status-pill ${dueOpen ? "pending" : ""}`}>{dueOpen ? "Pending" : "Paid"}</span></div>
+                                                    <div className="dashboard-transactions-time">{fmtDashboardTime(t.updatedAt || t.createdAt || t.dateTime || t.date)}</div>
+                                                </div>;
+                                            })}
+                                        </div>
+                                    </section>
+                                </div>
+
                             </div>
-                        </>}
+
+                            <div className="dashboard-retail-mobile-stack">
+                                <div className="dashboard-retail-hero">
+                                    <div className="dashboard-retail-top">
+                                        <div className="dashboard-retail-brand">
+                                            <div className="dashboard-retail-brand-mark"><img src="/pd-icon.png" alt={APP_NAME} /></div>
+                                            <div>
+                                                <h1>{brandShopName}</h1>
+                                                <p>{stats.ts} live unit{stats.ts === 1 ? "" : "s"} in stock · {syncStateLabel}</p>
+                                            </div>
+                                        </div>
+                                        <div className="dashboard-retail-top-actions">
+                                            <div className={`dashboard-retail-status ${ol ? "" : "offline"}`}>{ol ? <Wifi size={14} /> : <WifiOff size={14} />}{ol ? "Online" : "Offline"}</div>
+                                            <button className="dashboard-retail-icon-btn" onClick={() => goPage("inventory")} aria-label="Search inventory"><Search size={20} /></button>
+                                            <button className="dashboard-retail-icon-btn" onClick={() => goPage("settings")} aria-label="Open settings"><Bell size={20} /></button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <button className="dashboard-retail-search" onClick={() => goPage("inventory")}>
+                                    <Search size={22} />
+                                    <span>Search inventory, IMEI or invoices...</span>
+                                </button>
+
+                                {stats.ts === 0 ? <div className="dashboard-retail-alert danger"><AlertCircle size={16} /> Out of stock. Add new inventory to continue selling.</div> : null}
+                                {stats.ts > 0 && stats.ts < 5 ? <div className="dashboard-retail-alert warn"><AlertCircle size={16} /> Low stock. Only {stats.ts} item{stats.ts !== 1 ? "s" : ""} left.</div> : null}
+
+                                <div className="dashboard-retail-metrics sh">
+                                    <div className="dashboard-retail-metric">
+                                        <div className="dashboard-retail-metric-head">
+                                            <div className="dashboard-retail-metric-icon"><Package size={24} /></div>
+                                            <span className="dashboard-retail-metric-tag">Live</span>
+                                        </div>
+                                        <div>
+                                            <div className="dashboard-retail-metric-label">Stock Value</div>
+                                            <div className="dashboard-retail-metric-value">{fmtCompactCurrency(stats.sv)}</div>
+                                            <div className="dashboard-retail-metric-sub">{stats.ts} live unit{stats.ts === 1 ? "" : "s"}</div>
+                                        </div>
+                                    </div>
+                                    <div className="dashboard-retail-metric">
+                                        <div className="dashboard-retail-metric-head">
+                                            <div className="dashboard-retail-metric-icon"><Banknote size={24} /></div>
+                                            <span className="dashboard-retail-metric-tag">This Month</span>
+                                        </div>
+                                        <div>
+                                            <div className="dashboard-retail-metric-label">Monthly Sales</div>
+                                            <div className="dashboard-retail-metric-value">{fmtCompactCurrency(retailMonthlySales)}</div>
+                                            <div className="dashboard-retail-metric-sub">{tx.filter(t => t.type === "Sell").length} invoice{tx.filter(t => t.type === "Sell").length === 1 ? "" : "s"} total</div>
+                                        </div>
+                                    </div>
+                                    <div className="dashboard-retail-metric">
+                                        <div className="dashboard-retail-metric-head">
+                                            <div className="dashboard-retail-metric-icon"><IndianRupee size={24} /></div>
+                                            <span className="dashboard-retail-metric-tag">Pending</span>
+                                        </div>
+                                        <div>
+                                            <div className="dashboard-retail-metric-label">Dues To Collect</div>
+                                            <div className="dashboard-retail-metric-value">{fmtCompactCurrency(retailDueTotal)}</div>
+                                            <div className="dashboard-retail-metric-sub">Outstanding customer balance</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="dashboard-retail-actions">
+                                    <button className="dashboard-retail-action" onClick={() => openSc("add")}><span><ScanLine size={24} /></span><strong>Quick Scan</strong></button>
+                                    <button className="dashboard-retail-action" onClick={() => goPage("add")}><span><Plus size={24} /></span><strong>Add Stock</strong></button>
+                                    <button className="dashboard-retail-action" onClick={() => goPage("buy")}><span><ArrowDownCircle size={24} /></span><strong>Purchase Entry</strong></button>
+                                    <button className="dashboard-retail-action" onClick={() => enabledModules.includes("sell") ? goPage("sell") : goPage("reports")}><span>{enabledModules.includes("sell") ? <ShoppingCart size={24} /> : <BarChart3 size={24} />}</span><strong>{enabledModules.includes("sell") ? "New Sale" : "Reports"}</strong></button>
+                                </div>
+
+                                <div className="dashboard-retail-panels">
+                                    <div className="dashboard-retail-panel">
+                                        <div className="dashboard-retail-panel-head">
+                                            <h3>Stock Mix</h3>
+                                            <div className="dashboard-retail-fill">{retailStockFill}% Full</div>
+                                        </div>
+                                        <div className="dashboard-retail-mix">
+                                            {retailMixRows.map(item => <div key={item.label} className="dashboard-retail-mix-row">
+                                                <div className="dashboard-retail-mix-tone" style={{ background: item.tone }} />
+                                                <div className="dashboard-retail-mix-copy">
+                                                    <div className="dashboard-retail-mix-title"><span>{item.label}</span></div>
+                                                    <div className="dashboard-retail-mix-bar"><div style={{ width: `${Math.max(item.value > 0 ? 8 : 0, Math.round((item.value / Math.max(stats.ts, 1)) * 100))}%`, background: item.tone }} /></div>
+                                                </div>
+                                                <strong>{item.value}</strong>
+                                            </div>)}
+                                        </div>
+                                    </div>
+
+                                    <div className="dashboard-retail-panel">
+                                        <div className="dashboard-retail-panel-head">
+                                            <h3>Recent Activity</h3>
+                                            <button onClick={() => goPage("transactions")}>View All</button>
+                                        </div>
+                                        <div className="dashboard-retail-activity">
+                                            {retailDashboardInvoices.length === 0 ? <div style={{ color: "var(--t2)", fontSize: 14 }}>No invoices yet. Start with Add, Buy, or Sell.</div> : null}
+                                            {retailDashboardInvoices.map(t => <div key={t.id} className={`dashboard-retail-activity-item ${t.billType === "GST" ? "" : "nongst"}`}>
+                                                <div className="dashboard-retail-activity-main">
+                                                    <div className="dashboard-retail-activity-icon"><FileText size={18} /></div>
+                                                    <div className="dashboard-retail-activity-copy">
+                                                        <div className="dashboard-retail-activity-title">{t.brand} {t.model}</div>
+                                                        <div className="dashboard-retail-activity-meta">{fmtRelativeTime(t.updatedAt || t.createdAt || t.date)}</div>
+                                                    </div>
+                                                </div>
+                                                <div className="dashboard-retail-activity-side">
+                                                    <div className="dashboard-retail-activity-amount">{fmtCurrency(t.totalAmount || t.amount)}</div>
+                                                    <div className={`dashboard-retail-bill ${t.billType === "GST" ? "gst" : "nongst"}`}>{t.billType === "GST" ? "GST" : "NO-GST"}</div>
+                                                </div>
+                                            </div>)}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>}
                     </div>}
 
                     {/* ═══ ADD ═══ */}
-                    {pg === "add" && <div className="fi" style={{ maxWidth: 760 }}>
-                        <div style={{ marginBottom: 28 }}><h1 style={{ color: "var(--t1)", fontSize: 28, fontWeight: 700, display: "flex", alignItems: "center", gap: 10 }}><Plus size={28} style={{ color: "var(--a)" }} /> {ei ? "Edit Mobile" : bulkAdd ? "Bulk Add Mobiles" : "Add Mobile"}</h1><p style={{ color: "var(--t3)", fontSize: 14, marginTop: 4 }}>{ei ? "Update the selected stock item and save it back to stock." : bulkAdd ? "Fill shared device details once, then scan each IMEI to build a bulk stock list." : "Fast stock entry for new phones before selling."}</p></div>
-                        <div className="gc" style={{ border: "1px solid rgba(0,212,255,.2)" }}>
-                            {!ei && <div className="action-row" style={{ marginTop: 0, marginBottom: 16 }}>
-                                <button className={bulkAdd ? "bp" : "bg"} onClick={() => { setBulkAdd(v => !v); setBulkImeis([]); setBulkManualImei(""); uf("imei", ""); uf("imei2", ""); }} style={{ justifyContent: "center" }}><Layers size={16} /> {bulkAdd ? "Switch to Single Add" : "Bulk Add"}</button>
-                                {bulkAdd && <div style={{ color: "var(--t3)", fontSize: 12, display: "flex", alignItems: "center" }}>Bulk add saves one stock record per scanned IMEI.</div>}
-                            </div>}
-                            <F l={bulkAdd ? "Shared Device Photos" : "Device Photos"} ic={Images}><PhotoUp photos={fm.photos || []} onChange={p => uf("photos", p)} onCameraNeeded={releaseCameraNow} /></F>
-                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12 }}>
-                                {!bulkAdd && <F l="IMEI 1" ic={Hash}><div style={{ display: "flex", gap: 8 }}><input className="gi" value={fm.imei} onChange={e => uf("imei", e.target.value)} placeholder="15-digit IMEI" style={{ fontFamily: "'Space Mono',monospace" }} /><button className="bg" onClick={() => openSc("add")} style={{ padding: 10 }}><Camera size={16} /></button></div></F>}
-                                {!bulkAdd && <F l="IMEI 2 (Optional)" ic={Hash}><div style={{ display: "flex", gap: 8 }}><input className="gi" value={fm.imei2} onChange={e => uf("imei2", e.target.value)} placeholder="Optional second IMEI" style={{ fontFamily: "'Space Mono',monospace" }} /><button className="bg" onClick={() => openSc("add2")} style={{ padding: 10 }}><Camera size={16} /></button></div></F>}
-                                <F l="Brand" ic={Tag}><select className="gs" value={fm.brand} onChange={e => uf("brand", e.target.value)}>{BRANDS.map(b => <option key={b}>{b}</option>)}</select></F>
-                                <F l="Model" ic={Smartphone}><input className="gi" value={fm.model} onChange={e => uf("model", e.target.value)} placeholder="e.g. Galaxy S24 Ultra" /></F>
-                                <F l="Color" ic={Palette}><input className="gi" value={fm.color} onChange={e => uf("color", e.target.value)} placeholder="e.g. Black" /></F>
-                                <F l="RAM (Optional)" ic={Layers}><RamInput value={fm.ram} onChange={v => uf("ram", v)} /></F>
-                                <F l="Storage" ic={HardDrive}><StorageInput value={fm.storage} onChange={v => uf("storage", v)} /></F>
-                                <F l="Battery Health (Optional)" ic={Battery}><input className="gi" value={fm.batteryHealth} onChange={e => uf("batteryHealth", e.target.value)} placeholder="e.g. 92%" /></F>
-                                <F l="Condition" ic={Layers}><select className="gs" value={fm.condition} onChange={e => uf("condition", e.target.value)}>{CONDITIONS.map(c => <option key={c}>{c}</option>)}</select></F>
-                                <F l="Warranty" ic={Shield}><select className="gs" value={fm.warrantyType || "No Warranty"} onChange={e => uf("warrantyType", e.target.value)}>{WARRANTY_TYPES.map(w => <option key={w}>{w}</option>)}</select></F>
-                                {fm.warrantyType === "Testing Warranty" && <F l="Warranty Period (Months)" ic={Clock}><input className="gi" type="number" min="1" max="36" value={fm.warrantyMonths} onChange={e => uf("warrantyMonths", e.target.value)} placeholder="e.g. 3" /></F>}
-                                {fm.warrantyType !== "No Warranty" && <F l="Purchase Date" ic={Calendar}><input className="gi" type="date" value={fm.purchaseDate} onChange={e => uf("purchaseDate", e.target.value)} /></F>}
-                                <F l="Buy Price (Optional)" ic={IndianRupee}><input className="gi" type="number" value={fm.buyPrice} onChange={e => uf("buyPrice", e.target.value)} placeholder="₹0" /></F>
-                                <F l="Sell Price" ic={IndianRupee}><input className="gi" type="number" value={fm.sellPrice} onChange={e => uf("sellPrice", e.target.value)} placeholder="₹0" /></F>
-                                <F l="Serialized Stock" ic={Package}><div className="gi" style={{ display: "flex", alignItems: "center", minHeight: 48 }}>Each mobile saves as qty 1. Use Buy when you want to record supplier purchase details too.</div></F>
-                                <F l="Supplier (Optional)" ic={User}><input className="gi" value={fm.supplier} onChange={e => uf("supplier", e.target.value)} placeholder="Supplier" /></F>
+                    {pg === "add" && <div className="fi add-compact">
+                        <div className="desktop-workspace">
+                            <div className="desktop-workspace-main">
+                        <div className="add-compact-top add-desktop-only">
+                            <div className="add-mobile-top">
+                                <button className="add-mobile-back" onClick={() => goPage(ei ? "inventory" : "dashboard")} aria-label="Go back"><ChevronLeft size={28} /></button>
+                                <div>
+                                    <div className="add-mobile-header-title">{ei ? "Edit Stock" : "Add Stock"}</div>
+                                </div>
                             </div>
-                            {bulkAdd && !ei && <div className="gc" style={{ marginTop: 16, padding: 16, border: "1px solid rgba(255,255,255,.08)", background: "rgba(255,255,255,.03)" }}>
-                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
-                                    <div>
-                                        <div style={{ color: "var(--t1)", fontSize: 15, fontWeight: 700 }}>Bulk IMEI Queue</div>
-                                        <div style={{ color: "var(--t3)", fontSize: 12, marginTop: 4 }}>{bulkImeis.length} device{bulkImeis.length !== 1 ? "s" : ""} ready. Shared photos will be copied to every saved device. IMEI 2 stays disabled in bulk mode.</div>
+                            <div className="add-pos-chip"><Package size={14} /> {ei ? "Editing existing unit" : bulkAdd ? "Bulk intake" : "Single handset"}</div>
+                        </div>
+
+                        <div className="add-mobile-hero add-mobile-only">
+                            <div className="add-mobile-top">
+                                <button className="add-mobile-back" onClick={() => goPage(ei ? "inventory" : "dashboard")} aria-label="Go back"><ChevronLeft size={28} /></button>
+                                <div>
+                                    <div className="add-mobile-header-title">{ei ? "Edit Stock" : "Add Stock"}</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {!ei && <div className="add-compact-toolbar">
+                            <button className={bulkAdd ? "bp" : "bg"} onClick={() => { setBulkAdd(v => !v); setBulkImeis([]); setBulkManualImei(""); uf("imei", ""); uf("imei2", ""); }}><Layers size={16} /> {bulkAdd ? "Switch to Single Add" : "Enable Bulk Add"}</button>
+                            {!bulkAdd && <button className="bg" onClick={() => openSc("add")}><ScanLine size={16} /> Quick Scan</button>}
+                        </div>}
+
+                        {bulkAdd && !ei ? <div className="add-compact-card">
+                            <div className="add-compact-head">
+                                <div>
+                                    <h2>Bulk IMEI Queue</h2>
+                                </div>
+                                <div className="editor-inline">
+                                    <button className="bg" onClick={() => openSc("bulk-add")}><ScanLine size={15} /> Scan IMEI</button>
+                                    <button className="bg" onClick={() => setBulkImeis([])} disabled={!bulkImeis.length}><Trash2 size={15} /> Clear</button>
+                                </div>
+                            </div>
+                            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                                <input className="gi" value={bulkManualImei} onChange={e => setBulkManualImei(cleanImei(e.target.value))} onKeyDown={e => e.key === "Enter" && submitBulkManualImei()} placeholder="Type or paste 15-digit IMEI" style={{ fontFamily: "'Space Mono',monospace", flex: 1 }} />
+                                <button className="bp" onClick={submitBulkManualImei} style={{ whiteSpace: "nowrap" }}><CheckCircle size={16} /> Add IMEI</button>
+                            </div>
+                            <div className="add-compact-queue-list">
+                                {bulkImeis.length === 0 && <div style={{ color: "var(--t3)", fontSize: 13, padding: "6px 2px" }}>Scan each handset IMEI to build the queue.</div>}
+                                {bulkImeis.map((imei, index) => <div key={imei} className="add-compact-queue-item">
+                                    <div style={{ minWidth: 0 }}>
+                                        <span>Device {bulkImeis.length - index}</span>
+                                        <strong>{imei}</strong>
                                     </div>
-                                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                                        <button className="bg" onClick={() => openSc("bulk-add")}><ScanLine size={15} /> Scan IMEI</button>
-                                        <button className="bg" onClick={() => setBulkImeis([])} disabled={!bulkImeis.length}><Trash2 size={15} /> Clear List</button>
+                                    <button className="bg" onClick={() => removeBulkImei(imei)} style={{ padding: "8px 10px" }}><Trash2 size={14} /> Remove</button>
+                                </div>)}
+                            </div>
+                        </div> : null}
+
+                        <div className="add-compact-card">
+                            <div className="add-compact-head">
+                                <div>
+                                    <h2>{bulkAdd && !ei ? "Shared Device Details" : "Device Details"}</h2>
+                                </div>
+                                {!bulkAdd && <button className="add-link-btn" onClick={() => openSc("add")}><ScanLine size={14} /> Scan All</button>}
+                            </div>
+
+                            <div className="add-compact-form">
+                                <div className="add-compact-field span-2 photos">
+                                    <div className="add-compact-label">Photos</div>
+                                    <PhotoUp photos={fm.photos || []} onChange={p => uf("photos", p)} onCameraNeeded={releaseCameraNow} />
+                                </div>
+
+                                <div className="add-compact-field span-2">
+                                    <div className="add-compact-label">Brand &amp; Model</div>
+                                    <div className="add-compact-brand-row">
+                                        <div className="add-input-shell"><select className="gs" value={fm.brand} onChange={e => uf("brand", e.target.value)}>{BRANDS.map(b => <option key={b}>{b}</option>)}</select></div>
+                                        <div className="add-input-shell"><input className="gi" value={fm.model} onChange={e => uf("model", e.target.value)} placeholder="e.g. iPhone 15 Pro" /></div>
                                     </div>
                                 </div>
-                                <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
-                                    <input className="gi" value={bulkManualImei} onChange={e => setBulkManualImei(cleanImei(e.target.value))} onKeyDown={e => e.key === "Enter" && submitBulkManualImei()} placeholder="Type or paste 15-digit IMEI" style={{ fontFamily: "'Space Mono',monospace", flex: 1 }} />
-                                    <button className="bp" onClick={submitBulkManualImei} style={{ whiteSpace: "nowrap" }}><CheckCircle size={16} /> Add IMEI</button>
+
+                                <div className="add-compact-mini-grid">
+                                    <div className="add-compact-field mini">
+                                        <div className="add-compact-label">Storage</div>
+                                        <StorageInput value={fm.storage} onChange={v => uf("storage", v)} />
+                                    </div>
+
+                                    <div className="add-compact-field mini">
+                                        <div className="add-compact-label">RAM</div>
+                                        <RamInput value={fm.ram} onChange={v => uf("ram", v)} />
+                                    </div>
+
+                                    <div className="add-compact-field mini">
+                                        <div className="add-compact-label">Warranty</div>
+                                        <div className="add-input-shell"><select className="gs" value={fm.warrantyType || "No Warranty"} onChange={e => uf("warrantyType", e.target.value)}>{WARRANTY_TYPES.map(w => <option key={w}>{w}</option>)}</select></div>
+                                    </div>
+
+                                    <div className="add-compact-field mini">
+                                        <div className="add-compact-label">Purchase Date</div>
+                                        <div className="add-input-shell"><input className="gi" type="date" value={fm.purchaseDate} onChange={e => uf("purchaseDate", e.target.value)} /></div>
+                                    </div>
                                 </div>
-                                <div style={{ display: "grid", gap: 8, maxHeight: 260, overflowY: "auto" }}>
-                                    {bulkImeis.length === 0 && <div style={{ color: "var(--t3)", fontSize: 13, padding: "10px 4px" }}>Scan each handset IMEI to build the bulk stock list.</div>}
-                                    {bulkImeis.map((imei, index) => <div key={imei} className="tr" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, padding: "10px 12px", borderRadius: 12, border: "1px solid rgba(255,255,255,.06)", background: "rgba(255,255,255,.03)" }}>
-                                        <div style={{ minWidth: 0 }}>
-                                            <div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", letterSpacing: .8 }}>Device {bulkImeis.length - index}</div>
-                                            <div style={{ color: "var(--t1)", fontSize: 14, fontFamily: "'Space Mono',monospace", marginTop: 3 }}>{imei}</div>
-                                        </div>
-                                        <button className="bg" onClick={() => removeBulkImei(imei)} style={{ padding: "8px 10px" }}><Trash2 size={14} /> Remove</button>
-                                    </div>)}
+
+                                {!bulkAdd && <>
+                                    <div className="add-compact-field">
+                                        <div className="add-compact-label">IMEI 1</div>
+                                        <div className="add-input-shell"><input className="gi" value={fm.imei} onChange={e => uf("imei", e.target.value)} placeholder="00000..." style={{ fontFamily: "'Space Mono',monospace" }} /><button className="add-scan-btn" onClick={() => openSc("add")}><Camera size={16} /></button></div>
+                                    </div>
+
+                                    <div className="add-compact-field">
+                                        <div className="add-compact-label">IMEI 2</div>
+                                        <div className="add-input-shell"><input className="gi" value={fm.imei2} onChange={e => uf("imei2", e.target.value)} placeholder="Optional" style={{ fontFamily: "'Space Mono',monospace" }} /><button className="add-scan-btn" onClick={() => openSc("add2")}><Camera size={16} /></button></div>
+                                    </div>
+                                </>}
+
+                                <div className="add-compact-mini-grid">
+                                    <div className="add-compact-field mini">
+                                        <div className="add-compact-label">Color</div>
+                                        <div className="add-input-shell"><input className="gi" value={fm.color} onChange={e => uf("color", e.target.value)} placeholder="Titanium" /></div>
+                                    </div>
+
+                                    <div className="add-compact-field mini">
+                                        <div className="add-compact-label">Battery Health</div>
+                                        <div className="add-input-shell"><input className="gi" value={fm.batteryHealth} onChange={e => uf("batteryHealth", e.target.value)} placeholder="e.g. 92%" /></div>
+                                    </div>
+
+                                    <div className="add-compact-field mini">
+                                        <div className="add-compact-label">Buy Price</div>
+                                        <div className="add-input-shell"><input className="gi" type="number" value={fm.buyPrice} onChange={e => uf("buyPrice", e.target.value)} placeholder="₹0" /></div>
+                                    </div>
+
+                                    <div className="add-compact-field mini">
+                                        <div className="add-compact-label">Sell Price</div>
+                                        <div className="add-input-shell"><input className="gi" type="number" value={fm.sellPrice} onChange={e => uf("sellPrice", e.target.value)} placeholder="₹0" /></div>
+                                    </div>
                                 </div>
-                            </div>}
-                            <div className="action-row"><button className="bp" onClick={bulkAdd && !ei ? saveBulkInv : saveInv} disabled={bulkSaveBusy}><CheckCircle size={16} /> {bulkAdd && !ei ? (bulkSaveBusy ? "Saving Bulk Stock..." : `Add ${bulkImeis.length || ""} to Stock`) : ei ? "Save Changes" : "Add to Stock"}</button><button className="bg" onClick={() => ei ? goPage("inventory") : resetForm()}>{ei ? "Back to Stock" : "Clear Form"}</button></div>
+
+                                <div className="add-compact-field">
+                                    <div className="add-compact-label">Device Condition</div>
+                                    <div className="add-input-shell"><select className="gs" value={fm.condition} onChange={e => uf("condition", e.target.value)}>{CONDITIONS.map(c => <option key={c}>{c}</option>)}</select></div>
+                                </div>
+
+                                <div className="add-compact-field">
+                                    <div className="add-compact-label">Supplier</div>
+                                    <div className="add-input-shell"><input className="gi" value={fm.supplier} onChange={e => uf("supplier", e.target.value)} placeholder="Optional supplier" /></div>
+                                </div>
+
+                                {fm.warrantyType === "Testing Warranty" ? <div className="add-compact-field">
+                                    <div className="add-compact-label">Warranty Months</div>
+                                    <div className="add-input-shell"><input className="gi" type="number" min="1" max="36" value={fm.warrantyMonths} onChange={e => uf("warrantyMonths", e.target.value)} placeholder="Months" /></div>
+                                </div> : null}
+
+                                <div className="add-compact-field span-2">
+                                    <div className="add-compact-label">Notes</div>
+                                    <div className="add-input-shell"><input className="gi" value={fm.notes} onChange={e => uf("notes", e.target.value)} placeholder="Optional stock notes" /></div>
+                                </div>
+
+                            </div>
+                        </div>
+
+                        <div className="add-compact-actions add-desktop-only desktop-inline-actions">
+                            {ei ? <button className="bg" onClick={() => goPage("inventory")}>Back to Stock</button> : <button className="bg add-save-draft" onClick={saveAddDraft}>Save Draft</button>}
+                            <button className="bp" onClick={() => void (bulkAdd && !ei ? saveBulkInv() : saveInv())} disabled={bulkAdd && !ei && bulkSaveBusy}><CheckCircle size={16} /> {finalAddActionLabel}</button>
+                        </div>
+
+                        <div className="add-mobile-actions add-mobile-only">
+                            {ei ? <button className="bg" onClick={() => goPage("inventory")}>Back</button> : <button className="bg add-save-draft" onClick={saveAddDraft}>Save Draft</button>}
+                            <button className="bp" onClick={() => void (bulkAdd && !ei ? saveBulkInv() : saveInv())} disabled={bulkAdd && !ei && bulkSaveBusy}>{finalAddActionLabel}</button>
+                        </div>
+                            </div>
+                            <aside className="desktop-workspace-side desktop-enhanced-only">
+                                <div className="desktop-side-card">
+                                    <div className="desktop-side-eyebrow">Desktop Intake</div>
+                                    <div className="desktop-side-title">Intake Summary</div>
+                                    <div className="desktop-side-grid">
+                                        {addDesktopSummary.map(item => <div key={item.label} className="desktop-side-stat"><span>{item.label}</span><strong>{item.value}</strong></div>)}
+                                    </div>
+                                </div>
+                                <div className="desktop-side-card">
+                                    <div className="desktop-side-eyebrow">Action Rail</div>
+                                    <ul className="desktop-side-list">
+                                        <li><strong>Current step</strong><span>{currentAddStep?.title || "Device details"}</span></li>
+                                        <li><strong>Next focus</strong><span>{nextAddStep?.title || "Ready to save"}</span></li>
+                                        <li><strong>Photos</strong><span>{fm.photos?.length || 0} attached</span></li>
+                                        <li><strong>IMEI check</strong><span>{bulkAdd && !ei ? `${bulkImeis.length} queued` : (fm.imei ? "Primary IMEI added" : "Awaiting primary IMEI")}</span></li>
+                                    </ul>
+                                    <div className="add-desktop-actions">
+                                        {ei ? <button className="bg" onClick={() => goPage("inventory")}>Back to Stock</button> : <button className="bg add-save-draft" onClick={saveAddDraft}>Save Draft</button>}
+                                        <button className="bp" onClick={() => void (bulkAdd && !ei ? saveBulkInv() : saveInv())} disabled={bulkAdd && !ei && bulkSaveBusy}><CheckCircle size={16} /> {finalAddActionLabel}</button>
+                                    </div>
+                                </div>
+                            </aside>
                         </div>
                     </div>}
 
                     {/* ═══ INVENTORY ═══ */}
-                    {pg === "inventory" && !di && <div className="fi">
-                        <div className="stock-header">
-                            <div><h1 style={{ color: "var(--t1)", fontSize: 28, fontWeight: 700 }}>Stock</h1><p style={{ color: "var(--t3)", fontSize: 14, marginTop: 4 }}>{fi.length} devices{fi.length > visibleFi.length ? ` · showing ${visibleFi.length}` : ""}</p></div>
-                            <div className="stock-hero-actions"><button className="bp" onClick={() => openSc("add")} title="Scan"><Camera size={16} /><span className="btn-label">Scan</span></button><button className="bp" onClick={() => goPage("add")} title="Add Mobile"><Plus size={16} /><span className="btn-label">Add Mobile</span></button></div>
-                        </div>
-                        <div className="gc stock-filter-card">
-                            <div className="stock-tools">
-                                <div className="stock-search"><Search size={16} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--t3)" }} /><input className="gi" placeholder="Search IMEI / model" value={sq} onChange={e => sSq(e.target.value)} /></div>
-                                <div className="stock-controls-row">
-                                    <select className="gs" value={fc} onChange={e => sFc(e.target.value)} style={{ width: "auto", minWidth: 120 }}><option value="All">Condition</option>{CONDITIONS.map(c => <option key={c} value={c}>{c}</option>)}</select>
-                                    <select className="gs" value={fs} onChange={e => sFs(e.target.value)} style={{ width: "auto", minWidth: 120 }}><option value="All">Status</option>{STATUSES.map(s => <option key={s} value={s}>{s}</option>)}</select>
+                    {pg === "inventory" && !di && <div className="fi stock-modern">
+                        <div className="stock-modern-desktop-head desktop-enhanced-only">
+                            <div className="stock-modern-desktop-copy">
+                                <h1>Stock</h1>
+                                <p>Manage live devices, compare margins, and move from browsing to action without changing the mobile stock workflow.</p>
+                                <div className="stock-modern-desktop-meta">
+                                    <strong>{stats.ts.toLocaleString("en-IN")}</strong> Items Total
+                                    <span>•</span>
+                                    <strong>{fmtCompactCurrency(stats.sv)}</strong> Value
+                                    <span>•</span>
+                                    <strong>{fmtCompactCurrency(retailDueTotal)}</strong> Due Balance
                                 </div>
+                            </div>
+                            <div className="stock-modern-desktop-actions">
+                                <button className="dashboard-action-ghost" onClick={() => goPage("reports")}><BarChart3 size={16} /> Quick Reports</button>
+                                <button className="bp" onClick={() => goPage("add")}><Plus size={16} /> Add New Stock</button>
+                            </div>
+                        </div>
+                        <div className="stock-modern-controls">
+                            <div className="stock-modern-search">
+                                <Search size={22} />
+                                <input id="stock-search-input" className="gi" placeholder="Search by Model or IMEI..." value={sq} onChange={e => sSq(e.target.value)} />
+                            </div>
+
+                            <div className="stock-modern-filters">
+                                <select className="gs stock-modern-pill" value={stockBrandFilter} onChange={e => setStockBrandFilter(e.target.value)}>
+                                    <option value="All Brands">All Brands</option>
+                                    {[...new Set(inv.filter(item => item.status !== "Deleted").map(item => item.brand).filter(Boolean))].sort().map(brand => <option key={brand} value={brand}>{brand}</option>)}
+                                </select>
+                                <select className="gs stock-modern-pill" value={stockConditionFilter} onChange={e => setStockConditionFilter(e.target.value)}>
+                                    <option value="Any Condition">Any Condition</option>
+                                    {CONDITIONS.map(condition => <option key={condition} value={condition}>{condition}</option>)}
+                                </select>
+                                <select className="gs stock-modern-pill" value={stockPriceFilter} onChange={e => setStockPriceFilter(e.target.value)}>
+                                    {STOCK_PRICE_FILTERS.map(price => <option key={price} value={price}>{price}</option>)}
+                                </select>
                             </div>
                         </div>
 
-                        {/* Grid — Horizontal Cards */}
-                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(min(420px,100%),1fr))", gap: 14 }}>
-                            {visibleFi.map(it => <div key={it.id} className="gc hcard" style={{ padding: 0, overflow: "hidden", display: "flex", flexDirection: "row", minHeight: 210, borderLeft: `3px solid ${it.status === "In Stock" ? "var(--a)" : "rgba(255,255,255,.12)"}` }}>
-                                {/* LEFT — Portrait Photo */}
-                                <div className="hcard-photo" style={{ width: 160, minWidth: 160, flexShrink: 0, position: "relative", cursor: "pointer", overflow: "hidden", borderRight: "1px solid rgba(255,255,255,.06)" }}
-                                    onClick={() => { if (it.photos?.length) sLb({ photos: it.photos, si: 0 }); else sDi(it); }}>
-                                    {it.photos?.length > 0 ? <>
-                                        <img src={getPhotoPreview(it.photos[0])} alt={it.model} loading="lazy" decoding="async" style={{ width: "100%", height: "100%", objectFit: "cover", transition: "transform .4s" }}
-                                            onMouseOver={e => e.currentTarget.style.transform = "scale(1.06)"} onMouseOut={e => e.currentTarget.style.transform = "scale(1)"} />
-                                        {it.photos.length > 1 && <div className="ipc"><Images size={12} /> {it.photos.length}</div>}
-                                    </> : <div style={{ width: "100%", height: "100%", background: BRAND_GRADIENTS[it.brand] || BRAND_GRADIENTS.Other, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, position: "relative", overflow: "hidden" }}>
-                                        <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,.18)" }} />
-                                        <Smartphone size={38} style={{ opacity: .5, color: "#fff", position: "relative" }} />
-                                        <span style={{ color: "rgba(255,255,255,.75)", fontSize: 12, fontWeight: 700, letterSpacing: .5, position: "relative" }}>{it.brand}</span>
-                                    </div>}
-                                </div>
-
-                                {/* RIGHT — Details */}
-                                <div className="hcard-details" style={{ flex: 1, padding: "14px 16px", display: "flex", flexDirection: "column", justifyContent: "space-between", minWidth: 0 }}>
-                                    {/* Top — Name + Badge */}
-                                    <div>
-                                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, marginBottom: 6 }}>
-                                            <div style={{ minWidth: 0 }}>
-                                                <div className="hcard-title" style={{ color: "var(--t1)", fontSize: 16, fontWeight: 700, lineHeight: 1.3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{it.brand} {it.model}</div>
-                                                <div className="hcard-imei" style={{ color: "var(--t3)", fontSize: 11, fontFamily: "'Space Mono',monospace", marginTop: 3, letterSpacing: .5 }}>IMEI 1: {it.imei}</div>
-                                                {it.imei2 && <div className="hcard-imei" style={{ color: "var(--t3)", fontSize: 10, fontFamily: "'Space Mono',monospace", marginTop: 2, letterSpacing: .4 }}>IMEI 2: {it.imei2}</div>}
-                                            </div>
-                                            <span className={`ba ${condBadge(it.condition)}`} style={{ flexShrink: 0 }}>{it.condition}</span>
-                                        </div>
-                                        {/* Tags */}
-                                        <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 10 }}>
-                                            {it.color && <span style={{ color: "var(--t2)", fontSize: 10, background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.1)", padding: "2px 8px", borderRadius: 20 }}>{it.color}</span>}
-                                            <span style={{ color: "var(--t2)", fontSize: 10, background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.1)", padding: "2px 8px", borderRadius: 20 }}>{fmtSpecs(it.ram, it.storage)}</span>
-                                            {it.batteryHealth && <span style={{ color: "var(--t2)", fontSize: 10, background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.1)", padding: "2px 8px", borderRadius: 20 }}>Battery {it.batteryHealth}</span>}
-                                            {(() => { const w = getWarrantyStatus(it); return w.active ? <span style={{ color: "var(--ok)", fontSize: 10, background: "rgba(0,200,100,.08)", border: "1px solid rgba(0,200,100,.2)", padding: "2px 8px", borderRadius: 20 }}>{w.label}</span> : it.warrantyType && it.warrantyType !== "No Warranty" ? <span style={{ color: "var(--t3)", fontSize: 10, background: "rgba(255,255,255,.05)", border: "1px solid rgba(255,255,255,.08)", padding: "2px 8px", borderRadius: 20 }}>Out of Warranty</span> : null; })()}
-                                            <span className={`ba ${statBadge(it.status)}`} style={{ fontSize: 10, padding: "2px 8px" }}>{it.status}</span>
-                                        </div>
+                        <div className="stock-modern-grid stock-modern-mobile-grid">
+                            {visibleFi.map(it => {
+                                const conditionLabel = it.condition === "New" ? "MINT" : it.condition === "Refurbished" ? "GOOD" : "FAIR";
+                                const conditionClass = it.condition === "New" ? "mint" : it.condition === "Refurbished" ? "good" : "fair";
+                                const margin = Number(it.sellPrice || 0) - Number(it.buyPrice || 0);
+                                return <article key={it.id} className="stock-modern-card">
+                                    <div className="stock-modern-card-media" onClick={() => { if (it.photos?.length) sLb({ photos: it.photos, si: 0 }); else sDi(it); }}>
+                                        <span className={`stock-modern-condition ${conditionClass}`}>{conditionLabel}</span>
+                                        {it.photos?.length > 0
+                                            ? <img src={getPhotoPreview(it.photos[0])} alt={it.model} loading="lazy" decoding="async" />
+                                            : <div className="stock-modern-placeholder" style={{ background: BRAND_GRADIENTS[it.brand] || BRAND_GRADIENTS.Other }}><Smartphone size={52} /><span>{it.brand}</span></div>}
                                     </div>
 
-                                    {/* Middle — Pricing */}
-                                    <div className="hcard-price" style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, padding: "8px 10px", background: "rgba(255,255,255,.03)", borderRadius: 8, flexWrap: "wrap" }}>
-                                        <div style={{ flex: "1 1 auto", minWidth: 50 }}>
-                                            <div style={{ color: "var(--t3)", fontSize: 9, fontWeight: 600, textTransform: "uppercase", letterSpacing: .8, marginBottom: 1 }}>Buy</div>
-                                            <div style={{ color: "var(--t2)", fontSize: 13, fontWeight: 600 }}>{fmtCurrency(it.buyPrice)}</div>
-                                        </div>
-                                        <ChevronRight size={12} style={{ color: "var(--t3)", flexShrink: 0 }} />
-                                        <div style={{ flex: "1 1 auto", textAlign: "right", minWidth: 50 }}>
-                                            <div style={{ color: "var(--t3)", fontSize: 9, fontWeight: 600, textTransform: "uppercase", letterSpacing: .8, marginBottom: 1 }}>Sell</div>
-                                            <div style={{ color: "var(--ok)", fontSize: 13, fontWeight: 700 }}>{fmtCurrency(it.sellPrice)}</div>
-                                        </div>
-                                        {it.buyPrice > 0 && it.sellPrice > it.buyPrice && <div style={{ background: "rgba(52,211,153,.12)", border: "1px solid rgba(52,211,153,.2)", borderRadius: 6, padding: "3px 7px", flexShrink: 0 }}>
-                                            <div style={{ color: "var(--ok)", fontSize: 10, fontWeight: 700, whiteSpace: "nowrap" }}>+{fmtCurrency(it.sellPrice - it.buyPrice)}</div>
-                                        </div>}
-                                    </div>
+                                    <div className="stock-modern-card-body">
+                                        <p className="stock-modern-brand-name">{it.brand || "Other"}</p>
+                                        <h3>{it.model || "Unknown Model"}</h3>
+                                        <p className="stock-modern-imei">IMEI: ...{String(it.imei || "").slice(-3) || "---"}</p>
 
-                                    {/* Bottom — Meta + Actions */}
-                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, paddingTop: 8, borderTop: "1px solid rgba(255,255,255,.05)" }}>
-                                        <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-                                            {it.status === "In Stock" && it.qty > 0 && <button className="hcard-ab" style={{ padding: 8, color: "var(--err)", border: "1px solid rgba(248,113,113,.35)", background: "rgba(248,113,113,.08)" }} onClick={e => { e.stopPropagation(); sFm(toForm(it, { amount: it.sellPrice, paidAmount: it.sellPrice, dueAmount: 0, customerName: "", phone: "", notes: "" })); sPg("sell"); sDi(null); }} aria-label="Sell item" title="Sell"><ArrowUpCircle size={15} /></button>}
-                                            {it.lastInvoiceNo && <span style={{ color: "var(--t3)", fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.lastInvoiceNo}</span>}
+                                        <div className="stock-modern-specs">
+                                            {it.storage ? <span>{it.storage}</span> : null}
+                                            {it.ram ? <span>{it.ram} RAM</span> : null}
                                         </div>
-                                        <div className="hcard-actions">
-                                            <button className="bg hcard-ab" style={{ padding: 8 }} onClick={e => { e.stopPropagation(); void printSticker(it); }}><Printer size={15} /></button>
-                                            <button className="bg hcard-ab" style={{ padding: 8 }} onClick={e => { e.stopPropagation(); sDi(it); }}><Eye size={15} /></button>
-                                            <button className="bg hcard-ab" style={{ padding: 8 }} onClick={e => { e.stopPropagation(); editFromStock(it); }}><Edit2 size={15} /></button>
-                                            <button className="bd hcard-ab" style={{ padding: 8 }} onClick={e => { e.stopPropagation(); setConfirmDel(it); }}><Trash2 size={15} /></button>
+
+                                        <div className="stock-modern-price-row">
+                                            <div><small>Price</small><strong>{fmtCurrency(it.sellPrice)}</strong></div>
+                                            <div><small>Margin</small><strong className={margin >= 0 ? "up" : "down"}>{margin >= 0 ? "+" : ""}{fmtCompactCurrency(margin)}</strong></div>
+                                        </div>
+
+                                        <div className="stock-modern-actions">
+                                            {it.status === "In Stock" && it.qty > 0
+                                                ? <button className="stock-modern-action primary" onClick={e => { e.stopPropagation(); sFm(toForm(it, { amount: it.sellPrice, paidAmount: it.sellPrice, dueAmount: 0, customerName: "", phone: "", notes: "" })); sPg("sell"); sDi(null); }} aria-label="Sell"><Banknote size={17} /></button>
+                                                : <button className="stock-modern-action" onClick={e => { e.stopPropagation(); sDi(it); }} aria-label="View"><Eye size={16} /></button>}
+                                            <button className="stock-modern-action" onClick={e => { e.stopPropagation(); editFromStock(it); }} aria-label="Edit"><Edit2 size={16} /></button>
+                                            <button className="stock-modern-action" onClick={e => { e.stopPropagation(); void printSticker(it); }} aria-label="Print"><Printer size={16} /></button>
+                                            <button className="stock-modern-action danger" onClick={e => { e.stopPropagation(); setConfirmDel(it); }} aria-label="Delete"><Trash2 size={16} /></button>
                                         </div>
                                     </div>
-                                </div>
-                            </div>)}
+                                </article>;
+                            })}
                         </div>
+
+                        <div className="stock-modern-footer-note stock-modern-mobile-grid">INVENTORY STATUS <span>Showing {visibleFi.length} of {fi.length}</span></div>
+
                         {hasMoreStock && <div ref={stockLoadMoreRef} style={{ height: 1, marginTop: 16 }} />}
                         {fi.length === 0 && <div className="gc" style={{ textAlign: "center", padding: 48 }}><Package size={40} style={{ color: "var(--t3)", marginBottom: 12 }} /><p style={{ color: "var(--t2)", fontSize: 15 }}>No devices found</p></div>}
                     </div>}
@@ -4489,209 +5711,605 @@ export default function App() {
                     </div>}
 
                     {/* ═══ BUY ═══ */}
-                    {pg === "buy" && <div className="fi" style={{ maxWidth: 700 }}>
-                        <div style={{ marginBottom: 28 }}><h1 style={{ color: "var(--t1)", fontSize: 28, fontWeight: 700, display: "flex", alignItems: "center", gap: 10 }}><ArrowDownCircle size={28} style={{ color: "var(--a2)" }} /> Purchase Entry</h1></div>
-                        <div className="gc" style={{ border: "1px solid rgba(139,92,246,.2)" }}>
-                            <F l="Device Photos" ic={Images}><PhotoUp photos={fm.photos || []} onChange={p => uf("photos", p)} onCameraNeeded={releaseCameraNow} /></F>
-                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12 }}>
-                                <F l="IMEI 1" ic={Hash}><div style={{ display: "flex", gap: 8 }}><input className="gi" value={fm.imei} onChange={e => uf("imei", e.target.value)} placeholder="IMEI" style={{ fontFamily: "'Space Mono',monospace" }} /><button className="bg" onClick={() => openSc("buy")}><Camera size={16} /></button></div></F>
-                                <F l="IMEI 2 (Optional)" ic={Hash}><div style={{ display: "flex", gap: 8 }}><input className="gi" value={fm.imei2} onChange={e => uf("imei2", e.target.value)} placeholder="Optional second IMEI" style={{ fontFamily: "'Space Mono',monospace" }} /><button className="bg" onClick={() => openSc("buy2")}><Camera size={16} /></button></div></F>
-                                <F l="Brand" ic={Tag}><select className="gs" value={fm.brand} onChange={e => uf("brand", e.target.value)}>{BRANDS.map(b => <option key={b}>{b}</option>)}</select></F>
-                                <F l="Model" ic={Smartphone}><input className="gi" value={fm.model} onChange={e => uf("model", e.target.value)} placeholder="Model" /></F>
-                                <F l="Color" ic={Palette}><input className="gi" value={fm.color} onChange={e => uf("color", e.target.value)} placeholder="Color" /></F>
-                                <F l="RAM (Optional)" ic={Layers}><RamInput value={fm.ram} onChange={v => uf("ram", v)} /></F>
-                                <F l="Storage" ic={HardDrive}><StorageInput value={fm.storage} onChange={v => uf("storage", v)} /></F>
-                                <F l="Battery Health (Optional)" ic={Battery}><input className="gi" value={fm.batteryHealth} onChange={e => uf("batteryHealth", e.target.value)} placeholder="e.g. 92%" /></F>
-                                <F l="Condition" ic={Layers}><select className="gs" value={fm.condition} onChange={e => uf("condition", e.target.value)}>{CONDITIONS.map(c => <option key={c}>{c}</option>)}</select></F>
-                                <F l="Warranty" ic={Shield}><select className="gs" value={fm.warrantyType || "No Warranty"} onChange={e => uf("warrantyType", e.target.value)}>{WARRANTY_TYPES.map(w => <option key={w}>{w}</option>)}</select></F>
-                                {fm.warrantyType === "Testing Warranty" && <F l="Warranty Period (Months)" ic={Clock}><input className="gi" type="number" min="1" max="36" value={fm.warrantyMonths} onChange={e => uf("warrantyMonths", e.target.value)} placeholder="e.g. 3" /></F>}
-                                {(fm.warrantyType !== "No Warranty" || fm.condition === "Used" || fm.condition === "Refurbished") && <F l={(fm.condition === "Used" || fm.condition === "Refurbished") ? "Purchase Date *" : "Purchase Date"} ic={Calendar}><input className="gi" type="date" value={fm.purchaseDate} onChange={e => uf("purchaseDate", e.target.value)} /></F>}
-                                <F l="Buy Price" ic={IndianRupee}><input className="gi" type="number" value={fm.buyPrice} onChange={e => uf("buyPrice", e.target.value)} placeholder="₹" /></F>
-                                <F l="Sell Price" ic={IndianRupee}><input className="gi" type="number" value={fm.sellPrice} onChange={e => uf("sellPrice", e.target.value)} placeholder="₹" /></F>
-                                <F l="Serialized Stock" ic={Package}><div className="gi" style={{ display: "flex", alignItems: "center", minHeight: 48 }}>Mobile IMEI stock saves one handset per entry.</div></F>
-                                <F l="Supplier *" ic={User}><input className="gi" value={fm.supplier} onChange={e => uf("supplier", e.target.value)} placeholder="Supplier" /></F>
-                                <F l="Phone" ic={Phone}><input className="gi" type="tel" value={fm.phone} onChange={e => uf("phone", e.target.value)} placeholder="Phone" /></F>
-                                <F l="Payment" ic={CreditCard}><select className="gs" value={fm.paymentMode} onChange={e => uf("paymentMode", e.target.value)}>{PAYMENT_MODES.map(p => <option key={p}>{p}</option>)}</select></F>
+                    {pg === "buy" && <div className="fi add-compact">
+                        <div className="desktop-workspace">
+                            <div className="desktop-workspace-main">
+                        <div className="add-compact-top add-desktop-only">
+                            <div className="add-mobile-top">
+                                <button className="add-mobile-back" onClick={() => goPage("dashboard")} aria-label="Go back"><ChevronLeft size={28} /></button>
+                                <div>
+                                    <div className="add-mobile-header-title">Buy Stock</div>
+                                </div>
                             </div>
-                            {(fm.condition === "Used" || fm.condition === "Refurbished") && <div className="gc" style={{ background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.08)", marginTop: 12 }}>
-                                <h3 style={{ color: "var(--t1)", fontSize: 15, fontWeight: 600, marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}><Lock size={16} style={{ color: "var(--warn)" }} /> Seller Verification</h3>
-                                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12 }}>
-                                    <F l="Seller Name *" ic={User}><input className="gi" value={fm.sellerName} onChange={e => uf("sellerName", e.target.value)} placeholder="Seller full name" /></F>
-                                    <F l="Seller Phone *" ic={Phone}><input className="gi" type="tel" value={fm.sellerPhone} onChange={e => uf("sellerPhone", e.target.value)} placeholder="Seller phone" /></F>
-                                    <F l="Aadhaar Number *" ic={Hash}><input className="gi" value={fm.sellerAadhaarNumber} onChange={e => uf("sellerAadhaarNumber", e.target.value.replace(/[^\d]/g, "").slice(0, 12))} placeholder="12 digit Aadhaar" style={{ fontFamily: "'Space Mono',monospace" }} /></F>
+                            <div className="add-pos-chip"><ArrowDownCircle size={14} /> Supplier intake</div>
+                        </div>
+
+                        <div className="add-mobile-hero add-mobile-only">
+                            <div className="add-mobile-top">
+                                <button className="add-mobile-back" onClick={() => goPage("dashboard")} aria-label="Go back"><ChevronLeft size={28} /></button>
+                                <div>
+                                    <div className="add-mobile-header-title">Buy Stock</div>
                                 </div>
-                                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 16, marginTop: 14 }}>
-                                    <F l="Seller ID Photo *" ic={FileText}><SingleImageInput label="Seller ID" value={fm.sellerIdPhotoData} onChange={v => uf("sellerIdPhotoData", v)} /></F>
-                                    <F l="Seller Photo *" ic={Camera}><SingleImageInput label="Seller Photo" value={fm.sellerPhotoData} onChange={v => uf("sellerPhotoData", v)} /></F>
+                            </div>
+                        </div>
+
+                        <div className="add-compact-card">
+                            <div className="add-compact-head">
+                                <div>
+                                    <h2>Purchase Details</h2>
                                 </div>
-                                <div style={{ marginTop: 14 }}>
-                                    <F l="Seller Signature *" ic={Edit2}><SignaturePad value={fm.sellerSignatureData} onChange={v => uf("sellerSignatureData", v)} /></F>
+                                <button className="add-link-btn" onClick={() => openSc("buy")}><ScanLine size={14} /> Scan All</button>
+                            </div>
+
+                            <div className="add-compact-form">
+                                <div className="add-compact-field span-2 photos">
+                                    <div className="add-compact-label">Photos</div>
+                                    <PhotoUp photos={fm.photos || []} onChange={p => uf("photos", p)} onCameraNeeded={releaseCameraNow} />
                                 </div>
-                                <label className="gi" style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer", marginTop: 14 }}>
-                                    <input type="checkbox" checked={!!fm.sellerAgreementAccepted} onChange={e => uf("sellerAgreementAccepted", e.target.checked)} style={{ marginTop: 3 }} />
-                                    <span>I confirm the seller has declared lawful ownership of this device and agrees to transfer it to the shop.</span>
-                                </label>
-                            </div>}
-                            <F l="Notes" ic={FileText}><input className="gi" value={fm.notes} onChange={e => uf("notes", e.target.value)} placeholder="Notes" /></F>
-                            <div className="action-row"><button className="bp" style={{ background: "linear-gradient(135deg,#8b5cf6,#6d28d9)" }} onClick={doBuy}><ArrowDownCircle size={16} /> Record Purchase</button><button className="bg" onClick={() => sFm(ef)}>Clear</button></div>
+
+                                <div className="add-compact-field span-2">
+                                    <div className="add-compact-label">Brand &amp; Model</div>
+                                    <div className="add-compact-brand-row">
+                                        <div className="add-input-shell"><select className="gs" value={fm.brand} onChange={e => uf("brand", e.target.value)}>{BRANDS.map(b => <option key={b}>{b}</option>)}</select></div>
+                                        <div className="add-input-shell"><input className="gi" value={fm.model} onChange={e => uf("model", e.target.value)} placeholder="e.g. iPhone 15 Pro" /></div>
+                                    </div>
+                                </div>
+
+                                <div className="add-compact-mini-grid">
+                                    <div className="add-compact-field mini">
+                                        <div className="add-compact-label">Storage</div>
+                                        <StorageInput value={fm.storage} onChange={v => uf("storage", v)} />
+                                    </div>
+
+                                    <div className="add-compact-field mini">
+                                        <div className="add-compact-label">RAM</div>
+                                        <RamInput value={fm.ram} onChange={v => uf("ram", v)} />
+                                    </div>
+
+                                    <div className="add-compact-field mini">
+                                        <div className="add-compact-label">Warranty</div>
+                                        <div className="add-input-shell"><select className="gs" value={fm.warrantyType || "No Warranty"} onChange={e => uf("warrantyType", e.target.value)}>{WARRANTY_TYPES.map(w => <option key={w}>{w}</option>)}</select></div>
+                                    </div>
+
+                                    <div className="add-compact-field mini">
+                                        <div className="add-compact-label">Purchase Date</div>
+                                        <div className="add-input-shell"><input className="gi" type="date" value={fm.purchaseDate} onChange={e => uf("purchaseDate", e.target.value)} /></div>
+                                    </div>
+                                </div>
+
+                                <div className="add-compact-field">
+                                    <div className="add-compact-label">IMEI 1</div>
+                                    <div className="add-input-shell"><input className="gi" value={fm.imei} onChange={e => uf("imei", e.target.value)} placeholder="IMEI" style={{ fontFamily: "'Space Mono',monospace" }} /><button className="add-scan-btn" onClick={() => openSc("buy")}><Camera size={16} /></button></div>
+                                </div>
+
+                                <div className="add-compact-field">
+                                    <div className="add-compact-label">IMEI 2</div>
+                                    <div className="add-input-shell"><input className="gi" value={fm.imei2} onChange={e => uf("imei2", e.target.value)} placeholder="Optional" style={{ fontFamily: "'Space Mono',monospace" }} /><button className="add-scan-btn" onClick={() => openSc("buy2")}><Camera size={16} /></button></div>
+                                </div>
+
+                                <div className="add-compact-mini-grid">
+                                    <div className="add-compact-field mini">
+                                        <div className="add-compact-label">Color</div>
+                                        <div className="add-input-shell"><input className="gi" value={fm.color} onChange={e => uf("color", e.target.value)} placeholder="Color" /></div>
+                                    </div>
+
+                                    <div className="add-compact-field mini">
+                                        <div className="add-compact-label">Battery Health</div>
+                                        <div className="add-input-shell"><input className="gi" value={fm.batteryHealth} onChange={e => uf("batteryHealth", e.target.value)} placeholder="e.g. 92%" /></div>
+                                    </div>
+
+                                    <div className="add-compact-field mini">
+                                        <div className="add-compact-label">Buy Price</div>
+                                        <div className="add-input-shell"><input className="gi" type="number" value={fm.buyPrice} onChange={e => uf("buyPrice", e.target.value)} placeholder="₹0" /></div>
+                                    </div>
+
+                                    <div className="add-compact-field mini">
+                                        <div className="add-compact-label">Sell Price</div>
+                                        <div className="add-input-shell"><input className="gi" type="number" value={fm.sellPrice} onChange={e => uf("sellPrice", e.target.value)} placeholder="₹0" /></div>
+                                    </div>
+                                </div>
+
+                                <div className="add-compact-field">
+                                    <div className="add-compact-label">Device Condition</div>
+                                    <div className="add-input-shell"><select className="gs" value={fm.condition} onChange={e => uf("condition", e.target.value)}>{CONDITIONS.map(c => <option key={c}>{c}</option>)}</select></div>
+                                </div>
+
+                                <div className="add-compact-field">
+                                    <div className="add-compact-label">Supplier *</div>
+                                    <div className="add-input-shell"><input className="gi" value={fm.supplier} onChange={e => uf("supplier", e.target.value)} placeholder="Supplier" /></div>
+                                </div>
+
+                                {fm.warrantyType === "Testing Warranty" ? <div className="add-compact-field">
+                                    <div className="add-compact-label">Warranty Months</div>
+                                    <div className="add-input-shell"><input className="gi" type="number" min="1" max="36" value={fm.warrantyMonths} onChange={e => uf("warrantyMonths", e.target.value)} placeholder="Months" /></div>
+                                </div> : null}
+
+                                <div className="add-compact-field">
+                                    <div className="add-compact-label">Phone</div>
+                                    <div className="add-input-shell"><input className="gi" type="tel" value={fm.phone} onChange={e => uf("phone", e.target.value)} placeholder="Phone" /></div>
+                                </div>
+
+                                <div className="add-compact-field">
+                                    <div className="add-compact-label">Payment</div>
+                                    <div className="add-input-shell"><select className="gs" value={fm.paymentMode} onChange={e => uf("paymentMode", e.target.value)}>{PAYMENT_MODES.map(p => <option key={p}>{p}</option>)}</select></div>
+                                </div>
+
+                                <div className="add-compact-field span-2">
+                                    <div className="add-compact-label">Notes</div>
+                                    <div className="add-input-shell"><input className="gi" value={fm.notes} onChange={e => uf("notes", e.target.value)} placeholder="Purchase notes" /></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="add-compact-collapses">
+                            {buyRequiresSellerVerification && <details className="add-compact-collapse" open>
+                                <summary>
+                                    <strong>Seller Verification</strong>
+                                    <span>{fm.sellerAgreementAccepted ? "Ready" : "Required"}</span>
+                                </summary>
+                                <div className="add-compact-collapse-body">
+                                    <div className="add-compact-form">
+                                        <div className="add-compact-field">
+                                            <div className="add-compact-label">Seller Name *</div>
+                                            <div className="add-input-shell"><input className="gi" value={fm.sellerName} onChange={e => uf("sellerName", e.target.value)} placeholder="Seller full name" /></div>
+                                        </div>
+
+                                        <div className="add-compact-field">
+                                            <div className="add-compact-label">Seller Phone *</div>
+                                            <div className="add-input-shell"><input className="gi" type="tel" value={fm.sellerPhone} onChange={e => uf("sellerPhone", e.target.value)} placeholder="Seller phone" /></div>
+                                        </div>
+
+                                        <div className="add-compact-field span-2">
+                                            <div className="add-compact-label">Aadhaar Number *</div>
+                                            <div className="add-input-shell"><input className="gi" value={fm.sellerAadhaarNumber} onChange={e => uf("sellerAadhaarNumber", e.target.value.replace(/[^\d]/g, "").slice(0, 12))} placeholder="12 digit Aadhaar" style={{ fontFamily: "'Space Mono',monospace" }} /></div>
+                                        </div>
+                                    </div>
+
+                                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 12, marginTop: 12 }}>
+                                        <SingleImageInput label="Seller ID" value={fm.sellerIdPhotoData} onChange={v => uf("sellerIdPhotoData", v)} />
+                                        <SingleImageInput label="Seller Photo" value={fm.sellerPhotoData} onChange={v => uf("sellerPhotoData", v)} />
+                                    </div>
+
+                                    <div style={{ marginTop: 12 }}>
+                                        <div className="add-compact-label" style={{ marginBottom: 8 }}>Seller Signature *</div>
+                                        <SignaturePad value={fm.sellerSignatureData} onChange={v => uf("sellerSignatureData", v)} />
+                                    </div>
+
+                                    <label className="add-compact-check" style={{ marginTop: 12 }}>
+                                        <input type="checkbox" checked={!!fm.sellerAgreementAccepted} onChange={e => uf("sellerAgreementAccepted", e.target.checked)} />
+                                        <span>I confirm the seller has declared lawful ownership of this device and agrees to transfer it to the shop.</span>
+                                    </label>
+                                </div>
+                            </details>}
+                        </div>
+
+                        <div className="add-compact-actions add-desktop-only desktop-inline-actions">
+                            <button className="bg" onClick={() => sFm(ef)}>Clear</button>
+                            <button className="bp" style={{ background: "linear-gradient(135deg,#8b5cf6,#6d28d9)" }} onClick={doBuy}><ArrowDownCircle size={16} /> Record Purchase</button>
+                        </div>
+
+                        <div className="add-mobile-actions add-mobile-only">
+                            <button className="bg" onClick={() => sFm(ef)}>Clear</button>
+                            <button className="bp" style={{ background: "linear-gradient(135deg,#8b5cf6,#6d28d9)" }} onClick={doBuy}>Record Purchase</button>
+                        </div>
+                            </div>
+                            <aside className="desktop-workspace-side desktop-enhanced-only">
+                                <div className="desktop-side-card">
+                                    <div className="desktop-side-eyebrow">Supplier Intake</div>
+                                    <div className="desktop-side-title">Purchase Summary</div>
+                                    <div className="desktop-side-grid">
+                                        {buyDesktopSummary.map(item => <div key={item.label} className="desktop-side-stat"><span>{item.label}</span><strong>{item.value}</strong></div>)}
+                                    </div>
+                                </div>
+                                <div className="desktop-side-card">
+                                    <div className="desktop-side-eyebrow">Readiness</div>
+                                    <ul className="desktop-side-list">
+                                        <li><strong>Seller verification</strong><span>{buyRequiresSellerVerification ? (fm.sellerAgreementAccepted ? "Captured" : "Required") : "Not required"}</span></li>
+                                        <li><strong>Photos</strong><span>{fm.photos?.length || 0} handset photos</span></li>
+                                        <li><strong>IMEI</strong><span>{fm.imei ? "Primary IMEI added" : "Awaiting IMEI"}</span></li>
+                                        <li><strong>Payment mode</strong><span>{fm.paymentMode || "Cash"}</span></li>
+                                    </ul>
+                                    <div className="add-desktop-actions">
+                                        <button className="bg" onClick={() => sFm(ef)}>Clear</button>
+                                        <button className="bp" style={{ background: "linear-gradient(135deg,#8b5cf6,#6d28d9)" }} onClick={doBuy}><ArrowDownCircle size={16} /> Record Purchase</button>
+                                    </div>
+                                </div>
+                            </aside>
                         </div>
                     </div>}
 
                     {/* ═══ SELL ═══ */}
-                    {pg === "sell" && <div className="fi" style={{ maxWidth: 700 }}>
-                        <div style={{ marginBottom: 28 }}><h1 style={{ color: "var(--t1)", fontSize: 28, fontWeight: 700, display: "flex", alignItems: "center", gap: 10 }}><ArrowUpCircle size={28} style={{ color: "var(--ok)" }} /> Sell Device</h1></div>
-                        <div className="gc" style={{ border: "1px solid rgba(52,211,153,.2)" }}>
-                            <F l="IMEI 1 or IMEI 2 (Scan to auto-fill)" ic={Hash}><div style={{ display: "flex", gap: 8 }}>
-                                <input className="gi" value={fm.imei} onChange={e => { const v = cleanImei(e.target.value); uf("imei", v); if (v.length === 15) { const f = liveDeviceByImei(v); if (f) sFm(toForm(f, { amount: f.sellPrice, paidAmount: f.sellPrice, dueAmount: 0, customerName: "", phone: "", notes: "" })); } }} placeholder="IMEI" style={{ fontFamily: "'Space Mono',monospace" }} />
-                                <button className="bg" onClick={() => openSc("sell")}><Camera size={16} /></button>
-                            </div></F>
-                            {fm.model && <div className="gc" style={{ background: "rgba(52,211,153,.05)", border: "1px solid rgba(52,211,153,.15)", marginBottom: 16, padding: 14, display: "flex", gap: 14, alignItems: "center" }}>
-                                {fm.photos?.length > 0 && <div style={{ width: 72, height: 72, borderRadius: 10, overflow: "hidden", flexShrink: 0, cursor: "pointer" }} onClick={() => sLb({ photos: fm.photos, si: 0 })}><img src={getPhotoPreview(fm.photos[0])} style={{ width: "100%", height: "100%", objectFit: "cover" }} alt="" /></div>}
-                                <div><div style={{ color: "var(--ok)", fontSize: 12, fontWeight: 600, marginBottom: 4 }}>DEVICE FOUND</div><div style={{ color: "var(--t1)", fontSize: 16, fontWeight: 600 }}>{fm.brand} {fm.model}</div><div style={{ color: "var(--t3)", fontSize: 13 }}>{fm.color || "-"} · {fmtSpecs(fm.ram, fm.storage)}{fm.batteryHealth ? ` · Battery ${fm.batteryHealth}` : ""} · {fm.condition}</div><div style={{ color: "var(--t3)", fontSize: 12, fontFamily: "'Space Mono',monospace", marginTop: 4 }}>IMEI 1: {fm.imei}{fm.imei2 ? ` | IMEI 2: ${fm.imei2}` : ""}</div><div style={{ color: "var(--t2)", fontSize: 13, marginTop: 2 }}>Buy: {fmtCurrency(fm.buyPrice)} → Sell: {fmtCurrency(fm.sellPrice)}</div></div>
-                            </div>}
-                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12 }}>
-                                <F l="Customer *" ic={User}><input className="gi" value={fm.customerName} onChange={e => uf("customerName", e.target.value)} placeholder="Buyer" /></F>
-                                <F l="Phone" ic={Phone}><input className="gi" type="tel" value={fm.phone} onChange={e => uf("phone", e.target.value)} placeholder="Phone" /></F>
-                                <F l="Bill Type" ic={FileText}><select className="gs" value={fm.billType} onChange={e => uf("billType", e.target.value)}>{BILL_TYPES.map(type => <option key={type}>{type}</option>)}</select></F>
-                                <F l="GST Rate %" ic={Hash}><input className="gi" type="number" step="0.01" value={fm.gstRate} onChange={e => uf("gstRate", e.target.value)} placeholder="18" disabled={fm.billType !== "GST"} /></F>
-                                <F l="Amount" ic={IndianRupee}><input className="gi" type="number" value={fm.amount} onChange={e => uf("amount", e.target.value)} placeholder="₹" /></F>
-                                <F l="Paid Now" ic={Banknote}><input className="gi" type="number" value={fm.paidAmount} onChange={e => uf("paidAmount", e.target.value)} placeholder="₹" /></F>
-                                <F l="Payment" ic={CreditCard}><select className="gs" value={fm.paymentMode} onChange={e => uf("paymentMode", e.target.value)}>{PAYMENT_MODES.map(p => <option key={p}>{p}</option>)}</select></F>
-                                <F l="Due Amount" ic={FileText}><div className="gi" style={{ display: "flex", alignItems: "center", minHeight: 48, color: +fm.dueAmount > 0 ? "var(--warn)" : "var(--ok)" }}>{fmtCurrency(fm.dueAmount || 0)}</div></F>
-                            </div>
-                            <F l="Notes" ic={FileText}><input className="gi" value={fm.notes} onChange={e => uf("notes", e.target.value)} placeholder="Notes" /></F>
-                            {fm.amount && <div className="gc" style={{ background: "rgba(255,255,255,.03)", padding: 14, borderRadius: "var(--rs)", marginTop: 8, marginBottom: 8 }}>
-                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, gap: 8, flexWrap: "wrap" }}><span style={{ color: "var(--t1)", fontWeight: 600 }}>{fm.billType === "GST" ? "GST Invoice Preview" : "Invoice Preview"}</span>{fm.billType === "GST" && <span className="ba br">GST</span>}</div>
-                                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 10, color: "var(--t2)", fontSize: 13 }}>
-                                    <div><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 3 }}>Taxable</div><div>{fmtMoney(salePreview.taxableAmount)}</div></div>
-                                    {fm.billType === "GST" && <>
-                                        <div><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 3 }}>CGST</div><div>{fmtMoney(salePreview.cgstAmount)}</div></div>
-                                        <div><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 3 }}>SGST</div><div>{fmtMoney(salePreview.sgstAmount)}</div></div>
-                                    </>}
-                                    <div><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 3 }}>Grand Total</div><div style={{ color: "var(--t1)", fontWeight: 700 }}>{fmtMoney(salePreview.totalAmount)}</div></div>
+                    {pg === "sell" && <div className="fi add-compact">
+                        <div className="desktop-workspace">
+                            <div className="desktop-workspace-main">
+                        <div className="add-compact-top add-desktop-only">
+                            <div className="add-mobile-top">
+                                <button className="add-mobile-back" onClick={() => goPage("dashboard")} aria-label="Go back"><ChevronLeft size={28} /></button>
+                                <div>
+                                    <div className="add-mobile-header-title">New Sale</div>
                                 </div>
-                            </div>}
-                            {fm.amount && fm.buyPrice && <div style={{ background: "rgba(255,255,255,.03)", padding: 14, borderRadius: "var(--rs)", marginTop: 8, marginBottom: 8 }}><div style={{ display: "flex", justifyContent: "space-between", color: "var(--t2)", fontSize: 14 }}><span>Profit</span><span style={{ color: +fm.amount - +fm.buyPrice >= 0 ? "var(--ok)" : "var(--err)", fontWeight: 700 }}>{fmtCurrency(+fm.amount - +fm.buyPrice)}</span></div></div>}
-                            <div className="action-row"><button className="bs" onClick={doSell}><ArrowUpCircle size={16} /> Complete Sale</button><button className="bg" onClick={() => sFm(ef)}>Clear</button></div>
+                            </div>
+                            <div className="add-pos-chip"><ArrowUpCircle size={14} /> Invoice-ready</div>
                         </div>
-                        {latestSell && <div className="gc" style={{ marginTop: 16, border: "1px solid rgba(0,212,255,.18)" }}>
-                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
-                                <div><h3 style={{ color: "var(--t1)", fontSize: 16, fontWeight: 600 }}>Latest Invoice</h3><div style={{ color: "var(--t3)", fontSize: 13, marginTop: 4 }}>{latestSell.invoiceNo} · {fmtDateTime(latestSell.dateTime || latestSell.date)}</div></div>
-                                <span className={`ba ${latestSell.dueAmount > 0 ? "br" : "bi"}`}>{latestSell.dueAmount > 0 ? `Due ${fmtCurrency(latestSell.dueAmount)}` : "Paid"}</span>
-                            </div>
-                            <div style={{ color: "var(--t1)", fontSize: 15, fontWeight: 600 }}>{latestSell.brand} {latestSell.model}</div>
-                            <div style={{ color: "var(--t3)", fontSize: 12, fontFamily: "'Space Mono',monospace", marginTop: 6 }}>IMEI 1: {latestSell.imei}{latestSell.imei2 ? ` | IMEI 2: ${latestSell.imei2}` : ""}</div>
-                            <div style={{ color: "var(--t2)", fontSize: 13, marginTop: 6 }}>{latestSell.customerName || "Walk-in customer"}{latestSell.phone ? ` · ${latestSell.phone}` : ""} · {fmtSpecs(latestSell.ram, latestSell.storage)} · {fmtCurrency(latestSell.totalAmount || latestSell.amount)}</div>
-                            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>{latestSell.billType === "GST" && <><span className="ba br">GST</span><span style={{ color: "var(--t3)", fontSize: 12 }}>Taxable {fmtMoney(latestSell.taxableAmount)} · GST {fmtMoney(latestSell.gstAmount)}</span></>}{latestSell.whatsAppMessageAt && <span className="ba bi">Msg Sent</span>}{latestSell.whatsAppPdfAt && <span className="ba bi">PDF Sent</span>}</div>
-                            <div style={{ color: "var(--t3)", fontSize: 12, marginTop: 8 }}>Tip: send WhatsApp message first so the customer number shows in your recent chats, then share the PDF.</div>
-                            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 16 }}>
-                                <button className="bp" onClick={() => void shareInvoice(latestSell)}><Share2 size={16} /> Share PDF</button>
-                                <button className="bg" onClick={() => void downloadInvoice(latestSell)}><Download size={16} /> Download PDF</button>
-                                <button className="bg" onClick={() => whatsappMessage(latestSell)}><Phone size={16} /> WhatsApp Msg</button>
-                            </div>
-                        </div>}
-                        <div className="gc" style={{ marginTop: 16 }}><h3 style={{ color: "var(--t1)", fontSize: 15, fontWeight: 600, marginBottom: 12 }}>Quick Pick</h3>
-                            {inv.filter(i => i.status === "In Stock" && i.qty > 0).slice(0, 6).map(it => <div key={it.id} className="tr" onClick={() => sFm(toForm(it, { amount: it.sellPrice, paidAmount: it.sellPrice, dueAmount: 0, customerName: "", phone: "", notes: "" }))} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 8px", borderBottom: "1px solid rgba(255,255,255,.04)", cursor: "pointer" }}>
-                                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                                    <div style={{ width: 40, height: 40, borderRadius: 8, overflow: "hidden", flexShrink: 0 }}>
-                                        {it.photos?.length > 0 ? <img src={getPhotoPreview(it.photos[0])} style={{ width: "100%", height: "100%", objectFit: "cover" }} alt="" /> : <div style={{ width: "100%", height: "100%", background: BRAND_GRADIENTS[it.brand] || BRAND_GRADIENTS.Other, display: "flex", alignItems: "center", justifyContent: "center" }}><Smartphone size={16} style={{ opacity: .4, color: "#fff" }} /></div>}
-                                    </div>
-                                    <div><div style={{ color: "var(--t1)", fontSize: 14 }}>{it.brand} {it.model}</div><div style={{ color: "var(--t3)", fontSize: 12 }}>{fmtSpecs(it.ram, it.storage)} · IMEI 1: {it.imei}{it.imei2 ? ` · IMEI 2: ${it.imei2}` : ""}</div></div>
+
+                        <div className="add-mobile-hero add-mobile-only">
+                            <div className="add-mobile-top">
+                                <button className="add-mobile-back" onClick={() => goPage("dashboard")} aria-label="Go back"><ChevronLeft size={28} /></button>
+                                <div>
+                                    <div className="add-mobile-header-title">New Sale</div>
                                 </div>
-                                <div style={{ color: "var(--ok)", fontWeight: 600, fontSize: 14 }}>{fmtCurrency(it.sellPrice)}</div>
-                            </div>)}
+                            </div>
+                        </div>
+
+                        <div className="add-compact-card">
+                            <div className="add-compact-head">
+                                <div>
+                                    <h2>Sale Details</h2>
+                                </div>
+                                <button className="add-link-btn" onClick={() => openSc("sell")}><ScanLine size={14} /> Scan IMEI</button>
+                            </div>
+
+                            <div className="add-compact-form">
+                                <div className="add-compact-field span-2">
+                                    <div className="add-compact-label">IMEI 1 or IMEI 2</div>
+                                    <div className="add-input-shell"><input className="gi" value={fm.imei} onChange={e => { const v = cleanImei(e.target.value); uf("imei", v); if (v.length === 15) { const f = liveDeviceByImei(v); if (f) sFm(toForm(f, { amount: f.sellPrice, paidAmount: f.sellPrice, dueAmount: 0, customerName: "", phone: "", notes: "" })); } }} placeholder="IMEI" style={{ fontFamily: "'Space Mono',monospace" }} /><button className="add-scan-btn" onClick={() => openSc("sell")}><Camera size={16} /></button></div>
+                                </div>
+
+                                {fm.model && <div className="add-compact-field span-2" style={{ background: "rgba(163,246,156,.18)", borderColor: "rgba(90,169,88,.2)" }}>
+                                    <div style={{ display: "flex", gap: 12, alignItems: "center", minWidth: 0 }}>
+                                        {fm.photos?.length > 0 && <div style={{ width: 56, height: 56, borderRadius: 10, overflow: "hidden", flexShrink: 0, cursor: "pointer" }} onClick={() => sLb({ photos: fm.photos, si: 0 })}><img src={getPhotoPreview(fm.photos[0])} style={{ width: "100%", height: "100%", objectFit: "cover" }} alt="" /></div>}
+                                        <div style={{ minWidth: 0 }}>
+                                            <div style={{ color: "var(--ok)", fontSize: 10, fontWeight: 800, letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 4 }}>Device Found</div>
+                                            <div style={{ color: "var(--t1)", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 17, fontWeight: 800, letterSpacing: "-.02em" }}>{fm.brand} {fm.model}</div>
+                                            <div style={{ color: "var(--t2)", fontSize: 12, marginTop: 3 }}>{fm.color || "-"} · {fmtSpecs(fm.ram, fm.storage)}{fm.batteryHealth ? ` · Battery ${fm.batteryHealth}` : ""} · {fm.condition}</div>
+                                            <div style={{ color: "var(--t3)", fontSize: 11, fontFamily: "'Space Mono',monospace", marginTop: 3, wordBreak: "break-all" }}>IMEI 1: {fm.imei}{fm.imei2 ? ` | IMEI 2: ${fm.imei2}` : ""}</div>
+                                            <div style={{ color: "var(--t2)", fontSize: 12, marginTop: 3 }}>Buy: {fmtCurrency(fm.buyPrice)} {"->"} Sell: {fmtCurrency(fm.sellPrice)}</div>
+                                        </div>
+                                    </div>
+                                </div>}
+
+                                <div className="add-compact-field">
+                                    <div className="add-compact-label">Customer *</div>
+                                    <div className="add-input-shell"><input className="gi" value={fm.customerName} onChange={e => uf("customerName", e.target.value)} placeholder="Buyer" /></div>
+                                </div>
+
+                                <div className="add-compact-field">
+                                    <div className="add-compact-label">Phone</div>
+                                    <div className="add-input-shell"><input className="gi" type="tel" value={fm.phone} onChange={e => uf("phone", e.target.value)} placeholder="Phone" /></div>
+                                </div>
+
+                                <div className="add-compact-mini-grid">
+                                    <div className="add-compact-field mini">
+                                        <div className="add-compact-label">Bill Type</div>
+                                        <div className="add-input-shell"><select className="gs" value={fm.billType} onChange={e => uf("billType", e.target.value)}>{BILL_TYPES.map(type => <option key={type}>{type}</option>)}</select></div>
+                                    </div>
+
+                                    <div className="add-compact-field mini">
+                                        <div className="add-compact-label">GST Rate %</div>
+                                        <div className="add-input-shell"><input className="gi" type="number" step="0.01" value={fm.gstRate} onChange={e => uf("gstRate", e.target.value)} placeholder="18" disabled={fm.billType !== "GST"} /></div>
+                                    </div>
+
+                                    <div className="add-compact-field mini">
+                                        <div className="add-compact-label">Amount</div>
+                                        <div className="add-input-shell"><input className="gi" type="number" value={fm.amount} onChange={e => uf("amount", e.target.value)} placeholder="₹0" /></div>
+                                    </div>
+
+                                    <div className="add-compact-field mini">
+                                        <div className="add-compact-label">Paid Now</div>
+                                        <div className="add-input-shell"><input className="gi" type="number" value={fm.paidAmount} onChange={e => uf("paidAmount", e.target.value)} placeholder="₹0" /></div>
+                                    </div>
+                                </div>
+
+                                <div className="add-compact-field">
+                                    <div className="add-compact-label">Payment</div>
+                                    <div className="add-input-shell"><select className="gs" value={fm.paymentMode} onChange={e => uf("paymentMode", e.target.value)}>{PAYMENT_MODES.map(p => <option key={p}>{p}</option>)}</select></div>
+                                </div>
+
+                                <div className="add-compact-field">
+                                    <div className="add-compact-label">Due Amount</div>
+                                    <div className="add-input-shell"><div className="gi" style={{ display: "flex", alignItems: "center", minHeight: 34, paddingLeft: 0, paddingRight: 0, color: +fm.dueAmount > 0 ? "var(--warn)" : "var(--ok)" }}>{fmtCurrency(fm.dueAmount || 0)}</div></div>
+                                </div>
+
+                                <div className="add-compact-field span-2">
+                                    <div className="add-compact-label">Notes</div>
+                                    <div className="add-input-shell"><input className="gi" value={fm.notes} onChange={e => uf("notes", e.target.value)} placeholder="Notes" /></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="add-compact-actions add-desktop-only desktop-inline-actions">
+                            <button className="bg" onClick={() => sFm(ef)}>Clear</button>
+                            <button className="bs" onClick={doSell}><ArrowUpCircle size={16} /> Complete Sale</button>
+                        </div>
+
+                        <div className="add-mobile-actions add-mobile-only">
+                            <button className="bg" onClick={() => sFm(ef)}>Clear</button>
+                            <button className="bs" onClick={doSell}>Complete Sale</button>
+                        </div>
+                            </div>
+                            <aside className="desktop-workspace-side desktop-enhanced-only">
+                                <div className="desktop-side-card">
+                                    <div className="desktop-side-eyebrow">Invoice Ready</div>
+                                    <div className="desktop-side-title">Sale Summary</div>
+                                    <div className="desktop-side-grid">
+                                        {sellDesktopSummary.map(item => <div key={item.label} className="desktop-side-stat"><span>{item.label}</span><strong>{item.value}</strong></div>)}
+                                    </div>
+                                </div>
+                                <div className="desktop-side-card">
+                                    <div className="desktop-side-eyebrow">Billing Summary</div>
+                                    <ul className="desktop-side-list">
+                                        <li><strong>Bill type</strong><span>{fm.billType || "NON GST"}</span></li>
+                                        <li><strong>Payment mode</strong><span>{fm.paymentMode || "Cash"}</span></li>
+                                        <li><strong>Customer</strong><span>{fm.customerName || "Walk-in customer"}</span></li>
+                                        <li><strong>Profit snapshot</strong><span>{fmtCurrency(Number(fm.amount || 0) - Number(fm.buyPrice || 0))}</span></li>
+                                    </ul>
+                                    <div className="add-desktop-actions">
+                                        <button className="bg" onClick={() => sFm(ef)}>Clear</button>
+                                        <button className="bs" onClick={doSell}><ArrowUpCircle size={16} /> Complete Sale</button>
+                                    </div>
+                                </div>
+                            </aside>
                         </div>
                     </div>}
 
                     {/* ═══ REPAIR ═══ */}
-                    {pg === "repair" && !repairDetail && <div className="fi" style={{ maxWidth: 920 }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12, marginBottom: 24 }}>
-                            <div><h1 style={{ color: "var(--t1)", fontSize: 28, fontWeight: 700, display: "flex", alignItems: "center", gap: 10 }}><Wrench size={28} style={{ color: "var(--warn)" }} /> Repair</h1><p style={{ color: "var(--t3)", fontSize: 14, marginTop: 4 }}>{repairRecords.length} jobs · {repairOpenCount} open · {repairReadyCount} ready</p></div>
-                            <button className="bp" onClick={() => openRepairForm()}><Plus size={16} /> Add Repair</button>
-                        </div>
-                        <div className="gc" style={{ marginBottom: 16, padding: 16 }}>
-                            <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) auto", gap: 10, alignItems: "center" }}>
-                                <div style={{ position: "relative" }}><Search size={16} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--t3)" }} /><input className="gi" placeholder="Search repair no, customer, phone, device, IMEI, problem..." value={repairQuery} onChange={e => setRepairQuery(e.target.value)} style={{ paddingLeft: 36 }} /></div>
-                                <select className="gs" value={repairStatusFilter} onChange={e => setRepairStatusFilter(e.target.value)} style={{ width: "auto", minWidth: 150 }}>
-                                    <option>All Statuses</option>
-                                    {REPAIR_STATUSES.map(status => <option key={status}>{status}</option>)}
-                                </select>
-                            </div>
-                        </div>
-                        <div style={{ display: "grid", gap: 14 }}>
-                            {filteredRepairRecords.length === 0 && <div className="gc" style={{ textAlign: "center", padding: 40 }}><Wrench size={40} style={{ color: "var(--t3)", marginBottom: 12 }} /><p style={{ color: "var(--t2)", fontSize: 15 }}>{repairQuery.trim() ? "No matching repair jobs" : "No repair jobs yet"}</p><p style={{ color: "var(--t3)", fontSize: 13, marginTop: 4 }}>{repairQuery.trim() ? "Try a different search term." : "Create your first repair entry to start tracking received devices."}</p></div>}
-                            {filteredRepairRecords.map(repair => <div key={repair.id} className="gc" style={{ display: "grid", gap: 10 }}>
-                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
+                    {pg === "repair" && !repairDetail && <div className="fi repair-lab">
+                        <div className="repair-lab-hero">
+                            <div className="repair-lab-top" style={{ justifyContent: "space-between" }}>
+                                <div className="repair-lab-title">
+                                    <div className="repair-lab-mark"><Wrench size={16} /></div>
                                     <div>
-                                        <div style={{ color: "var(--t1)", fontSize: 16, fontWeight: 700 }}>{repair.customerName || "Walk-in Customer"}</div>
-                                        <div style={{ color: "var(--t3)", fontSize: 12, marginTop: 4 }}>{repair.repairNo} · {fmtDate(repair.receivedDate)}</div>
-                                    </div>
-                                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                                        <select className={`gs repair-status-select ${repairStatusTone(repair.status)}`} value={repair.status} onChange={e => void updateRepairStatus(repair, e.target.value)}>
-                                            {REPAIR_STATUSES.map(status => <option key={status} value={status}>{status}</option>)}
-                                        </select>
-                                        <select className={`gs repair-status-select ${repairPaymentTone(repair.paymentStatus)}`} value={repair.paymentStatus} onChange={e => void updateRepairPaymentStatus(repair, e.target.value)}>
-                                            {REPAIR_PAYMENT_STATUSES.map(status => <option key={status} value={status}>{status}</option>)}
-                                        </select>
+                                        <h1>Repair Queue</h1>
+                                        <p>Manage active jobs and live service intake.</p>
                                     </div>
                                 </div>
-                                <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-                                    {repair.photos?.length > 0 && <div style={{ width: 72, height: 72, borderRadius: 10, overflow: "hidden", flexShrink: 0, cursor: "pointer" }} onClick={() => sLb({ photos: repair.photos, si: 0 })}><img src={getPhotoPreview(repair.photos[0])} style={{ width: "100%", height: "100%", objectFit: "cover" }} alt="" /></div>}
-                                    <div style={{ minWidth: 0, flex: 1 }}>
-                                        <div style={{ color: "var(--t1)", fontSize: 15, fontWeight: 600 }}>{[repair.brand, repair.model].filter(Boolean).join(" ") || "Device"}</div>
-                                        <div style={{ color: "var(--t2)", fontSize: 13, marginTop: 4 }}>{repair.color || "Color pending"}{repair.imei ? ` · IMEI ${repair.imei}` : ""}</div>
-                                        <div style={{ color: "var(--t3)", fontSize: 13, marginTop: 4 }}>{repair.problem}</div>
-                                    </div>
+                                <button className="bp" onClick={() => openRepairForm()}><Plus size={16} /> New Job</button>
+                            </div>
+                            <div className="repair-lab-stats">
+                                <div className="repair-lab-stat queue">
+                                    <div className="repair-lab-stat-label">Queue</div>
+                                    <div className="repair-lab-stat-value">{String(repairRecords.length).padStart(2, "0")}</div>
+                                    <div className="repair-lab-stat-meta">Active tickets</div>
                                 </div>
-                                <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-                                    <div style={{ color: "var(--t2)", fontSize: 13 }}>Estimate {fmtCurrency(repair.estimatedCost)} · Advance {fmtCurrency(repair.advance)}{repair.partCost ? ` · Part ${fmtCurrency(repair.partCost)}` : ""}{getRepairPartSupplierLabel(repair) ? ` · ${getRepairPartSupplierLabel(repair)}` : ""} · {repair.paymentStatus}</div>
-                                    <div style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(0,1fr))", gap: 8, width: "100%" }}>
-                                        <button className="bg" onClick={() => setRepairDetail(repair)} style={{ justifyContent: "center", minWidth: 0 }}><Eye size={14} /> View</button>
-                                        <button className="bg" onClick={() => openRepairForm(repair)} style={{ justifyContent: "center", minWidth: 0 }}><Edit2 size={14} /> Edit</button>
-                                        <button className="bg" onClick={() => void printRepairSticker(repair)} style={{ justifyContent: "center", minWidth: 0 }}><Printer size={14} /> Sticker</button>
-                                        <button className="bg" onClick={() => whatsappRepairMessage(repair)} title="WhatsApp status update" style={{ justifyContent: "center", minWidth: 0, color: "#25D366", borderColor: "rgba(37,211,102,.28)", background: "rgba(37,211,102,.08)" }}><MessageCircle size={14} /></button>
-                                    </div>
+                                <div className="repair-lab-stat open">
+                                    <div className="repair-lab-stat-label">Open</div>
+                                    <div className="repair-lab-stat-value">{String(repairOpenCount).padStart(2, "0")}</div>
+                                    <div className="repair-lab-stat-meta">In progress</div>
                                 </div>
-                            </div>)}
+                                <div className="repair-lab-stat ready">
+                                    <div className="repair-lab-stat-label">Ready</div>
+                                    <div className="repair-lab-stat-value">{String(repairReadyCount).padStart(2, "0")}</div>
+                                    <div className="repair-lab-stat-meta">Awaiting pickup</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="repair-lab-controls">
+                            <div className="repair-lab-searchbox"><Search size={16} /><input className="gi" placeholder="Search IMEI, customer, ticket" value={repairQuery} onChange={e => setRepairQuery(e.target.value)} /></div>
+                            <div className="repair-lab-filters" role="tablist" aria-label="Repair status filter">
+                                {["All Statuses", ...REPAIR_STATUSES].map(status => <button key={status} className={`repair-lab-filter-pill ${repairStatusFilter === status ? "active" : ""}`} onClick={() => setRepairStatusFilter(status)}><Filter size={13} /> {status === "All Statuses" ? "All" : status}</button>)}
+                            </div>
+                        </div>
+
+                        <div className="repair-lab-list">
+                            {filteredRepairRecords.length === 0 && <div className="repair-lab-empty"><Wrench size={36} style={{ color: "var(--text-3)", marginBottom: 10 }} /><div className="editor-title">{repairQuery.trim() ? "No matching repair jobs" : "No repair jobs yet"}</div><div className="editor-copy">{repairQuery.trim() ? "Try a different search term." : "Create your first repair entry to start tracking received devices."}</div></div>}
+                            {filteredRepairRecords.map(repair => {
+                                const repairTone = repair.status === "Ready" || repair.status === "Delivered" ? "repair-lab-card ready" : repair.status === "Cancelled" ? "repair-lab-card cancelled" : "repair-lab-card";
+                                return <div key={repair.id} className={repairTone}>
+                                    <div className="repair-lab-card-top">
+                                        <div>
+                                            <div className="repair-lab-card-title">{[repair.brand, repair.model].filter(Boolean).join(" ") || "Device"}</div>
+                                            <div className="repair-lab-card-customer">{repair.customerName || "Walk-in Customer"}</div>
+                                        </div>
+                                        <div className="repair-lab-card-ref">#{repair.repairNo} | {fmtDate(repair.receivedDate)}</div>
+                                    </div>
+
+                                    <div className="repair-lab-card-body">
+                                        <div className="repair-lab-card-copy">
+                                            <span>{repair.imei ? `IMEI ${repair.imei}` : "IMEI --"}</span>
+                                            <span className="problem"><strong>Problem</strong> <em>{repair.problem || "Not specified"}</em></span>
+                                        </div>
+                                        {repair.photos?.length > 0 ? <div className="repair-lab-card-media" onClick={() => sLb({ photos: repair.photos, si: 0 })} style={{ cursor: "pointer" }}><img src={getPhotoPreview(repair.photos[0])} style={{ width: "100%", height: "100%", objectFit: "cover" }} alt="" /></div> : <div className="repair-lab-card-media"><Smartphone size={20} style={{ color: "#7f8aa3" }} /></div>}
+                                    </div>
+
+                                    <div className="repair-lab-card-footer">
+                                        <div style={{ minWidth: 0 }}>
+                                            <div className="repair-lab-card-finance"><strong>{fmtCurrency(repair.estimatedCost)}</strong><span>Est.</span><strong style={{ color: "#111827" }}>{fmtCurrency(repair.advance)}</strong><span>Adv.</span></div>
+                                            <div className="repair-lab-card-statuses" style={{ marginTop: 8 }}>
+                                                <select
+                                                    className={`gs repair-status-select status-${String(repair.status || "Received").toLowerCase().replace(/\s+/g, "-")}`}
+                                                    value={REPAIR_STATUSES.includes(repair.status) ? repair.status : "Received"}
+                                                    onChange={e => void updateRepairStatus(repair, e.target.value)}
+                                                    aria-label="Repair status"
+                                                >
+                                                    {REPAIR_STATUSES.map(status => <option key={status} value={status}>{status}</option>)}
+                                                </select>
+                                                <select
+                                                    className={`gs repair-status-select payment-${String(repair.paymentStatus || "Unpaid").toLowerCase().replace(/\s+/g, "-")}`}
+                                                    value={REPAIR_PAYMENT_STATUSES.includes(repair.paymentStatus) ? repair.paymentStatus : "Unpaid"}
+                                                    onChange={e => void updateRepairPaymentStatus(repair, e.target.value)}
+                                                    aria-label="Repair payment status"
+                                                >
+                                                    {REPAIR_PAYMENT_STATUSES.map(status => <option key={status} value={status}>{status}</option>)}
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div className="repair-lab-card-actions">
+                                            <button className="repair-lab-icon-btn" onClick={() => setRepairDetail(repair)} title="View"><Eye size={16} /></button>
+                                            <button className="repair-lab-icon-btn" onClick={() => openRepairForm(repair)} title="Edit"><ClipboardList size={16} /></button>
+                                            <button className="repair-lab-icon-btn" onClick={() => void printRepairSticker(repair)} title="Sticker"><Printer size={16} /></button>
+                                            <button className="repair-lab-msg-btn" onClick={() => whatsappRepairMessage(repair)} title="WhatsApp status update"><MessageCircle size={18} /></button>
+                                        </div>
+                                    </div>
+                                </div>;
+                            })}
                         </div>
                     </div>}
 
-                    {pg === "repair" && repairDetail && <div className="fi" style={{ maxWidth: 760 }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12, marginBottom: 24 }}>
-                            <div><h1 style={{ color: "var(--t1)", fontSize: 28, fontWeight: 700 }}>Repair Detail</h1><p style={{ color: "var(--t3)", fontSize: 14, marginTop: 4 }}>{repairDetail.repairNo}</p></div>
-                            <button className="bg" onClick={() => setRepairDetail(null)}><ChevronLeft size={16} /> Back</button>
-                        </div>
-                        <div className="gc" style={{ display: "grid", gap: 14 }}>
-                            {repairDetail.photos?.length > 0 && <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>{repairDetail.photos.map((photo, index) => <div key={photo.id || index} style={{ width: 120, height: 120, borderRadius: 12, overflow: "hidden", cursor: "pointer" }} onClick={() => sLb({ photos: repairDetail.photos, si: index })}><img src={getPhotoPreview(photo)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /></div>)}</div>}
-                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 12 }}>
-                                {[{ l: "Customer", v: repairDetail.customerName || "—", ic: User }, { l: "Phone", v: repairDetail.phone || "—", ic: Phone }, { l: "Device", v: [repairDetail.brand, repairDetail.model].filter(Boolean).join(" ") || "—", ic: Smartphone }, { l: "Color", v: repairDetail.color || "—", ic: Palette }, { l: "IMEI", v: repairDetail.imei || "—", ic: Hash }, { l: "Status", v: repairDetail.status, ic: Tag }, { l: "Payment", v: repairDetail.paymentStatus || "Unpaid", ic: Banknote }, { l: "Estimate", v: fmtCurrency(repairDetail.estimatedCost), ic: IndianRupee }, { l: "Advance", v: fmtCurrency(repairDetail.advance), ic: Banknote }, { l: "Part Cost", v: fmtCurrency(repairDetail.partCost), ic: IndianRupee }, { l: "Part Supplier", v: getRepairPartSupplierLabel(repairDetail) || "—", ic: Package }, { l: "Received", v: fmtDate(repairDetail.receivedDate), ic: Calendar }].map((d, i) => <div key={i} className="gc" style={{ background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.06)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 6 }}>{d.l}</div><div style={{ color: "var(--t1)", fontWeight: 600, display: "flex", gap: 8, alignItems: "center" }}><d.ic size={14} /> {d.v}</div></div>)}
+                    {pg === "repair" && repairDetail && <div className="fi">
+                        <div className="repair-shell">
+                            <div className="page-hero" style={{ alignItems: "center" }}>
+                                <div>
+                                    <h1 style={{ color: "#f4f7ff" }}>Repair Detail</h1>
+                                    <p>{repairDetail.repairNo}</p>
+                                </div>
+                                <button className="bg" onClick={() => setRepairDetail(null)} style={repairButtonStyle}><ChevronLeft size={16} /> Back</button>
                             </div>
-                            <div className="gc" style={{ background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.06)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 6 }}>Problem</div><div style={{ color: "var(--t1)", lineHeight: 1.7 }}>{repairDetail.problem}</div>{repairDetail.notes ? <div style={{ color: "var(--t3)", lineHeight: 1.7, marginTop: 10 }}>Notes: {repairDetail.notes}</div> : null}</div>
-                            <div className="action-row"><button className="bp" onClick={() => openRepairForm(repairDetail)}><Edit2 size={16} /> Edit Repair</button><button className="bg" onClick={() => void printRepairSticker(repairDetail)}><Printer size={16} /> Print Sticker</button><button className="bd" onClick={() => deleteRepair(repairDetail.id)}><Trash2 size={16} /> Delete</button></div>
+                            {repairDetail.photos?.length > 0 && <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>{repairDetail.photos.map((photo, index) => <div key={photo.id || index} style={{ width: 120, height: 120, borderRadius: 14, overflow: "hidden", cursor: "pointer" }} onClick={() => sLb({ photos: repairDetail.photos, si: index })}><img src={getPhotoPreview(photo)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /></div>)}</div>}
+                            <div className="repair-detail-grid">
+                                {[{ l: "Customer", v: repairDetail.customerName || "—", ic: User }, { l: "Phone", v: repairDetail.phone || "—", ic: Phone }, { l: "Device", v: [repairDetail.brand, repairDetail.model].filter(Boolean).join(" ") || "—", ic: Smartphone }, { l: "Color", v: repairDetail.color || "—", ic: Palette }, { l: "IMEI", v: repairDetail.imei || "—", ic: Hash }, { l: "Status", v: repairDetail.status, ic: Tag }, { l: "Payment", v: repairDetail.paymentStatus || "Unpaid", ic: Banknote }, { l: "Estimate", v: fmtCurrency(repairDetail.estimatedCost), ic: IndianRupee }, { l: "Advance", v: fmtCurrency(repairDetail.advance), ic: Banknote }, { l: "Part Cost", v: fmtCurrency(repairDetail.partCost), ic: IndianRupee }, { l: "Part Supplier", v: getRepairPartSupplierLabel(repairDetail) || "—", ic: Package }, { l: "Received", v: fmtDate(repairDetail.receivedDate), ic: Calendar }].map((d, i) => <div key={i} className="repair-detail-tile"><div className="repair-detail-label">{d.l}</div><div className="repair-detail-value" style={{ display: "flex", gap: 8, alignItems: "center" }}><d.ic size={14} /> {d.v}</div></div>)}
+                            </div>
+                            <div className="editor-note dark">
+                                <div className="editor-title">Problem Statement</div>
+                                <div className="editor-copy" style={{ marginTop: 10 }}>{repairDetail.problem}</div>
+                                {repairDetail.notes ? <div className="editor-subcopy" style={{ marginTop: 12 }}>Notes: {repairDetail.notes}</div> : null}
+                            </div>
+                            <div className="action-row"><button className="bp" onClick={() => openRepairForm(repairDetail)}><Edit2 size={16} /> Edit Repair</button><button className="bg" onClick={() => void printRepairSticker(repairDetail)} style={repairButtonStyle}><Printer size={16} /> Print Sticker</button><button className="bd" onClick={() => deleteRepair(repairDetail.id)}><Trash2 size={16} /> Delete</button></div>
                         </div>
                     </div>}
 
-                    {pg === "repair-form" && <div className="fi" style={{ maxWidth: 760 }}>
-                        <div style={{ marginBottom: 28 }}><h1 style={{ color: "var(--t1)", fontSize: 28, fontWeight: 700, display: "flex", alignItems: "center", gap: 10 }}><Wrench size={28} style={{ color: "var(--warn)" }} /> {repairForm.id ? "Edit Repair" : "Add Repair"}</h1><p style={{ color: "var(--t3)", fontSize: 14, marginTop: 4 }}>Track customer repair intake, issue details, cost estimates, advance, and print a repair sticker.</p></div>
-                        <div className="gc" style={{ border: "1px solid rgba(251,191,36,.2)" }}>
-                            <F l="Device Photo" ic={Images}><PhotoUp photos={repairForm.photos || []} onChange={photos => setRepairField("photos", photos)} max={4} onCameraNeeded={releaseCameraNow} /></F>
-                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12 }}>
-                                <F l="Customer Name" ic={User}><input className="gi" value={repairForm.customerName} onChange={e => setRepairField("customerName", e.target.value)} placeholder="Customer name" /></F>
-                                <F l="Phone" ic={Phone}><input className="gi" value={repairForm.phone} onChange={e => setRepairField("phone", cleanMobileNumber(e.target.value))} placeholder="Phone number" /></F>
-                                <F l="Brand" ic={Tag}><select className="gs" value={repairForm.brand} onChange={e => setRepairField("brand", e.target.value)}>{BRANDS.map(brand => <option key={brand}>{brand}</option>)}</select></F>
-                                <F l="Model" ic={Smartphone}><input className="gi" value={repairForm.model} onChange={e => setRepairField("model", e.target.value)} placeholder="Model" /></F>
-                                <F l="Color" ic={Palette}><input className="gi" value={repairForm.color} onChange={e => setRepairField("color", e.target.value)} placeholder="Color" /></F>
-                                <F l="IMEI (Optional)" ic={Hash}><div style={{ display: "flex", gap: 8 }}><input className="gi" value={repairForm.imei} onChange={e => setRepairField("imei", e.target.value)} placeholder="Optional IMEI" style={{ fontFamily: "'Space Mono',monospace" }} /><button className="bg" onClick={() => openSc("repair")}><Camera size={16} /></button></div></F>
-                                <F l="Status" ic={Tag}><select className="gs" value={repairForm.status} onChange={e => setRepairField("status", e.target.value)}>{REPAIR_STATUSES.map(status => <option key={status}>{status}</option>)}</select></F>
-                                <F l="Received Date" ic={Calendar}><input className="gi" type="date" value={repairForm.receivedDate} onChange={e => setRepairField("receivedDate", e.target.value)} /></F>
-                                <F l="Estimated Cost" ic={IndianRupee}><input className="gi" type="number" value={repairForm.estimatedCost} onChange={e => setRepairField("estimatedCost", e.target.value)} placeholder="Optional estimate" /></F>
-                                <F l="Advance" ic={Banknote}><input className="gi" type="number" value={repairForm.advance} onChange={e => setRepairField("advance", e.target.value)} placeholder="Optional advance" /></F>
-                                <F l="Part Cost (Optional)" ic={IndianRupee}><input className="gi" type="number" value={repairForm.partCost} onChange={e => setRepairField("partCost", e.target.value)} placeholder="Optional part cost" /></F>
-                                <F l="Part Supplier (Optional)" ic={Package}><select className="gs" value={repairForm.partSupplierId} onChange={e => { const supplier = partSuppliersById.get(e.target.value); setRepairField("partSupplierId", e.target.value); setRepairField("partSupplierName", supplier?.name || ""); }}><option value="">Select supplier</option>{partSuppliers.map(supplier => <option key={supplier.id} value={supplier.id}>{supplier.name}</option>)}</select></F>
+                    {pg === "repair-form" && <div className="fi add-compact">
+                        <div className="desktop-workspace">
+                            <div className="desktop-workspace-main">
+                        <div className="add-compact-top add-desktop-only">
+                            <div className="add-mobile-top">
+                                <button className="add-mobile-back" onClick={() => goPage("repair")} aria-label="Go back"><ChevronLeft size={28} /></button>
+                                <div>
+                                    <div className="add-mobile-header-title">{repairForm.id ? "Edit Repair" : "New Repair Intake"}</div>
+                                </div>
                             </div>
-                            <F l="Problem" ic={ClipboardList}><textarea className="gi" style={{ minHeight: 96 }} value={repairForm.problem} onChange={e => setRepairField("problem", e.target.value)} placeholder="Describe the reported problem, issue, or required repair" /></F>
-                            <F l="Notes" ic={FileText}><textarea className="gi" style={{ minHeight: 84 }} value={repairForm.notes} onChange={e => setRepairField("notes", e.target.value)} placeholder="Internal notes" /></F>
-                            <div className="action-row"><button className="bp" onClick={saveRepair}><CheckCircle size={16} /> {repairForm.id ? "Save Repair" : "Add Repair"}</button><button className="bg" onClick={() => { setRepairForm(createEmptyRepairForm()); goPage("repair"); }}><ChevronLeft size={16} /> Back to Repair</button></div>
+                            <div className="add-pos-chip"><ClipboardList size={14} /> Service workflow</div>
+                        </div>
+
+                        <div className="add-mobile-hero add-mobile-only">
+                            <div className="add-mobile-top">
+                                <button className="add-mobile-back" onClick={() => goPage("repair")} aria-label="Go back"><ChevronLeft size={28} /></button>
+                                <div>
+                                    <div className="add-mobile-header-title">{repairForm.id ? "Edit Repair" : "New Repair Intake"}</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="add-compact-card">
+                            <div className="add-compact-head">
+                                <div>
+                                    <h2>Repair Intake</h2>
+                                </div>
+                                <button className="add-link-btn" onClick={() => openSc("repair")}><ScanLine size={14} /> Scan IMEI</button>
+                            </div>
+
+                            <div className="add-compact-form">
+                                <div className="add-compact-field span-2 photos">
+                                    <div className="add-compact-label">Device Photos</div>
+                                    <PhotoUp photos={repairForm.photos || []} onChange={photos => setRepairField("photos", photos)} max={4} onCameraNeeded={releaseCameraNow} />
+                                </div>
+
+                                <div className="add-compact-field">
+                                    <div className="add-compact-label">Customer Name</div>
+                                    <div className="add-input-shell"><input className="gi" value={repairForm.customerName} onChange={e => setRepairField("customerName", e.target.value)} placeholder="Customer name" /></div>
+                                </div>
+
+                                <div className="add-compact-field">
+                                    <div className="add-compact-label">Phone</div>
+                                    <div className="add-input-shell"><input className="gi" value={repairForm.phone} onChange={e => setRepairField("phone", cleanMobileNumber(e.target.value))} placeholder="Phone number" /></div>
+                                </div>
+
+                                <div className="add-compact-field span-2">
+                                    <div className="add-compact-label">Brand &amp; Model</div>
+                                    <div className="add-compact-brand-row">
+                                        <div className="add-input-shell"><select className="gs" value={repairForm.brand} onChange={e => setRepairField("brand", e.target.value)}>{BRANDS.map(brand => <option key={brand}>{brand}</option>)}</select></div>
+                                        <div className="add-input-shell"><input className="gi" value={repairForm.model} onChange={e => setRepairField("model", e.target.value)} placeholder="Model" /></div>
+                                    </div>
+                                </div>
+
+                                <div className="add-compact-mini-grid">
+                                    <div className="add-compact-field mini">
+                                        <div className="add-compact-label">Color</div>
+                                        <div className="add-input-shell"><input className="gi" value={repairForm.color} onChange={e => setRepairField("color", e.target.value)} placeholder="Color" /></div>
+                                    </div>
+
+                                    <div className="add-compact-field mini">
+                                        <div className="add-compact-label">Status</div>
+                                        <div className="add-input-shell"><select className="gs" value={repairForm.status} onChange={e => setRepairField("status", e.target.value)}>{REPAIR_STATUSES.map(status => <option key={status}>{status}</option>)}</select></div>
+                                    </div>
+
+                                    <div className="add-compact-field mini">
+                                        <div className="add-compact-label">Received Date</div>
+                                        <div className="add-input-shell"><input className="gi" type="date" value={repairForm.receivedDate} onChange={e => setRepairField("receivedDate", e.target.value)} /></div>
+                                    </div>
+
+                                    <div className="add-compact-field mini">
+                                        <div className="add-compact-label">IMEI</div>
+                                        <div className="add-input-shell"><input className="gi" value={repairForm.imei} onChange={e => setRepairField("imei", e.target.value)} placeholder="Optional" style={{ fontFamily: "'Space Mono',monospace" }} /><button className="add-scan-btn" onClick={() => openSc("repair")}><Camera size={16} /></button></div>
+                                    </div>
+                                </div>
+
+                                <div className="add-compact-mini-grid">
+                                    <div className="add-compact-field mini">
+                                        <div className="add-compact-label">Estimated Cost</div>
+                                        <div className="add-input-shell"><input className="gi" type="number" value={repairForm.estimatedCost} onChange={e => setRepairField("estimatedCost", e.target.value)} placeholder="₹0" /></div>
+                                    </div>
+
+                                    <div className="add-compact-field mini">
+                                        <div className="add-compact-label">Advance</div>
+                                        <div className="add-input-shell"><input className="gi" type="number" value={repairForm.advance} onChange={e => setRepairField("advance", e.target.value)} placeholder="₹0" /></div>
+                                    </div>
+
+                                    <div className="add-compact-field mini">
+                                        <div className="add-compact-label">Part Cost</div>
+                                        <div className="add-input-shell"><input className="gi" type="number" value={repairForm.partCost} onChange={e => setRepairField("partCost", e.target.value)} placeholder="₹0" /></div>
+                                    </div>
+
+                                    <div className="add-compact-field mini">
+                                        <div className="add-compact-label">Part Supplier</div>
+                                        <div className="add-input-shell"><select className="gs" value={repairForm.partSupplierId} onChange={e => { const supplier = partSuppliersById.get(e.target.value); setRepairField("partSupplierId", e.target.value); setRepairField("partSupplierName", supplier?.name || ""); }}><option value="">Select supplier</option>{partSuppliers.map(supplier => <option key={supplier.id} value={supplier.id}>{supplier.name}</option>)}</select></div>
+                                    </div>
+                                </div>
+
+                                <div className="add-compact-field span-2">
+                                    <div className="add-compact-label">Problem</div>
+                                    <textarea className="gi" style={{ minHeight: 96 }} value={repairForm.problem} onChange={e => setRepairField("problem", e.target.value)} placeholder="Describe the reported problem, issue, or required repair" />
+                                </div>
+
+                                <div className="add-compact-field span-2">
+                                    <div className="add-compact-label">Notes</div>
+                                    <textarea className="gi" style={{ minHeight: 84 }} value={repairForm.notes} onChange={e => setRepairField("notes", e.target.value)} placeholder="Internal notes" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="add-compact-actions add-desktop-only repair-form-actions desktop-inline-actions">
+                            <button className="bg" onClick={() => { setRepairForm(createEmptyRepairForm()); goPage("repair"); }}><ChevronLeft size={16} /> Back to Repair</button>
+                            <button className="bp" onClick={saveRepair}><CheckCircle size={16} /> {repairForm.id ? "Save Repair" : "Add Repair"}</button>
+                        </div>
+
+                        <div className="add-mobile-actions add-mobile-only repair-form-actions">
+                            <button className="bg" onClick={() => { setRepairForm(createEmptyRepairForm()); goPage("repair"); }}>Back</button>
+                            <button className="bp" onClick={saveRepair}>{repairForm.id ? "Save Repair" : "Add Repair"}</button>
+                        </div>
+                            </div>
+                            <aside className="desktop-workspace-side desktop-enhanced-only">
+                                <div className="desktop-side-card dark">
+                                    <div className="desktop-side-eyebrow">Repair Intake</div>
+                                    <div className="desktop-side-title">Repair Summary</div>
+                                    <div className="desktop-side-grid">
+                                        {repairDesktopSummary.map(item => <div key={item.label} className="desktop-side-stat"><span>{item.label}</span><strong>{item.value}</strong></div>)}
+                                    </div>
+                                </div>
+                                <div className="desktop-side-card">
+                                    <div className="desktop-side-eyebrow">Service Status</div>
+                                    <ul className="desktop-side-list">
+                                        <li><strong>Customer</strong><span>{repairForm.customerName || "Walk-in customer"}</span></li>
+                                        <li><strong>Phone</strong><span>{repairForm.phone || "Not added"}</span></li>
+                                        <li><strong>Status</strong><span>{repairForm.status || "Received"}</span></li>
+                                        <li><strong>Part supplier</strong><span>{repairForm.partSupplierName || "Not linked"}</span></li>
+                                    </ul>
+                                    <div className="repair-form-actions">
+                                        <button className="bg" onClick={() => { setRepairForm(createEmptyRepairForm()); goPage("repair"); }}><ChevronLeft size={16} /> Back to Repair</button>
+                                        <button className="bp" onClick={saveRepair}><CheckCircle size={16} /> {repairForm.id ? "Save Repair" : "Add Repair"}</button>
+                                    </div>
+                                </div>
+                            </aside>
                         </div>
                     </div>}
 
@@ -4731,85 +6349,235 @@ export default function App() {
                     </div></div>}
 
                     {/* ═══ INVOICES ═══ */}
-                    {pg === "transactions" && <div className="fi">
-                        <div style={{ marginBottom: 28 }}><h1 style={{ color: "var(--t1)", fontSize: 28, fontWeight: 700 }}>Invoices</h1><p style={{ color: "var(--t3)", fontSize: 14, marginTop: 4 }}>{invoiceRecords.length} sales invoices</p></div>
-                        <div className="gc" style={{ marginBottom: 16, padding: 16 }}>
-                            <div style={{ position: "relative" }}><Search size={16} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--t3)" }} /><input className="gi" placeholder="Search invoice no, customer, IMEI, brand, model..." value={iq} onChange={e => sIq(e.target.value)} style={{ paddingLeft: 36 }} /></div>
+                    {pg === "transactions" && <div className="fi invoices-modern">
+                        <div className="transactions-desktop-head desktop-enhanced-only">
+                            <div className="transactions-desktop-copy">
+                                <h1>Sales History</h1>
+                                <p>Review and manage past transactions across walk-in customers, invoices, and pending balances.</p>
+                            </div>
+                            <div className="transactions-desktop-actions">
+                                <button className="dashboard-action-ghost" onClick={exportTransactionsCsv}><Download size={16} /> Export CSV</button>
+                                <button className="dashboard-action-primary" onClick={() => { setReportView("Transactions"); setReportType("Sell"); goPage("reports"); }}><Printer size={16} /> Print Report</button>
+                            </div>
                         </div>
-                        <div style={{ display: "grid", gap: 14 }}>
-                            {invoiceRecords.length === 0 && <div className="gc" style={{ textAlign: "center", padding: 40 }}><FileText size={40} style={{ color: "var(--t3)", marginBottom: 12 }} /><p style={{ color: "var(--t2)", fontSize: 15 }}>No invoices found</p></div>}
-                            {invoiceRecords.map(t => <div key={t.id} className="gc" style={{ display: "grid", gap: 10 }}>
-                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
-                                    <div><div style={{ color: "var(--t1)", fontSize: 16, fontWeight: 700 }}>{t.invoiceNo || "Invoice"}</div><div style={{ color: "var(--t3)", fontSize: 12, marginTop: 4 }}>{fmtDateTime(t.dateTime || t.date)}</div></div>
-                                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>{t.billType === "GST" && <span className="ba br">GST</span>}<span className={`ba ${t.dueAmount > 0 ? "br" : "bi"}`}>{t.dueAmount > 0 ? `Due ${fmtCurrency(t.dueAmount)}` : "Paid"}</span>{t.whatsAppMessageAt && <span className="ba bi">Msg Sent</span>}{t.whatsAppPdfAt && <span className="ba bi">PDF Sent</span>}</div>
-                                </div>
-                                <div style={{ color: "var(--t1)", fontSize: 15, fontWeight: 600 }}>{t.brand} {t.model}</div>
-                                <div style={{ color: "var(--t2)", fontSize: 13 }}>{t.customerName || "Walk-in customer"}{t.phone ? ` · ${t.phone}` : ""}</div>
-                                <div style={{ color: "var(--t3)", fontSize: 12, fontFamily: "'Space Mono',monospace" }}>IMEI 1: {t.imei}{t.imei2 ? ` · IMEI 2: ${t.imei2}` : ""}</div>
-                                <div style={{ color: "var(--t3)", fontSize: 12 }}>Tip: send WhatsApp message first so this customer appears in your recent chats.</div>
-                                <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}><div><div style={{ color: "var(--ok)", fontWeight: 700, fontSize: 16 }}>{fmtCurrency(t.totalAmount || t.amount)}</div>{t.type === "Sell" && t.costPrice > 0 && (() => { const p = (t.totalAmount || t.amount) - t.costPrice; return <div style={{ fontSize: 12, color: p >= 0 ? "var(--ok)" : "var(--err)", fontWeight: 600, marginTop: 2 }}>{p >= 0 ? "+" : ""}{fmtCurrency(p)} profit</div>; })()}</div><div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><button className="bp" onClick={() => void shareInvoice(t)}><Share2 size={14} /> Share PDF</button><button className="bg" onClick={() => whatsappMessage(t)}><Phone size={14} /> WhatsApp Msg</button><button className="bg" onClick={() => void downloadInvoice(t)}><Download size={14} /> PDF</button></div></div>
-                            </div>)}
+
+                        <div className="transactions-summary-grid desktop-enhanced-only">
+                            <div className="transactions-summary-card"><span>Total Sales</span><strong>{fmtCompactCurrency(invoiceSummary.totalAmount)}</strong><em>{invoiceRecords.length} invoice{invoiceRecords.length === 1 ? "" : "s"}</em></div>
+                            <div className="transactions-summary-card"><span>Outstanding</span><strong>{fmtCompactCurrency(invoiceSummary.dueAmount)}</strong><em>{invoiceSummary.dueAmount > 0 ? "Requires collection" : "All dues cleared"}</em></div>
+                            <div className="transactions-summary-card"><span>GST Collected</span><strong>{fmtCompactCurrency(invoiceSummary.gstAmount)}</strong><em>Calculated from GST invoices only</em></div>
+                        </div>
+
+                        <div className="transactions-desktop-table desktop-enhanced-only">
+                            <div className="transactions-table-head"><span>Invoice</span><span>Customer & Device</span><span>Amount</span><span>Status</span><span>Payment</span><span style={{ textAlign: "right" }}>Actions</span></div>
+                            {invoiceRecords.length === 0 ? <div className="reports-modern-empty">No invoices found.</div> : null}
+                            {invoiceRecords.map(t => {
+                                const dueOpen = Number(t.dueAmount || 0) > 0;
+                                return <div key={`desktop-sale-${t.id}`} className="transactions-table-row">
+                                    <div className="transactions-table-cell"><strong>{t.invoiceNo || "INV"}</strong><span>{fmtDashboardTime(t.dateTime || `${t.date || isoDate()}T12:00:00`)}</span></div>
+                                    <div className="transactions-table-cell"><strong>{t.customerName || "Walk-in Customer"}</strong><span>{[t.brand, t.model].filter(Boolean).join(" ") || "Device"}{t.phone ? ` · ${t.phone}` : ""}</span></div>
+                                    <div className="transactions-table-amount">{fmtCurrency(t.totalAmount || t.amount)}</div>
+                                    <div><span className={`dashboard-status-pill ${dueOpen ? "pending" : ""}`}>{dueOpen ? "Pending" : "Paid"}</span></div>
+                                    <div className="transactions-table-cell"><strong>{t.paymentMode || "Cash"}</strong><span>{t.billType === "GST" ? "GST Invoice" : "Regular Invoice"}</span></div>
+                                    <div className="transactions-table-actions">
+                                        <button className="table-action-btn" onClick={() => void shareInvoice(t)} aria-label="Share PDF"><Share2 size={15} /></button>
+                                        <button className="table-action-btn" onClick={() => whatsappMessage(t)} aria-label="WhatsApp Message"><MessageCircle size={15} /></button>
+                                        <button className="table-action-btn primary" onClick={() => void downloadInvoice(t)} aria-label="Download PDF"><Download size={15} /></button>
+                                    </div>
+                                </div>;
+                            })}
+                        </div>
+
+                        <div className="transactions-mobile-stack">
+                            <div className="invoices-toolbar">
+                                <label className="invoices-searchbar">
+                                    <Search size={16} />
+                                    <input className="gi" placeholder="Search invoices or customer..." value={iq} onChange={e => sIq(e.target.value)} />
+                                </label>
+                                <button
+                                    className="invoices-filter-btn"
+                                    onClick={() => setInvoiceStatusFilter(current => current === "All" ? "Paid" : current === "Paid" ? "Due" : "All")}
+                                    aria-label={`Invoice filter ${invoiceStatusFilter}`}
+                                    title={`Filter: ${invoiceStatusFilter}`}
+                                >
+                                    <Filter size={16} />
+                                </button>
+                            </div>
+
+                            <div className="invoices-ledger">
+                                <div className="invoices-table-head desktop-enhanced-only"><span>Invoice</span><span>Customer & Device</span><span>Status</span><span style={{ textAlign: "right" }}>Actions</span></div>
+                                {invoiceRecords.length === 0 && <div className="gc" style={{ textAlign: "center", padding: 30, border: "none", boxShadow: "none" }}><FileText size={36} style={{ color: "var(--t3)", marginBottom: 10 }} /><p style={{ color: "var(--t2)", fontSize: 14 }}>No invoices found</p></div>}
+                                {invoiceRecords.map(t => {
+                                    const shortDate = new Date(t.dateTime || `${t.date || isoDate()}T12:00:00`).toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
+                                    const dueOpen = Number(t.dueAmount || 0) > 0;
+                                    return <div key={t.id} className="invoice-row">
+                                        <div className="invoice-row-id">
+                                            <strong>{t.invoiceNo || "INV"}</strong>
+                                            <span>{shortDate}</span>
+                                        </div>
+                                        <div className="invoice-row-main">
+                                            <strong>{t.customerName || "Walk-in Customer"}</strong>
+                                            <div className="invoice-row-item"><Smartphone size={13} /> {[t.brand, t.model].filter(Boolean).join(" ") || "Device"}</div>
+                                            <div className="invoice-row-actions">
+                                                <button className="invoice-row-icon icon-share" onClick={() => void shareInvoice(t)} aria-label="Share PDF" title="Share PDF"><Share2 size={14} /></button>
+                                                <button className="invoice-row-icon icon-msg" onClick={() => whatsappMessage(t)} aria-label="WhatsApp Message" title="WhatsApp Message"><MessageCircle size={14} /></button>
+                                                <button className="invoice-row-icon icon-download" onClick={() => void downloadInvoice(t)} aria-label="Download PDF" title="Download PDF"><Download size={14} /></button>
+                                            </div>
+                                        </div>
+                                        <div className="invoice-row-finance">
+                                            <strong>{fmtCurrency(t.totalAmount || t.amount)}</strong>
+                                            <span className={`invoice-row-status ${dueOpen ? "due" : "paid"}`}>{dueOpen ? "DUE" : "PAID"}</span>
+                                        </div>
+                                    </div>;
+                                })}
+                            </div>
+
+                            {invoiceRecords.length > 0 ? <div className="invoices-end">END OF HISTORY</div> : null}
                         </div>
                     </div>}
 
                     {/* ═══ REPORTS ═══ */}
-                    {pg === "reports" && <div className="fi">
-                        <div style={{ marginBottom: 28 }}><h1 style={{ color: "var(--t1)", fontSize: 28, fontWeight: 700 }}>Reports</h1><p style={{ color: "var(--t3)", fontSize: 14, marginTop: 4 }}>Filter Buy, Sell, Add, and Repair records by date, GST, payment mode, brand, and party. View transaction reports, customer ledgers, or supplier purchase summaries and export them as PDF.</p></div>
-                        <div className="gc" style={{ marginBottom: 16 }}>
-                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 12 }}>
-                                <F l="Report View" ic={BarChart3}><select className="gs" value={reportView} onChange={e => setReportView(e.target.value)}>{REPORT_VIEWS.map(type => <option key={type}>{type}</option>)}</select></F>
-                                <F l="Report Type" ic={FileText}><select className="gs" value={reportType} onChange={e => setReportType(e.target.value)}>{REPORT_TYPES.map(type => <option key={type}>{type}</option>)}</select></F>
-                                <F l="Date Range" ic={Calendar}><select className="gs" value={reportPreset} onChange={e => setReportPreset(e.target.value)}>{REPORT_RANGE_PRESETS.map(type => <option key={type}>{type}</option>)}</select></F>
-                                <F l="GST Filter" ic={Hash}><select className="gs" value={reportBillFilter} onChange={e => setReportBillFilter(e.target.value)} disabled={reportType === "Buy" || reportType === "Add" || reportType === "Repair" || reportView !== "Transactions"}>{REPORT_BILL_FILTERS.map(type => <option key={type}>{type}</option>)}</select></F>
-                                <F l="Payment Mode" ic={CreditCard}><select className="gs" value={reportPaymentFilter} onChange={e => setReportPaymentFilter(e.target.value)}>{["All Payments", ...PAYMENT_MODES].map(type => <option key={type}>{type}</option>)}</select></F>
-                                <F l="Brand" ic={Tag}><select className="gs" value={reportBrandFilter} onChange={e => setReportBrandFilter(e.target.value)}>{reportBrands.map(type => <option key={type}>{type}</option>)}</select></F>
-                                <F l="Due Status" ic={Banknote}><select className="gs" value={reportDueFilter} onChange={e => setReportDueFilter(e.target.value)} disabled={reportView === "Supplier Summary" || (reportType !== "All" && reportType !== "Sell" && reportType !== "Repair")}>{REPORT_DUE_FILTERS.map(type => <option key={type}>{type}</option>)}</select></F>
-                                <F l="Repair Status" ic={Wrench}><select className="gs" value={reportRepairStatusFilter} onChange={e => setReportRepairStatusFilter(e.target.value)} disabled={reportView !== "Transactions" || (reportType !== "All" && reportType !== "Repair")}>{["All Repair Statuses", ...REPAIR_STATUSES].map(type => <option key={type}>{type}</option>)}</select></F>
-                                <F l="Customer / Supplier" ic={Search}><input className="gi" value={reportPartyQuery} onChange={e => setReportPartyQuery(e.target.value)} placeholder="Search party, phone, invoice, IMEI" /></F>
-                                <F l="Brand / Model / IMEI" ic={Package}><input className="gi" value={reportItemQuery} onChange={e => setReportItemQuery(e.target.value)} placeholder="Search brand, model, invoice, IMEI" /></F>
-                                {reportPreset === "Custom" && <><F l="From" ic={Calendar}><input className="gi" type="date" value={reportFrom} onChange={e => setReportFrom(e.target.value)} /></F><F l="To" ic={Calendar}><input className="gi" type="date" value={reportTo} onChange={e => setReportTo(e.target.value)} /></F></>}
+                    {pg === "reports" && <div className="fi reports-modern">
+                        <div className="reports-modern-top">
+                            <div className="reports-modern-head">
+                                <h1>Reports</h1>
+                                <p>{reportView} · {reportType} · {reportRange.label}</p>
                             </div>
-                            <div className="action-row" style={{ marginTop: 8 }}>
-                                <button className="bp" onClick={() => void downloadReport()}><Download size={16} /> Download PDF</button>
-                                <button className="bg" onClick={() => void previewReportPdf(false)}><Eye size={16} /> Open PDF</button>
-                                <button className="bg" onClick={() => void previewReportPdf(true)}><Printer size={16} /> Print Report</button>
+                            <div className="reports-modern-actions">
+                                <button className="bp" onClick={() => void downloadReport()}><Download size={14} /> PDF</button>
+                                <button className="bg" onClick={() => void previewReportPdf(false)}><Eye size={14} /> Open</button>
+                                <button className="bg" onClick={() => void previewReportPdf(true)}><Printer size={14} /> Print</button>
                             </div>
                         </div>
-                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 14, marginBottom: 24 }}>
-                            {reportSummaryCards.map((s, i) =>
-                                <div key={i} className="gc" style={{ textAlign: "center" }}><div style={{ color: "var(--t3)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>{s.l}</div><div style={{ color: s.c, fontSize: 22, fontWeight: 700 }}>{s.v}</div></div>
-                            )}
+
+                        <div className="reports-modern-controls">
+                            <div className="reports-modern-control"><BarChart3 size={14} /><select className="gs" value={reportView} onChange={e => setReportView(e.target.value)}>{REPORT_VIEWS.map(type => <option key={type}>{type}</option>)}</select></div>
+                            <div className="reports-modern-control"><FileText size={14} /><select className="gs" value={reportType} onChange={e => setReportType(e.target.value)}>{REPORT_TYPES.map(type => <option key={type}>{type}</option>)}</select></div>
+                            <div className="reports-modern-control"><Calendar size={14} /><select className="gs" value={reportPreset} onChange={e => setReportPreset(e.target.value)}>{REPORT_RANGE_PRESETS.map(type => <option key={type}>{type}</option>)}</select></div>
+                            <div className="reports-modern-control"><Hash size={14} /><select className="gs" value={reportBillFilter} onChange={e => setReportBillFilter(e.target.value)} disabled={reportType === "Buy" || reportType === "Add" || reportType === "Repair" || reportView !== "Transactions"}>{REPORT_BILL_FILTERS.map(type => <option key={type}>{type}</option>)}</select></div>
+                            <div className="reports-modern-control"><CreditCard size={14} /><select className="gs" value={reportPaymentFilter} onChange={e => setReportPaymentFilter(e.target.value)}>{["All Payments", ...PAYMENT_MODES].map(type => <option key={type}>{type}</option>)}</select></div>
+                            <div className="reports-modern-control"><Banknote size={14} /><select className="gs" value={reportDueFilter} onChange={e => setReportDueFilter(e.target.value)} disabled={reportView === "Supplier Summary" || (reportType !== "All" && reportType !== "Sell" && reportType !== "Repair")}>{REPORT_DUE_FILTERS.map(type => <option key={type}>{type}</option>)}</select></div>
                         </div>
-                        <div className="gc">
-                            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 14 }}><h3 style={{ color: "var(--t1)", fontSize: 15, fontWeight: 600 }}>Report Preview</h3><div style={{ color: "var(--t3)", fontSize: 13 }}>{reportView} · {reportType} · {reportRange.label}{reportFiltersLabel ? ` · ${reportFiltersLabel}` : ""}</div></div>
-                            <div style={{ display: "grid", gap: 12 }}>
-                                {activeReportRows.length === 0 && <div style={{ color: "var(--t2)", fontSize: 14 }}>No records found for this range.</div>}
-                                {activeReportRows.length > visibleReportRows.length && <div style={{ color: "var(--t3)", fontSize: 12 }}>Showing {visibleReportRows.length} of {activeReportRows.length} records</div>}
-                                {visibleReportRows.map(row => <div key={row.id} className="tr" style={{ display: "grid", gap: 6, padding: "12px 10px", borderRadius: 12, border: "1px solid rgba(255,255,255,.05)", background: "rgba(255,255,255,.03)" }}>
-                                    <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}><div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}><span className={`ba ${row.type === "Sell" ? "bi" : row.type === "Buy" ? "br" : "bu"}`}>{row.type}</span>{row.billType === "GST" && <span className="ba br">GST</span>}{row.invoiceNo && <span style={{ color: "var(--t3)", fontSize: 12 }}>{row.invoiceNo}</span>}</div><div style={{ color: "var(--ok)", fontWeight: 700 }}>{fmtCurrency(row.amount || 0)}</div></div>
-                                    <div style={{ color: "var(--t1)", fontSize: 15, fontWeight: 600 }}>{row.item || row.label}</div>
-                                    <div style={{ color: "var(--t2)", fontSize: 13 }}>{row.party || "-"}{row.phone ? ` · ${row.phone}` : ""}{row.paymentMode ? ` · ${row.paymentMode}` : ""}</div>
-                                    <div style={{ color: "var(--t3)", fontSize: 12 }}>{fmtDateTime(row.lastDateTime || row.dateTime)}{row.extra ? ` · ${row.extra}` : ""}{reportView !== "Transactions" ? ` · ${row.records} records` : ""}</div>
-                                    <div style={{ color: "var(--t3)", fontSize: 12, fontFamily: "'Space Mono',monospace" }}>{reportView === "Transactions" ? (row.type === "Repair" ? `${row.imei ? `IMEI 1: ${row.imei}` : "No IMEI"} · Due ${fmtCurrency(row.dueAmount || 0)}` : row.imei ? `IMEI 1: ${row.imei}${row.imei2 ? ` · IMEI 2: ${row.imei2}` : ""}` : "No IMEI") : `Due ${fmtCurrency(row.dueAmount || 0)}${reportView === "Customer Ledger" ? ` · Profit ${fmtCurrency(row.profit || 0)}` : ""}`}</div>
-                                </div>)}
-                                {hasMoreReportRows && <div ref={reportLoadMoreRef} style={{ height: 1 }} />}
+
+                        {reportPreset === "Custom" && <div className="reports-modern-dates">
+                            <div className="reports-modern-control"><Calendar size={14} /><input className="gi" type="date" value={reportFrom} onChange={e => setReportFrom(e.target.value)} /></div>
+                            <div className="reports-modern-control"><Calendar size={14} /><input className="gi" type="date" value={reportTo} onChange={e => setReportTo(e.target.value)} /></div>
+                        </div>}
+
+                        {reportFiltersLabel ? <div className="reports-modern-filter-note">Filters: {reportFiltersLabel}</div> : null}
+
+                        <details className="reports-modern-morefilters">
+                            <summary>More Filters</summary>
+                            <div className="reports-modern-controls">
+                                <div className="reports-modern-control"><Tag size={14} /><select className="gs" value={reportBrandFilter} onChange={e => setReportBrandFilter(e.target.value)}>{reportBrands.map(type => <option key={type}>{type}</option>)}</select></div>
+                                <div className="reports-modern-control"><Wrench size={14} /><select className="gs" value={reportRepairStatusFilter} onChange={e => setReportRepairStatusFilter(e.target.value)} disabled={reportView !== "Transactions" || (reportType !== "All" && reportType !== "Repair")}>{["All Repair Statuses", ...REPAIR_STATUSES].map(type => <option key={type}>{type}</option>)}</select></div>
+                                <div className="reports-modern-control"><Search size={14} /><input className="gi" value={reportPartyQuery} onChange={e => setReportPartyQuery(e.target.value)} placeholder="Customer / supplier" /></div>
+                                <div className="reports-modern-control"><Package size={14} /><input className="gi" value={reportItemQuery} onChange={e => setReportItemQuery(e.target.value)} placeholder="Brand / model / IMEI" /></div>
                             </div>
+                        </details>
+
+                        <div className="reports-modern-kpis">
+                            {[
+                                { label: "Records", value: String(activeReportSummary.records), tone: "" },
+                                { label: reportView === "Supplier Summary" ? "Purchases" : "Sales", value: fmtCurrency(reportView === "Supplier Summary" ? activeReportSummary.buyAddTotal : activeReportSummary.sellTotal), tone: "sales" },
+                                { label: "Due", value: fmtCurrency(activeReportSummary.dueTotal || 0), tone: "warn" },
+                                { label: "Profit", value: fmtCurrency(activeReportSummary.profit || 0), tone: "ok" },
+                            ].map(card => <div key={card.label} className="reports-modern-kpi"><div className="reports-modern-kpi-label">{card.label}</div><div className={`reports-modern-kpi-value ${card.tone}`.trim()}>{card.value}</div></div>)}
+                        </div>
+
+                        <div className="reports-modern-feed mobile-preview">
+                            <div className="reports-modern-feed-head"><strong>Recent Entries</strong><span>{activeReportRows.length} total</span></div>
+                            {activeReportRows.length === 0 && <div className="reports-modern-empty">No records found for this range.</div>}
+                            {activeReportRows.slice(0, 3).map(row => <div key={row.id} className="reports-modern-row">
+                                <span className={`reports-modern-type ${String(row.type || "").toLowerCase()}`}>{row.type}</span>
+                                <div className="reports-modern-row-main">
+                                    <strong>{row.item || row.label}</strong>
+                                    <span>{row.party || "-"} · {fmtDateTime(row.lastDateTime || row.dateTime)}{reportView !== "Transactions" ? ` · ${row.records} records` : ""}</span>
+                                </div>
+                                <strong className="reports-modern-amt">{fmtCurrency(row.amount || 0)}</strong>
+                            </div>)}
+                            {activeReportRows.length > 3 ? <div className="reports-modern-more">+ {activeReportRows.length - 3} more rows in PDF export</div> : null}
+                        </div>
+                        <div className="reports-modern-desktop-table desktop-enhanced-only">
+                            <div className="reports-modern-desktop-head"><span>Type</span><span>Item</span><span>Party</span><span>Last Updated</span><span style={{ textAlign: "right" }}>Amount</span></div>
+                            {activeReportRows.length === 0 ? <div className="reports-modern-empty">No records found for this range.</div> : null}
+                            {activeReportRows.slice(0, 12).map(row => <div key={row.id} className="reports-modern-desktop-row">
+                                <span className={`reports-modern-type ${String(row.type || "").toLowerCase()}`}>{row.type}</span>
+                                <div><strong>{row.item || row.label}</strong><span>{reportView !== "Transactions" ? `${row.records} records` : "Detailed transaction record"}</span></div>
+                                <span>{row.party || "-"}</span>
+                                <span>{fmtDateTime(row.lastDateTime || row.dateTime)}</span>
+                                <strong style={{ textAlign: "right" }}>{fmtCurrency(row.amount || 0)}</strong>
+                            </div>)}
                         </div>
                     </div>}
 
                     {/* ═══ SETTINGS ═══ */}
-                    {pg === "settings" && <div className="fi" style={{ maxWidth: 980 }}>
-                        <div style={{ marginBottom: 28 }}><h1 style={{ color: "var(--t1)", fontSize: 28, fontWeight: 700, display: "flex", alignItems: "center", gap: 10 }}><Settings size={28} style={{ color: "var(--a)" }} /> Shop Profile & Invoice</h1><p style={{ color: "var(--t3)", fontSize: 14, marginTop: 4 }}>Configure your shop details for professional A4 portrait invoices and keep everything updated automatically across logged-in devices.</p></div>
-                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(300px,1fr))", gap: 16, marginBottom: 16 }}>
-                            <SettingsSection
+                    {pg === "settings" && <div className={`fi settings-shell ${showSettingsHub ? "settings-shell-home" : ""}`} style={{ maxWidth: 1240 }}>
+                        {showSettingsHub ? <div className="settings-terminal">
+                            <div className="settings-terminal-head">
+                                <h1>Settings Hub</h1>
+                            </div>
+                            <div className="settings-home-content">
+                                <div className="settings-terminal-grid">
+                                <button className={`settings-terminal-card profile ${settingsOpenSection === "shop-profile" ? "active" : ""}`} onClick={() => setSettingsOpenSection(current => current === "shop-profile" ? "" : "shop-profile")}>
+                                    <span className="settings-terminal-icon"><Smartphone size={20} /></span>
+                                    <div>
+                                        <h3>Shop Profile</h3>
+                                        <p>Name, GST, Address</p>
+                                    </div>
+                                </button>
+                                <button className={`settings-terminal-card invoice ${settingsOpenSection === "invoice-preferences" ? "active" : ""}`} onClick={() => setSettingsOpenSection(current => current === "invoice-preferences" ? "" : "invoice-preferences")}>
+                                    <span className="settings-terminal-icon"><FileText size={20} /></span>
+                                    <div>
+                                        <h3>Invoicing</h3>
+                                        <p>Prefix, Footer, Rules</p>
+                                    </div>
+                                </button>
+                                <button className={`settings-terminal-card status ${settingsOpenSection === "app-status" ? "active" : ""}`} onClick={() => setSettingsOpenSection(current => current === "app-status" ? "" : "app-status")}>
+                                    <span className="settings-terminal-icon"><CheckCircle size={20} /></span>
+                                    <div>
+                                        <h3>App Status</h3>
+                                        <p>{syncReady ? `Synced ${fmtRelativeTime(syncMeta.lastRemoteSavedAt || syncCfg.lastSyncAt || syncCfg.lastStatusAt || "")}` : "Waiting for sync"}</p>
+                                    </div>
+                                </button>
+                                <button className={`settings-terminal-card mode ${settingsOpenSection === "system-mode" ? "active" : ""}`} onClick={() => setSettingsOpenSection(current => current === "system-mode" ? "" : "system-mode")}>
+                                    <span className="settings-terminal-icon"><Settings size={20} /></span>
+                                    <div>
+                                        <h3>System Mode</h3>
+                                        <p>{shopCfg.businessMode === "repair-pro" ? "Repair Lab" : "Retail"} / {shopCfg.businessMode === "repair-pro" ? "Focused" : "General"}</p>
+                                    </div>
+                                </button>
+                                </div>
+                            <div className="settings-terminal-actions">
+                                {shopProfileDirty ? <span className="page-chip"><AlertCircle size={14} /> Unsaved changes</span> : <span style={{ color: "var(--t3)", fontSize: 12, fontWeight: 700 }}>All settings saved</span>}
+                                <div className="settings-terminal-cta">
+                                    <button className="bp settings-terminal-btn save" onClick={() => void saveShopProfile()} disabled={profileSaveBusy}>{profileSaveBusy ? "Saving..." : "Save"}</button>
+                                    <button className="bg settings-terminal-btn signout" onClick={logoutShop}><LogOut size={15} /> Sign out</button>
+                                </div>
+                            </div>
+                            </div>
+                        </div> : <div className="settings-detail-screen">
+                            <div className="settings-desktop-layout">
+                                <aside className="settings-desktop-nav desktop-enhanced-only">
+                                    {desktopSettingsSections.map(section => <button key={section.id} className={activeSettingsSection === section.id ? "active" : ""} onClick={() => setSettingsOpenSection(section.id)}><strong>{section.title}</strong><span>{section.subtitle}</span></button>)}
+                                </aside>
+                                <div>
+                            <div className="settings-detail-head">
+                                {!isDesktopViewport ? <button className="bg settings-detail-back" onClick={() => setSettingsOpenSection("")}><ChevronLeft size={16} /> Back</button> : null}
+                                <div className="settings-detail-copy">
+                                    <h2>{settingsScreenMeta.title}</h2>
+                                    <p>{settingsScreenMeta.subtitle}</p>
+                                </div>
+                            </div>
+                        {["shop-profile", "invoice-preferences", "system-mode"].includes(activeSettingsSection) ? <div className="settings-grid" style={{ marginBottom: 16 }}>
+                            {activeSettingsSection === "shop-profile" ? <SettingsSection
                                 title="Shop Profile & Invoice Logo"
                                 summary={shopProfileDirty ? "Unsaved changes" : (shopCfg.shopName || "Shop details and invoice branding")}
-                                open={settingsOpenSection === "shop-profile"}
+                                open={activeSettingsSection === "shop-profile"}
                                 onToggle={() => setSettingsOpenSection(current => current === "shop-profile" ? "" : "shop-profile")}
                             >
                                 <div style={{ display: "grid", gap: 12 }}>
                                     <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-                                        <div style={{ width: 78, height: 78, borderRadius: 16, overflow: "hidden", border: "1px solid var(--gbo)", background: "rgba(255,255,255,.03)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                        <div style={{ width: 78, height: 78, borderRadius: 16, overflow: "hidden", border: "1px solid var(--gbo)", background: "var(--surface-low)", display: "flex", alignItems: "center", justifyContent: "center" }}>
                                             {shopCfg.logoData ? <img src={shopCfg.logoData} alt="Shop invoice logo" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <Smartphone size={30} style={{ color: "var(--t3)" }} />}
                                         </div>
                                         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -4831,11 +6599,11 @@ export default function App() {
                                         <F l="State / Code" ic={MapPin}><div style={{ display: "grid", gridTemplateColumns: "1fr 92px", gap: 8 }}><input className="gi" value={shopCfg.state} onChange={e => setShopField("state", e.target.value)} placeholder="State" /><input className="gi" value={shopCfg.stateCode} onChange={e => setShopField("stateCode", e.target.value)} placeholder="Code" /></div></F>
                                     </div>
                                 </div>
-                            </SettingsSection>
-                            <SettingsSection
+                            </SettingsSection> : null}
+                            {activeSettingsSection === "invoice-preferences" ? <SettingsSection
                                 title="Invoice Preferences"
                                 summary={`${shopCfg.defaultBillType || "NON GST"} · GST ${shopCfg.defaultGstRate || 0}% · ${shopCfg.invoicePrefix || "INV"}`}
-                                open={settingsOpenSection === "invoice-preferences"}
+                                open={activeSettingsSection === "invoice-preferences"}
                                 onToggle={() => setSettingsOpenSection(current => current === "invoice-preferences" ? "" : "invoice-preferences")}
                             >
                                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12 }}>
@@ -4847,12 +6615,19 @@ export default function App() {
                                     <F l="Footer Note" ic={FileText}><textarea className="gi" style={{ minHeight: 84 }} value={shopCfg.footer} onChange={e => setShopField("footer", e.target.value)} placeholder="Thank you note / declaration" /></F>
                                     <F l="Terms & Warranty" ic={FileText}><textarea className="gi" style={{ minHeight: 84 }} value={shopCfg.terms} onChange={e => setShopField("terms", e.target.value)} placeholder="Service / warranty / return terms" /></F>
                                 </div>
-                                <div className="gc" style={{ marginTop: 12, background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.06)" }}>
+                                <div className="gc" style={{ marginTop: 12, ...settingsSoftPanelStyle }}>
                                     <div style={{ color: "var(--t1)", fontSize: 14, fontWeight: 600, marginBottom: 6 }}>Invoice Output</div>
                                     <div style={{ color: "var(--t2)", fontSize: 13, lineHeight: 1.7 }}>PDFs are generated in professional A4 portrait format with your uploaded shop logo, shop address, customer details, handset specs, IMEIs, payment summary, and GST or regular invoice totals. On supported phones, the PDF can be shared directly to WhatsApp from the native share sheet.</div>
                                 </div>
-                                <div className="gc" style={{ marginTop: 12, background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.06)" }}>
-                                    <div style={{ color: "var(--t1)", fontSize: 14, fontWeight: 600, marginBottom: 10 }}>Business Mode</div>
+                            </SettingsSection> : null}
+
+                            {activeSettingsSection === "system-mode" ? <SettingsSection
+                                title="System Mode"
+                                summary={`${shopCfg.businessMode === "repair-pro" ? "Repair Lab" : "Retail"} · ${getEnabledModules(shopCfg).map(module => module.charAt(0).toUpperCase() + module.slice(1)).join(", ")}`}
+                                open={activeSettingsSection === "system-mode"}
+                                onToggle={() => setSettingsOpenSection(current => current === "system-mode" ? "" : "system-mode")}
+                            >
+                                <div className="gc" style={{ ...settingsSoftPanelStyle }}>
                                     <div style={{ display: "grid", gap: 12 }}>
                                         <F l="App Focus" ic={Wrench}><select className="gs" value={shopCfg.businessMode} onChange={e => setShopField("businessMode", e.target.value)}>{[{ value: "general", label: "General" }, { value: "repair-pro", label: "Repair Pro" }].map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></F>
                                         <F l="Enabled Modules" ic={ClipboardList}><div className="gi" style={{ display: "grid", gap: 8 }}>
@@ -4874,62 +6649,65 @@ export default function App() {
                                         <div style={{ color: "var(--t3)", fontSize: 12, lineHeight: 1.6 }}>General mode can show Buy, Sell, and Repair together. Repair Pro keeps the app focused on repair jobs, while still allowing you to switch back here later.</div>
                                     </div>
                                 </div>
-                            </SettingsSection>
-                        </div>
-                        <SettingsSection
+                            </SettingsSection> : null}
+                        </div> : null}
+                        {activeSettingsSection === "app-status" ? <SettingsSection
                             title="Data Status"
                             summary={syncReady ? "Connected and changes update automatically" : "Waiting for login or setup"}
-                            open={settingsOpenSection === "data-status"}
-                            onToggle={() => setSettingsOpenSection(current => current === "data-status" ? "" : "data-status")}
+                            open={true}
+                            onToggle={() => { }}
                             style={{ marginBottom: 16 }}
                         >
-                            {shopSession && <div className="gc" style={{ marginBottom: 12, background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.06)" }}><div style={{ color: "var(--t1)", fontSize: 14, fontWeight: 600, marginBottom: 4 }}>Automatic updates active</div><div style={{ color: "var(--t2)", fontSize: 13, lineHeight: 1.6 }}>Changes on one logged-in device appear automatically on the others.</div></div>}
+                            {shopSession && <div className="gc" style={{ marginBottom: 12, ...settingsSoftPanelStyle }}><div style={{ color: "var(--t1)", fontSize: 14, fontWeight: 600, marginBottom: 4 }}>Automatic updates active</div><div style={{ color: "var(--t2)", fontSize: 13, lineHeight: 1.6 }}>Changes on one logged-in device appear automatically on the others.</div></div>}
                             {showSyncAdvanced ? <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 12 }}>
                                 <F l="Shop ID" ic={Hash}><input className="gi" value={syncCfg.shopId} onChange={e => setSyncField("shopId", e.target.value)} placeholder="main-shop" style={{ fontFamily: "'Space Mono',monospace" }} /></F>
                                 <F l="Automatic Updates" ic={ol ? Wifi : WifiOff}><label className="gi" style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}><input type="checkbox" checked={syncCfg.autoSync} onChange={e => setSyncField("autoSync", e.target.checked)} /><span>{syncCfg.autoSync ? "Enabled" : "Disabled"}</span></label></F>
                             </div> : <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 12 }}>
-                                <div style={{ padding: 12, borderRadius: 12, background: "rgba(255,255,255,.03)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 4 }}>Connection</div><div style={{ color: syncReady ? "var(--ok)" : "var(--warn)", fontWeight: 700, marginBottom: 4 }}>{syncReady ? "Connected" : "Not configured"}</div><div style={{ color: "var(--t2)", fontSize: 13, lineHeight: 1.6 }}>{syncReady ? "Securely connected" : "Waiting for login"}</div></div>
-                                <div style={{ padding: 12, borderRadius: 12, background: "rgba(255,255,255,.03)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 4 }}>Shop ID</div><div style={{ color: "var(--t1)", fontWeight: 700, marginBottom: 4 }}>{syncCfg.shopId}</div><div style={{ color: "var(--t2)", fontSize: 13, lineHeight: 1.6 }}>Saved on this device</div></div>
-                                <div style={{ padding: 12, borderRadius: 12, background: "rgba(255,255,255,.03)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 4 }}>Automatic Updates</div><div style={{ color: syncCfg.autoSync ? "var(--ok)" : "var(--t1)", fontWeight: 700, marginBottom: 4 }}>{syncCfg.autoSync ? "Enabled" : "Disabled"}</div><div style={{ color: "var(--t2)", fontSize: 13, lineHeight: 1.6 }}>{syncCfg.autoSync ? "Changes update across devices automatically." : "Automatic updates paused on this device."}</div></div>
+                                <div className="settings-mini-card"><strong>Connection</strong><span style={{ color: syncReady ? "var(--ok)" : "var(--warn)", fontWeight: 700, marginBottom: 4 }}>{syncReady ? "Connected" : "Not configured"}</span><span>{syncReady ? "Securely connected" : "Waiting for login"}</span></div>
+                                <div className="settings-mini-card"><strong>Shop ID</strong><span style={{ color: "var(--t1)", fontWeight: 700, marginBottom: 4 }}>{syncCfg.shopId}</span><span>Saved on this device</span></div>
+                                <div className="settings-mini-card"><strong>Automatic Updates</strong><span style={{ color: syncCfg.autoSync ? "var(--ok)" : "var(--t1)", fontWeight: 700, marginBottom: 4 }}>{syncCfg.autoSync ? "Enabled" : "Disabled"}</span><span>{syncCfg.autoSync ? "Changes update across devices automatically." : "Automatic updates paused on this device."}</span></div>
                             </div>}
                             <div style={{ marginTop: 10, color: "var(--t3)", fontSize: 13 }}>Changes are saved automatically and appear on other logged-in devices.</div>
-                        </SettingsSection>
-                        <SettingsSection
+                        </SettingsSection> : null}
+                        {activeSettingsSection === "app-status" ? <SettingsSection
                             title="App Install & Offline"
                             summary={`${installed ? "Installed" : "Not installed"} · ${swReady ? "Offline cache active" : "Offline cache preparing"}`}
-                            open={settingsOpenSection === "install-offline"}
-                            onToggle={() => setSettingsOpenSection(current => current === "install-offline" ? "" : "install-offline")}
+                            open={true}
+                            onToggle={() => { }}
                             style={{ marginBottom: 16 }}
                         >
-                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 12 }}>
-                                <div style={{ padding: 12, borderRadius: 12, background: "rgba(255,255,255,.03)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 4 }}>Install Status</div><div style={{ color: installed ? "var(--ok)" : "var(--t1)", fontWeight: 600 }}>{installed ? "Installed" : installEvt ? "Ready to install" : isIosInstall ? "Use Add to Home Screen" : "Install prompt not ready"}</div></div>
-                                <div style={{ padding: 12, borderRadius: 12, background: "rgba(255,255,255,.03)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 4 }}>Offline Cache</div><div style={{ color: swReady ? "var(--ok)" : "var(--warn)", fontWeight: 600 }}>{swReady ? "Offline cache active" : "Preparing offline cache"}</div></div>
-                                <div style={{ padding: 12, borderRadius: 12, background: "rgba(255,255,255,.03)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 4 }}>Local Data</div><div style={{ color: "var(--t1)", fontWeight: 600 }}>Stored securely on this device for offline use.</div></div>
+                            <div className="settings-mini-grid">
+                                <div className="settings-mini-card"><strong>Install Status</strong><span style={{ color: installed ? "var(--ok)" : "var(--t1)", fontWeight: 600 }}>{installed ? "Installed" : installEvt ? "Ready to install" : isIosInstall ? "Use Add to Home Screen" : "Install prompt not ready"}</span></div>
+                                <div className="settings-mini-card"><strong>Offline Cache</strong><span style={{ color: swReady ? "var(--ok)" : "var(--warn)", fontWeight: 600 }}>{swReady ? "Offline cache active" : "Preparing offline cache"}</span></div>
+                                <div className="settings-mini-card"><strong>Local Data</strong><span style={{ color: "var(--t1)", fontWeight: 600 }}>Stored securely on this device for offline use.</span></div>
                             </div>
                             <div className="action-row" style={{ marginTop: 8 }}>
                                 {!installed && <button className="bp" onClick={() => void promptInstall()}><Download size={16} /> Install App</button>}
                                 <button className="bg" onClick={() => notify(isIosInstall ? "iPhone: Safari -> Share -> Add to Home Screen." : "For best install and file-sharing support, open the app from an HTTPS deployment.", "warning")}><Smartphone size={16} /> Install Help</button>
                             </div>
-                        </SettingsSection>
-                        <SettingsSection
+                        </SettingsSection> : null}
+                        {activeSettingsSection === "app-status" ? <SettingsSection
                             title="Sync Status"
                             summary={`${ol ? "Online" : "Offline"} · ${syncStateLabel}`}
-                            open={settingsOpenSection === "sync-status"}
-                            onToggle={() => setSettingsOpenSection(current => current === "sync-status" ? "" : "sync-status")}
+                            open={true}
+                            onToggle={() => { }}
                         >
                             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(250px,1fr))", gap: 16 }}>
-                            <div className="gc"><h3 style={{ color: "var(--t1)", fontSize: 15, fontWeight: 600, marginBottom: 12 }}>Sync Status</h3>
+                            <div className="gc" style={settingsSoftPanelStyle}><h3 style={{ color: "var(--t1)", fontSize: 15, fontWeight: 600, marginBottom: 12 }}>Sync Status</h3>
                                 <div style={{ display: "grid", gap: 10 }}>
-                                    <div style={{ padding: 12, borderRadius: 12, background: "rgba(255,255,255,.03)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 4 }}>Connection</div><div style={{ color: ol ? "var(--ok)" : "var(--warn)", fontWeight: 600 }}>{ol ? "Online" : "Offline"} · {syncReady ? "Connected" : "Waiting for setup"}</div></div>
-                                    <div style={{ padding: 12, borderRadius: 12, background: "rgba(255,255,255,.03)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 4 }}>Sync State</div><div style={{ color: syncMeta.syncState === "error" ? "var(--err)" : syncMeta.syncState === "offline" ? "var(--warn)" : "var(--t2)", fontWeight: 600 }}>{syncStateLabel}{syncMeta.pendingSync ? " · pending changes" : ""}</div></div>
-                                    <div style={{ padding: 12, borderRadius: 12, background: "rgba(255,255,255,.03)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 4 }}>Last Status</div><div style={{ color: "var(--t2)", fontWeight: 600 }}>{sanitizeStatus(syncCfg.lastStatus)}</div></div>
-                                    <div style={{ padding: 12, borderRadius: 12, background: "rgba(255,255,255,.03)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 4 }}>Last Remote Update</div><div style={{ color: "var(--t2)", fontWeight: 600 }}>{syncMeta.lastRemoteSavedAt ? fmtDateTime(syncMeta.lastRemoteSavedAt) : "Never"}</div></div>
-                                    <div style={{ padding: 12, borderRadius: 12, background: "rgba(255,255,255,.03)" }}><div style={{ color: "var(--t3)", fontSize: 11, textTransform: "uppercase", marginBottom: 4 }}>Live Updates</div><div style={{ color: "var(--t2)", fontWeight: 600 }}>{syncCfg.autoSync ? "Watching for new changes" : "Paused on this device"}</div></div>
+                                    <div className="settings-mini-card"><strong>Connection</strong><span style={{ color: ol ? "var(--ok)" : "var(--warn)", fontWeight: 600 }}>{ol ? "Online" : "Offline"} · {syncReady ? "Connected" : "Waiting for setup"}</span></div>
+                                    <div className="settings-mini-card"><strong>Sync State</strong><span style={{ color: syncMeta.syncState === "error" ? "var(--err)" : syncMeta.syncState === "offline" ? "var(--warn)" : "var(--t2)", fontWeight: 600 }}>{syncStateLabel}{syncMeta.pendingSync ? " · pending changes" : ""}</span></div>
+                                    <div className="settings-mini-card"><strong>Last Status</strong><span style={{ color: "var(--t2)", fontWeight: 600 }}>{sanitizeStatus(syncCfg.lastStatus)}</span></div>
+                                    <div className="settings-mini-card"><strong>Last Remote Update</strong><span style={{ color: "var(--t2)", fontWeight: 600 }}>{syncMeta.lastRemoteSavedAt ? fmtDateTime(syncMeta.lastRemoteSavedAt) : "Never"}</span></div>
+                                    <div className="settings-mini-card"><strong>Live Updates</strong><span style={{ color: "var(--t2)", fontWeight: 600 }}>{syncCfg.autoSync ? "Watching for new changes" : "Paused on this device"}</span></div>
                                 </div>
                             </div>
 
                         </div>
-                        </SettingsSection>
+                        </SettingsSection> : null}
+                                </div>
+                            </div>
+                        </div>}
                     </div>}
 
                 </div>
@@ -4959,6 +6737,6 @@ export default function App() {
 
                 {scs && <IMEIS onScan={handleScan} onClose={() => setScs(false)} getCameraStream={getCameraStream} releaseCameraLater={releaseCameraLater} />}
                 {lb && <LB photos={lb.photos} si={lb.si} onClose={() => sLb(null)} />}
-            </div></>
+            </div></div></>
     );
 }

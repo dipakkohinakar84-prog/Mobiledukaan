@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "primary-container": "#1a237e",
+                    "secondary": "#0048d8",
+                    "on-error": "#ffffff",
+                    "tertiary-fixed-dim": "#88d982",
+                    "background": "#f7f9fc",
+                    "on-surface-variant": "#454652",
+                    "surface-container": "#eceef1",
+                    "inverse-surface": "#2d3133",
+                    "primary-fixed": "#e0e0ff",
+                    "on-primary-fixed": "#000767",
+                    "on-tertiary-fixed": "#002204",
+                    "on-tertiary": "#ffffff",
+                    "on-primary": "#ffffff",
+                    "surface-dim": "#d8dadd",
+                    "on-tertiary-container": "#5aa958",
+                    "error": "#ba1a1a",
+                    "primary-fixed-dim": "#bdc2ff",
+                    "inverse-primary": "#bdc2ff",
+                    "surface-container-lowest": "#ffffff",
+                    "on-surface": "#191c1e",
+                    "surface-container-high": "#e6e8eb",
+                    "tertiary": "#002103",
+                    "primary": "#000666",
+                    "outline-variant": "#c6c5d4",
+                    "error-container": "#ffdad6",
+                    "tertiary-container": "#003909",
+                    "secondary-container": "#2761fe",
+                    "on-secondary": "#ffffff",
+                    "surface-bright": "#f7f9fc",
+                    "on-tertiary-fixed-variant": "#005312",
+                    "inverse-on-surface": "#eff1f4",
+                    "on-secondary-container": "#f4f3ff",
+                    "tertiary-fixed": "#a3f69c",
+                    "surface-container-low": "#f2f4f7",
+                    "on-secondary-fixed": "#001550",
+                    "surface-tint": "#4c56af",
+                    "outline": "#767683",
+                    "surface-container-highest": "#e0e3e6",
+                    "secondary-fixed-dim": "#b6c4ff",
+                    "on-error-container": "#93000a",
+                    "surface": "#f7f9fc",
+                    "on-primary-fixed-variant": "#343d96",
+                    "surface-variant": "#e0e3e6",
+                    "secondary-fixed": "#dce1ff",
+                    "on-background": "#191c1e",
+                    "on-secondary-fixed-variant": "#003ab3"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "fontFamily": {
+                    "headline": ["Plus Jakarta Sans"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3 { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .tabular-nums { font-variant-numeric: tabular-nums; }#tab-overview:checked ~ .view-overview { display: block; }
+        #tab-transactions:checked ~ .view-transactions { display: block; }
+        #tab-overview:checked ~ .tabs-nav label[for="tab-overview"] {
+            border-bottom-color: var(--tw-primary);
+            color: #000666;
+            font-weight: 700;
+        }
+        #tab-transactions:checked ~ .tabs-nav label[for="tab-transactions"] {
+            border-bottom-color: var(--tw-primary);
+            color: #000666;
+            font-weight: 700;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-surface min-h-screen flex flex-col md:flex-row overflow-x-hidden">
+<aside class="hidden lg:flex flex-col h-screen w-72 border-r border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-950 p-4 gap-2 shrink-0 sticky top-0">
+<div class="flex items-center gap-3 px-2 mb-8">
+<div class="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container">
+<span class="material-symbols-outlined">sync</span>
+</div>
+<div>
+<h2 class="text-blue-900 dark:text-blue-100 font-black text-lg">PhoneDukaan Alpha</h2>
+<p class="text-xs text-slate-500">Admin Terminal v2.4.1</p>
+</div>
+</div>
+<nav class="flex flex-col gap-1">
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:translate-x-1 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-xl transition-all" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-medium">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:translate-x-1 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-xl transition-all" href="#">
+<span class="material-symbols-outlined">devices</span>
+<span class="font-medium">Inventory</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 bg-white dark:bg-slate-900 text-blue-700 dark:text-blue-400 shadow-sm font-bold border-r-4 border-blue-700 rounded-xl transition-all" href="#">
+<span class="material-symbols-outlined">receipt_long</span>
+<span class="font-medium">Sales Ledger</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:translate-x-1 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-xl transition-all" href="#">
+<span class="material-symbols-outlined">biotech</span>
+<span class="font-medium">Repair Lab</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:translate-x-1 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-xl transition-all" href="#">
+<span class="material-symbols-outlined">group</span>
+<span class="font-medium">Customer CRM</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:translate-x-1 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-xl transition-all" href="#">
+<span class="material-symbols-outlined">settings_applications</span>
+<span class="font-medium">System Settings</span>
+</a>
+</nav>
+</aside>
+<main class="flex-1 flex flex-col min-h-screen relative pb-32 lg:pb-24">
+<header class="bg-white/80 dark:bg-slate-950/80 backdrop-blur-md flex justify-between items-center px-4 h-16 w-full sticky top-0 z-40 border-b border-slate-100">
+<div class="flex items-center gap-4">
+<button class="lg:hidden text-blue-900 dark:text-blue-200 scale-95 active:opacity-80 transition-all">
+<span class="material-symbols-outlined">sync</span>
+</button>
+<h1 class="Plus Jakarta Sans headline-sm font-bold text-xl font-extrabold tracking-tight text-blue-900 dark:text-blue-100">PhoneDukaan</h1>
+</div>
+<div class="flex items-center gap-2">
+<button class="p-2 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 rounded-full transition-all text-blue-900 dark:text-blue-200">
+<span class="material-symbols-outlined">search</span>
+</button>
+<button class="p-2 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 rounded-full transition-all text-blue-900 dark:text-blue-200">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+</div>
+</header>
+<div class="p-4 md:p-8 max-w-7xl mx-auto w-full space-y-4">
+<div class="bg-surface-container-low rounded-2xl p-4 shadow-sm space-y-4">
+<div class="flex flex-col md:flex-row gap-3 items-start md:items-center">
+<div class="relative flex-1 w-full">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-lg">search</span>
+<input class="w-full bg-surface-container-lowest border-none rounded-xl pl-10 pr-4 py-3 text-sm focus:ring-2 focus:ring-primary shadow-sm placeholder:text-outline-variant" placeholder="Search Invoice #, IMEI, or Customer" type="text"/>
+</div>
+<div class="flex items-center gap-2 w-full md:w-auto">
+<div class="flex items-center bg-surface-container-lowest rounded-xl p-1 shadow-sm flex-1 md:flex-none">
+<button class="flex-1 px-4 py-2 text-xs font-bold rounded-lg bg-primary text-on-primary">All</button>
+<button class="flex-1 px-4 py-2 text-xs font-medium text-outline">GST</button>
+<button class="flex-1 px-4 py-2 text-xs font-medium text-outline">Non-GST</button>
+</div>
+<button class="bg-surface-container-lowest p-3 rounded-xl shadow-sm text-primary">
+<span class="material-symbols-outlined text-xl">calendar_today</span>
+</button>
+</div>
+</div>
+</div>
+<div class="relative">
+<input checked="" class="hidden" id="tab-overview" name="view-toggle" type="radio"/>
+<input class="hidden" id="tab-transactions" name="view-toggle" type="radio"/>
+<div class="tabs-nav flex border-b border-surface-container-high mb-6 sticky top-16 bg-background z-20">
+<label class="flex-1 py-4 text-center text-sm font-semibold text-outline border-b-2 border-transparent transition-all cursor-pointer" for="tab-overview">Overview</label>
+<label class="flex-1 py-4 text-center text-sm font-semibold text-outline border-b-2 border-transparent transition-all cursor-pointer" for="tab-transactions">Transactions</label>
+</div>
+<div class="view-overview hidden space-y-4">
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+<div class="bg-surface-container-lowest p-6 rounded-2xl relative overflow-hidden shadow-sm border border-slate-100">
+<div class="relative z-10">
+<p class="text-[10px] text-outline font-bold uppercase tracking-wider mb-1">Period Sales</p>
+<h3 class="text-3xl font-extrabold text-on-surface tabular-nums">₹ 4,82,390</h3>
+<p class="text-tertiary-container text-xs mt-2 font-semibold flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">trending_up</span> 12% vs last month
+                            </p>
+</div>
+<div class="absolute -right-4 -bottom-4 opacity-5">
+<span class="material-symbols-outlined text-8xl">receipt_long</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-6 rounded-2xl relative overflow-hidden shadow-sm border border-slate-100">
+<div class="relative z-10">
+<p class="text-[10px] text-outline font-bold uppercase tracking-wider mb-1">Amount Due</p>
+<h3 class="text-3xl font-extrabold text-error tabular-nums">₹ 24,500</h3>
+<p class="text-outline text-xs mt-2 font-medium">From 3 pending invoices</p>
+</div>
+<div class="absolute -right-4 -bottom-4 opacity-5 text-error">
+<span class="material-symbols-outlined text-8xl">pending_actions</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-6 rounded-2xl relative overflow-hidden shadow-sm border border-slate-100">
+<div class="relative z-10">
+<p class="text-[10px] text-outline font-bold uppercase tracking-wider mb-1">GST Collected</p>
+<h3 class="text-3xl font-extrabold text-secondary tabular-nums">₹ 86,210</h3>
+<p class="text-outline text-xs mt-2 font-medium">Current Taxable Period</p>
+</div>
+<div class="absolute -right-4 -bottom-4 opacity-5 text-secondary">
+<span class="material-symbols-outlined text-8xl">account_balance</span>
+</div>
+</div>
+</div>
+<div class="bg-primary/5 rounded-2xl p-6 border border-primary/10">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 bg-primary rounded-xl flex items-center justify-center text-on-primary">
+<span class="material-symbols-outlined">analytics</span>
+</div>
+<div>
+<h4 class="font-bold text-primary">Performance Summary</h4>
+<p class="text-sm text-outline">You have processed 12% more invoices this week compared to the average of previous weeks.</p>
+</div>
+</div>
+</div>
+</div>
+<div class="view-transactions hidden space-y-4">
+<div class="flex items-center justify-between px-2">
+<h2 class="text-lg font-bold text-primary">Sales Ledger</h2>
+<span class="text-xs font-medium text-outline">48 Invoices</span>
+</div>
+<div class="grid grid-cols-1 gap-3">
+<div class="bg-surface-container-lowest p-4 rounded-2xl shadow-sm border border-slate-100 border-l-4 border-l-tertiary-fixed-dim">
+<div class="flex flex-col gap-3">
+<div class="flex justify-between items-start">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 bg-surface-container-low rounded-xl flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-xl">smartphone</span>
+</div>
+<div>
+<h4 class="font-bold text-sm">INV-2024-0892</h4>
+<p class="text-[10px] text-outline">24 Oct, 2023 • IMEI: 35890211...</p>
+</div>
+</div>
+<span class="bg-tertiary-fixed text-on-tertiary-fixed px-2 py-0.5 rounded-full text-[9px] font-bold uppercase">Paid</span>
+</div>
+<div class="flex justify-between items-center bg-slate-50 p-2 rounded-lg">
+<div>
+<p class="text-[10px] text-outline uppercase font-semibold">Customer</p>
+<p class="text-xs font-bold text-on-surface">Aditya Sharma</p>
+</div>
+<div class="text-right">
+<p class="text-[10px] text-outline uppercase font-semibold">Amount</p>
+<p class="text-sm font-black text-on-surface">₹ 54,999</p>
+</div>
+</div>
+<div class="flex items-center justify-end gap-2">
+<button class="p-2 text-outline bg-white rounded-lg shadow-sm border border-slate-100">
+<span class="material-symbols-outlined text-lg">share</span>
+</button>
+<button class="p-2 text-outline bg-white rounded-lg shadow-sm border border-slate-100">
+<span class="material-symbols-outlined text-lg">download</span>
+</button>
+</div>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-4 rounded-2xl shadow-sm border border-slate-100 border-l-4 border-l-error">
+<div class="flex flex-col gap-3">
+<div class="flex justify-between items-start">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 bg-surface-container-low rounded-xl flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-xl">watch</span>
+</div>
+<div>
+<h4 class="font-bold text-sm">INV-2024-0891</h4>
+<p class="text-[10px] text-outline">24 Oct, 2023 • SN: APW9920...</p>
+</div>
+</div>
+<span class="bg-error-container text-on-error-container px-2 py-0.5 rounded-full text-[9px] font-bold uppercase">Due</span>
+</div>
+<div class="flex justify-between items-center bg-slate-50 p-2 rounded-lg">
+<div>
+<p class="text-[10px] text-outline uppercase font-semibold">Customer</p>
+<p class="text-xs font-bold text-on-surface">Rajesh Khanna</p>
+</div>
+<div class="text-right">
+<p class="text-[10px] text-outline uppercase font-semibold">Amount</p>
+<p class="text-sm font-black text-on-surface">₹ 21,500</p>
+</div>
+</div>
+<div class="flex items-center justify-end gap-2">
+<button class="p-2 text-outline bg-white rounded-lg shadow-sm border border-slate-100">
+<span class="material-symbols-outlined text-lg">share</span>
+</button>
+<button class="p-2 text-outline bg-white rounded-lg shadow-sm border border-slate-100">
+<span class="material-symbols-outlined text-lg">download</span>
+</button>
+</div>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-4 rounded-2xl shadow-sm border border-slate-100 border-l-4 border-l-tertiary-fixed-dim">
+<div class="flex flex-col gap-3">
+<div class="flex justify-between items-start">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 bg-surface-container-low rounded-xl flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-xl">headphones</span>
+</div>
+<div>
+<h4 class="font-bold text-sm">INV-2024-0890</h4>
+<p class="text-[10px] text-outline">23 Oct, 2023 • AirPods Pro 2</p>
+</div>
+</div>
+<span class="bg-tertiary-fixed text-on-tertiary-fixed px-2 py-0.5 rounded-full text-[9px] font-bold uppercase">Paid</span>
+</div>
+<div class="flex justify-between items-center bg-slate-50 p-2 rounded-lg">
+<div>
+<p class="text-[10px] text-outline uppercase font-semibold">Customer</p>
+<p class="text-xs font-bold text-on-surface">Priya Verma</p>
+</div>
+<div class="text-right">
+<p class="text-[10px] text-outline uppercase font-semibold">Amount</p>
+<p class="text-sm font-black text-on-surface">₹ 18,900</p>
+</div>
+</div>
+<div class="flex items-center justify-end gap-2">
+<button class="p-2 text-outline bg-white rounded-lg shadow-sm border border-slate-100">
+<span class="material-symbols-outlined text-lg">share</span>
+</button>
+<button class="p-2 text-outline bg-white rounded-lg shadow-sm border border-slate-100">
+<span class="material-symbols-outlined text-lg">download</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<button class="fixed bottom-24 right-6 w-14 h-14 bg-primary text-on-primary rounded-full shadow-2xl flex items-center justify-center z-40 active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-3xl">add</span>
+</button>
+</div>
+</div>
+</div>
+<footer class="fixed bottom-16 lg:bottom-0 left-0 lg:left-72 right-0 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl shadow-[0_-4px_12px_0_rgba(0,0,0,0.05)] px-4 py-3 flex items-center justify-between z-30 border-t border-slate-100">
+<div class="flex items-center gap-4">
+<div>
+<p class="text-[8px] uppercase font-bold tracking-widest text-outline">Period Sales</p>
+<p class="text-sm font-extrabold text-on-surface tabular-nums">₹ 4.8L</p>
+</div>
+<div class="h-6 w-px bg-outline-variant/30"></div>
+<div>
+<p class="text-[8px] uppercase font-bold tracking-widest text-error">Outstanding</p>
+<p class="text-sm font-extrabold text-error tabular-nums">₹ 24.5K</p>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<button class="flex items-center justify-center w-10 h-10 bg-slate-100 rounded-xl text-primary">
+<span class="material-symbols-outlined text-lg">file_export</span>
+</button>
+<button class="flex items-center gap-2 bg-primary text-on-primary px-4 py-2 rounded-xl text-xs font-bold shadow-lg shadow-primary/20">
+<span class="material-symbols-outlined text-sm">picture_as_pdf</span> Report
+            </button>
+</div>
+</footer>
+<nav class="md:hidden fixed bottom-0 left-0 w-full flex justify-around items-center pt-2 pb-5 px-2 bg-white border-t border-slate-100 z-50">
+<button class="flex flex-col items-center justify-center text-slate-400">
+<span class="material-symbols-outlined">inventory_2</span>
+<span class="text-[10px] font-medium">Inventory</span>
+</button>
+<button class="flex flex-col items-center justify-center text-primary">
+<span class="material-symbols-outlined">payments</span>
+<span class="text-[10px] font-bold">Sales</span>
+</button>
+<button class="flex flex-col items-center justify-center -mt-10">
+<div class="w-16 h-16 bg-gradient-to-tr from-secondary to-secondary-container rounded-full flex items-center justify-center text-white shadow-xl border-4 border-white">
+<span class="material-symbols-outlined text-3xl">barcode_scanner</span>
+</div>
+</button>
+<button class="flex flex-col items-center justify-center text-slate-400">
+<span class="material-symbols-outlined">build</span>
+<span class="text-[10px] font-medium">Repairs</span>
+</button>
+<button class="flex flex-col items-center justify-center text-slate-400">
+<span class="material-symbols-outlined">settings</span>
+<span class="text-[10px] font-medium">Admin</span>
+</button>
+</nav>
+</main>
+
+</body></html>

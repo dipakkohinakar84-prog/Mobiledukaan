@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>PhoneDukaan - Repair Lab</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
+        }
+        .tabular-nums {
+            font-variant-numeric: tabular-nums;
+        }
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+        .scrollbar-hide {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        .status-badge {
+            @apply px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider rounded-full border;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "primary-container": "#1a237e",
+                        "secondary": "#0048d8",
+                        "on-error": "#ffffff",
+                        "tertiary-fixed-dim": "#88d982",
+                        "background": "#f8fafc",
+                        "on-surface-variant": "#64748b",
+                        "on-primary-container": "#8690ee",
+                        "surface-container": "#f1f5f9",
+                        "inverse-surface": "#0f172a",
+                        "primary-fixed": "#e0e0ff",
+                        "on-primary-fixed": "#000767",
+                        "on-tertiary-fixed": "#002204",
+                        "on-tertiary": "#ffffff",
+                        "on-primary": "#ffffff",
+                        "surface-dim": "#cbd5e1",
+                        "on-tertiary-container": "#15803d",
+                        "error": "#ef4444",
+                        "primary-fixed-dim": "#bdc2ff",
+                        "inverse-primary": "#bdc2ff",
+                        "surface-container-lowest": "#ffffff",
+                        "on-surface": "#0f172a",
+                        "surface-container-high": "#e2e8f0",
+                        "tertiary": "#166534",
+                        "primary": "#1e293b",
+                        "outline-variant": "#e2e8f0",
+                        "error-container": "#fef2f2",
+                        "tertiary-container": "#f0fdf4",
+                        "secondary-container": "#2761fe",
+                        "on-secondary": "#ffffff",
+                        "surface-bright": "#f8fafc",
+                        "on-tertiary-fixed-variant": "#14532d",
+                        "inverse-on-surface": "#f8fafc",
+                        "on-secondary-container": "#f4f3ff",
+                        "tertiary-fixed": "#dcfce7",
+                        "surface-container-low": "#f8fafc",
+                        "on-secondary-fixed": "#001550",
+                        "surface-tint": "#1e293b",
+                        "outline": "#94a3b8",
+                        "surface-container-highest": "#f1f5f9",
+                        "secondary-fixed-dim": "#b6c4ff",
+                        "on-error-container": "#991b1b",
+                        "surface": "#f8fafc",
+                        "on-primary-fixed-variant": "#343d96",
+                        "surface-variant": "#f1f5f9",
+                        "secondary-fixed": "#dce1ff",
+                        "on-background": "#0f172a",
+                        "on-secondary-fixed-variant": "#003ab3"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.375rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "2xl": "1rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Plus Jakarta Sans"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            min-height: max(884px, 100dvh);
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body selection:bg-primary-fixed-dim overflow-hidden h-screen flex">
+<aside class="hidden lg:flex flex-col h-full p-6 gap-2 bg-white w-72 border-r border-slate-200">
+<div class="flex flex-col gap-1 mb-10 px-2">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
+<span class="material-symbols-outlined text-white">sync</span>
+</div>
+<div>
+<h1 class="text-primary font-black text-xl tracking-tight">PhoneDukaan</h1>
+<p class="text-[10px] text-outline font-bold tracking-widest uppercase">Repair Lab</p>
+</div>
+</div>
+</div>
+<nav class="space-y-1">
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-slate-50 rounded-xl transition-all" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-headline font-semibold">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 bg-slate-100 text-primary shadow-sm font-bold rounded-xl" href="#">
+<span class="material-symbols-outlined">biotech</span>
+<span class="font-headline font-semibold">Repair Lab</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-slate-50 rounded-xl transition-all" href="#">
+<span class="material-symbols-outlined">devices</span>
+<span class="font-headline font-semibold">Inventory</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-slate-50 rounded-xl transition-all" href="#">
+<span class="material-symbols-outlined">receipt_long</span>
+<span class="font-headline font-semibold">Sales Ledger</span>
+</a>
+</nav>
+<div class="mt-auto p-4 bg-slate-50 rounded-2xl border border-slate-100">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center overflow-hidden border-2 border-white shadow-sm">
+<img alt="Store Manager" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAaObGE0UzMqyf7Ti-306Qmeah_tIf6voftDBOWoENYqRaPk6d6NmhjzHoed0e7hYcTWAt2wTFc3moeMVy8XYx99mnu4d2KPJ5z49tghxQNHHizpvM8Q1oE0thAiobjZ6ml-TQeCt42G6Tbd0clK-lxyTaIOXQejjqO2s95P8wn6NXVXe3l3Cbbcubk2SIKu90-JTrE1vFsWc9ZnjsAKir7crwuTL4ROCZn8sOdafZAd4lIdDhCGy2L5Bey8NaK-U1sYNkNdXAK0fQ"/>
+</div>
+<div class="flex flex-col">
+<span class="text-sm font-bold text-primary">Admin Terminal</span>
+<span class="text-[10px] text-outline tabular-nums">v2.4.1</span>
+</div>
+</div>
+</div>
+</aside>
+<main class="flex-1 flex flex-col h-screen overflow-hidden">
+<header class="bg-white flex justify-between items-center px-6 h-16 w-full z-40 shrink-0 border-b border-slate-100">
+<div class="flex items-center gap-4">
+<button class="lg:hidden p-1 text-primary">
+<span class="material-symbols-outlined text-2xl">menu</span>
+</button>
+<h2 class="font-headline text-xl font-bold tracking-tight text-primary">Repair Lab</h2>
+</div>
+<div class="flex items-center gap-4">
+<button class="w-9 h-9 flex items-center justify-center rounded-full bg-slate-50 text-primary border border-slate-100">
+<span class="material-symbols-outlined text-[20px]">search</span>
+</button>
+<button class="w-9 h-9 flex items-center justify-center rounded-full bg-slate-50 text-primary border border-slate-100 relative">
+<span class="material-symbols-outlined text-[20px]">notifications</span>
+<span class="absolute top-2.5 right-2.5 w-1.5 h-1.5 bg-error rounded-full"></span>
+</button>
+</div>
+</header>
+<section class="bg-white px-6 py-4 flex gap-4 overflow-x-auto scrollbar-hide snap-x shrink-0 border-b border-slate-100">
+<div class="flex-none w-40 snap-start bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-col justify-between">
+<span class="text-[10px] font-bold text-outline uppercase tracking-wider">Open Jobs</span>
+<div class="flex items-end justify-between mt-2">
+<h3 class="text-2xl font-headline font-extrabold tabular-nums leading-none text-primary">24</h3>
+<span class="text-[10px] text-on-tertiary-container bg-tertiary-fixed px-1.5 py-0.5 rounded-md font-bold">+3</span>
+</div>
+</div>
+<div class="flex-none w-40 snap-start bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-col justify-between">
+<span class="text-[10px] font-bold text-outline uppercase tracking-wider">Ready Delivery</span>
+<div class="flex items-end justify-between mt-2">
+<h3 class="text-2xl font-headline font-extrabold tabular-nums leading-none text-on-tertiary-container">12</h3>
+<span class="text-[10px] text-outline">Pickup</span>
+</div>
+</div>
+<div class="flex-none w-40 snap-start bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-col justify-between">
+<span class="text-[10px] font-bold text-outline uppercase tracking-wider">Parts Pending</span>
+<div class="flex items-end justify-between mt-2">
+<h3 class="text-2xl font-headline font-extrabold tabular-nums leading-none text-error">07</h3>
+<span class="text-[10px] bg-error-container text-error px-1.5 py-0.5 rounded-md font-bold uppercase">Urgent</span>
+</div>
+</div>
+</section>
+<section class="px-6 py-5 bg-white flex items-center justify-between gap-3 shrink-0">
+<button class="bg-primary text-white px-5 py-2.5 rounded-full font-bold text-xs flex items-center gap-2 shadow-sm hover:bg-slate-800 transition-colors">
+<span class="material-symbols-outlined text-sm">add</span>
+                New Repair Order
+            </button>
+<div class="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100">
+<span class="text-[10px] font-bold text-outline uppercase">Sort By:</span>
+<select class="bg-transparent border-none text-[11px] font-bold p-0 focus:ring-0 text-primary cursor-pointer">
+<option>Latest</option>
+<option>Price</option>
+</select>
+</div>
+</section>
+<div class="flex-1 overflow-y-auto px-6 pb-28 lg:pb-8 space-y-3 pt-2">
+<!-- Card 1 -->
+<div class="bg-white rounded-2xl p-4 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] border border-slate-100 flex flex-col gap-4">
+<div class="flex items-start justify-between">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center border border-slate-100">
+<span class="material-symbols-outlined text-primary text-xl">smartphone</span>
+</div>
+<div>
+<h4 class="font-bold text-[15px] text-primary">iPhone 14 Pro Max</h4>
+<p class="text-[11px] text-outline font-medium">#RD-9821</p>
+</div>
+</div>
+<span class="status-badge bg-orange-50 text-orange-600 border-orange-100">In Progress</span>
+</div>
+<div class="flex items-end justify-between pt-2 border-t border-slate-50">
+<div class="space-y-0.5">
+<p class="text-[13px] font-bold text-primary">Rahul Malhotra</p>
+<p class="text-[11px] text-outline tabular-nums">+91 98765 43210</p>
+</div>
+<div class="flex items-center gap-4">
+<div class="text-right">
+<p class="text-[10px] text-outline font-bold uppercase tracking-tight">Estimate</p>
+<p class="font-headline font-extrabold text-[15px] tabular-nums text-primary">₹14,500</p>
+</div>
+<button class="w-9 h-9 flex items-center justify-center bg-[#25D366]/10 text-[#25D366] rounded-xl border border-[#25D366]/20">
+<span class="material-symbols-outlined text-xl" style="font-variation-settings: 'FILL' 1;">chat</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="bg-white rounded-2xl p-4 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] border border-slate-100 flex flex-col gap-4">
+<div class="flex items-start justify-between">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center border border-slate-100">
+<span class="material-symbols-outlined text-primary text-xl">laptop_mac</span>
+</div>
+<div>
+<h4 class="font-bold text-[15px] text-primary">MacBook Air M2</h4>
+<p class="text-[11px] text-outline font-medium">#RD-9844</p>
+</div>
+</div>
+<span class="status-badge bg-green-50 text-green-700 border-green-100">Ready</span>
+</div>
+<div class="flex items-end justify-between pt-2 border-t border-slate-50">
+<div class="space-y-0.5">
+<p class="text-[13px] font-bold text-primary">Sarah Williams</p>
+<p class="text-[11px] text-outline tabular-nums">+91 77654 32109</p>
+</div>
+<div class="flex items-center gap-4">
+<div class="text-right">
+<p class="text-[10px] text-outline font-bold uppercase tracking-tight">Estimate</p>
+<p class="font-headline font-extrabold text-[15px] tabular-nums text-primary">₹42,000</p>
+</div>
+<button class="w-9 h-9 flex items-center justify-center bg-[#25D366]/10 text-[#25D366] rounded-xl border border-[#25D366]/20">
+<span class="material-symbols-outlined text-xl" style="font-variation-settings: 'FILL' 1;">chat</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Card 3 -->
+<div class="bg-white rounded-2xl p-4 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] border border-slate-100 flex flex-col gap-4">
+<div class="flex items-start justify-between">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center border border-slate-100">
+<span class="material-symbols-outlined text-primary text-xl">tablet_android</span>
+</div>
+<div>
+<h4 class="font-bold text-[15px] text-primary">Samsung Tab S8</h4>
+<p class="text-[11px] text-outline font-medium">#RD-9901</p>
+</div>
+</div>
+<span class="status-badge bg-red-50 text-red-600 border-red-100">Parts Pending</span>
+</div>
+<div class="flex items-end justify-between pt-2 border-t border-slate-50">
+<div class="space-y-0.5">
+<p class="text-[13px] font-bold text-primary">Priya Sharma</p>
+<p class="text-error font-bold text-[10px] flex items-center gap-1"><span class="material-symbols-outlined text-[12px]">warning</span> LCD Module OOS</p>
+</div>
+<div class="flex items-center gap-4">
+<div class="text-right">
+<p class="text-[10px] text-outline font-bold uppercase tracking-tight">Estimate</p>
+<p class="font-headline font-extrabold text-[15px] tabular-nums text-primary">₹8,900</p>
+</div>
+<button class="w-9 h-9 flex items-center justify-center bg-[#25D366]/10 text-[#25D366] rounded-xl border border-[#25D366]/20">
+<span class="material-symbols-outlined text-xl" style="font-variation-settings: 'FILL' 1;">chat</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Card 4 -->
+<div class="bg-white rounded-2xl p-4 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] border border-slate-100 flex flex-col gap-4">
+<div class="flex items-start justify-between">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center border border-slate-100">
+<span class="material-symbols-outlined text-primary text-xl">watch</span>
+</div>
+<div>
+<h4 class="font-bold text-[15px] text-primary">Apple Watch S7</h4>
+<p class="text-[11px] text-outline font-medium">#RD-9905</p>
+</div>
+</div>
+<span class="status-badge bg-orange-50 text-orange-600 border-orange-100">In Progress</span>
+</div>
+<div class="flex items-end justify-between pt-2 border-t border-slate-50">
+<div class="space-y-0.5">
+<p class="text-[13px] font-bold text-primary">Amit Verma</p>
+<p class="text-[11px] text-outline tabular-nums">+91 88776 65544</p>
+</div>
+<div class="flex items-center gap-4">
+<div class="text-right">
+<p class="text-[10px] text-outline font-bold uppercase tracking-tight">Estimate</p>
+<p class="font-headline font-extrabold text-[15px] tabular-nums text-primary">₹5,200</p>
+</div>
+<button class="w-9 h-9 flex items-center justify-center bg-[#25D366]/10 text-[#25D366] rounded-xl border border-[#25D366]/20">
+<span class="material-symbols-outlined text-xl" style="font-variation-settings: 'FILL' 1;">chat</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<nav class="md:hidden fixed bottom-0 left-0 w-full flex justify-around items-center pt-3 pb-8 px-2 bg-white/90 backdrop-blur-xl z-50 border-t border-slate-100 shadow-[0_-8px_20px_0_rgba(0,0,0,0.03)]">
+<a class="flex flex-col items-center justify-center text-outline hover:text-primary transition-colors group" href="#">
+<span class="material-symbols-outlined text-[22px]">inventory_2</span>
+<span class="text-[9px] font-bold uppercase mt-1">Stock</span>
+</a>
+<a class="flex flex-col items-center justify-center text-outline hover:text-primary transition-colors group" href="#">
+<span class="material-symbols-outlined text-[22px]">payments</span>
+<span class="text-[9px] font-bold uppercase mt-1">Sales</span>
+</a>
+<div class="relative -top-6">
+<button class="w-14 h-14 bg-primary text-white rounded-2xl flex items-center justify-center shadow-lg shadow-primary/20 active:scale-95 transition-all">
+<span class="material-symbols-outlined text-2xl">qr_code_scanner</span>
+</button>
+</div>
+<a class="flex flex-col items-center justify-center text-primary" href="#">
+<span class="material-symbols-outlined text-[22px]" style="font-variation-settings: 'FILL' 1;">build</span>
+<span class="text-[9px] font-bold uppercase mt-1">Repairs</span>
+</a>
+<a class="flex flex-col items-center justify-center text-outline hover:text-primary transition-colors group" href="#">
+<span class="material-symbols-outlined text-[22px]">account_circle</span>
+<span class="text-[9px] font-bold uppercase mt-1">Admin</span>
+</a>
+</nav>
+</main>
+</body></html>

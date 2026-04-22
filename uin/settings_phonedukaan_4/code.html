@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Settings Hub | PhoneDukaan</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "primary-container": "#1a237e",
+                    "secondary": "#0048d8",
+                    "on-error": "#ffffff",
+                    "tertiary-fixed-dim": "#88d982",
+                    "background": "#f7f9fc",
+                    "on-surface-variant": "#454652",
+                    "on-primary-container": "#8690ee",
+                    "surface-container": "#eceef1",
+                    "inverse-surface": "#2d3133",
+                    "primary-fixed": "#e0e0ff",
+                    "on-primary-fixed": "#000767",
+                    "on-tertiary-fixed": "#002204",
+                    "on-tertiary": "#ffffff",
+                    "on-primary": "#ffffff",
+                    "surface-dim": "#d8dadd",
+                    "on-tertiary-container": "#5aa958",
+                    "error": "#ba1a1a",
+                    "primary-fixed-dim": "#bdc2ff",
+                    "inverse-primary": "#bdc2ff",
+                    "surface-container-lowest": "#ffffff",
+                    "on-surface": "#191c1e",
+                    "surface-container-high": "#e6e8eb",
+                    "tertiary": "#002103",
+                    "primary": "#000666",
+                    "outline-variant": "#c6c5d4",
+                    "error-container": "#ffdad6",
+                    "tertiary-container": "#003909",
+                    "secondary-container": "#2761fe",
+                    "on-secondary": "#ffffff",
+                    "surface-bright": "#f7f9fc",
+                    "on-tertiary-fixed-variant": "#005312",
+                    "inverse-on-surface": "#eff1f4",
+                    "on-secondary-container": "#f4f3ff",
+                    "tertiary-fixed": "#a3f69c",
+                    "surface-container-low": "#f2f4f7",
+                    "on-secondary-fixed": "#001550",
+                    "surface-tint": "#4c56af",
+                    "outline": "#767683",
+                    "surface-container-highest": "#e0e3e6",
+                    "secondary-fixed-dim": "#b6c4ff",
+                    "on-error-container": "#93000a",
+                    "surface": "#f7f9fc",
+                    "on-primary-fixed-variant": "#343d96",
+                    "surface-variant": "#e0e3e6",
+                    "secondary-fixed": "#dce1ff",
+                    "on-background": "#191c1e",
+                    "on-secondary-fixed-variant": "#003ab3"
+            },
+            "borderRadius": {
+                    "DEFAULT": "1rem",
+                    "lg": "1.25rem",
+                    "xl": "1.5rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Plus Jakarta Sans"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .tabular-nums {
+            font-variant-numeric: tabular-nums;
+        }::-webkit-scrollbar {
+            display: none;
+        }
+        body {
+            overflow: hidden;-webkit-tap-highlight-color: transparent;
+        }.overlay {
+            position: fixed;
+            inset: 0;
+            background: white;
+            z-index: 100;
+            transform: translateY(100%);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .overlay:target {
+            transform: translateY(0);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface font-body text-on-surface">
+<div class="flex flex-col h-screen max-w-md mx-auto relative bg-white lg:max-w-none lg:flex-row">
+<aside class="hidden lg:flex flex-col h-screen w-72 border-r border-slate-200 bg-slate-100 p-4 gap-2 sticky top-0">
+<div class="flex flex-col gap-1 mb-8 p-2">
+<span class="text-blue-900 font-black text-2xl tracking-tighter">PhoneDukaan Hub</span>
+</div>
+<nav class="flex flex-col gap-1">
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 hover:bg-slate-200 rounded-xl" href="#"><span class="material-symbols-outlined">dashboard</span>Dashboard</a>
+<a class="flex items-center gap-3 px-4 py-3 bg-white text-blue-700 shadow-sm font-bold rounded-xl" href="#"><span class="material-symbols-outlined">settings</span>Settings Hub</a>
+</nav>
+</aside>
+<main class="flex-1 flex flex-col h-full bg-surface overflow-hidden">
+<header class="flex justify-between items-center px-6 h-16 w-full bg-white border-b border-surface-container">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary" data-icon="sync">sync</span>
+<h1 class="font-headline font-bold text-lg tracking-tight text-primary">Settings Hub</h1>
+</div>
+<div class="flex items-center gap-2">
+<div class="w-8 h-8 rounded-full bg-primary-fixed flex items-center justify-center text-[10px] font-bold">SM</div>
+</div>
+</header>
+<div class="p-6 flex-1 flex flex-col gap-6 overflow-hidden">
+<div class="flex flex-col">
+<h2 class="font-headline font-extrabold text-2xl text-primary">Business Terminal</h2>
+<p class="text-on-surface-variant text-sm font-medium">Quick access to all configurations</p>
+</div>
+<div class="grid grid-cols-2 gap-4 flex-1 content-start">
+<a class="bg-primary-fixed/30 p-6 rounded-xl flex flex-col justify-between aspect-square border border-primary/5 active:scale-95 transition-transform group" href="#overlay-profile">
+<div class="w-12 h-12 bg-white rounded-full shadow-sm flex items-center justify-center text-primary">
+<span class="material-symbols-outlined" data-icon="store">store</span>
+</div>
+<div>
+<h3 class="font-headline font-bold text-base text-primary">Shop Profile</h3>
+<p class="text-[11px] text-on-primary-fixed-variant font-medium mt-1">Name, GST, Address</p>
+</div>
+</a>
+<a class="bg-secondary-fixed/30 p-6 rounded-xl flex flex-col justify-between aspect-square border border-secondary/5 active:scale-95 transition-transform group" href="#overlay-invoice">
+<div class="w-12 h-12 bg-white rounded-full shadow-sm flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined" data-icon="description">description</span>
+</div>
+<div>
+<h3 class="font-headline font-bold text-base text-secondary">Invoicing</h3>
+<p class="text-[11px] text-on-secondary-fixed-variant font-medium mt-1">Prefix, Footer, Rules</p>
+</div>
+</a>
+<a class="bg-tertiary-fixed/30 p-6 rounded-xl flex flex-col justify-between aspect-square border border-tertiary/5 active:scale-95 transition-transform group" href="#overlay-status">
+<div class="w-12 h-12 bg-white rounded-full shadow-sm flex items-center justify-center text-tertiary-container">
+<span class="material-symbols-outlined" data-icon="cloud_done">cloud_done</span>
+</div>
+<div>
+<h3 class="font-headline font-bold text-base text-tertiary-container">App Status</h3>
+<p class="text-[11px] text-on-tertiary-fixed-variant font-medium mt-1 tabular-nums">Synced 2m ago</p>
+</div>
+</a>
+<a class="bg-surface-container-highest p-6 rounded-xl flex flex-col justify-between aspect-square border border-outline-variant/20 active:scale-95 transition-transform group" href="#overlay-mode">
+<div class="w-12 h-12 bg-white rounded-full shadow-sm flex items-center justify-center text-on-surface">
+<span class="material-symbols-outlined" data-icon="settings_suggest">settings_suggest</span>
+</div>
+<div>
+<h3 class="font-headline font-bold text-base text-on-surface">System Mode</h3>
+<p class="text-[11px] text-on-surface-variant font-medium mt-1">Retail / Repair Lab</p>
+</div>
+</a>
+</div>
+<div class="mt-auto bg-surface-container-low p-4 rounded-xl flex items-center justify-between border border-outline-variant/10">
+<div class="flex items-center gap-3">
+<span class="w-2 h-2 bg-tertiary-container rounded-full animate-pulse"></span>
+<span class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Terminal Online</span>
+</div>
+<span class="text-[10px] text-outline font-bold">v2.4.1 Alpha</span>
+</div>
+</div>
+<section class="overlay overflow-y-auto" id="overlay-profile">
+<div class="flex flex-col h-full">
+<header class="sticky top-0 bg-white px-4 h-16 flex items-center justify-between border-b z-20">
+<a class="p-2 -ml-2 text-primary flex items-center gap-1 font-bold" href="#">
+<span class="material-symbols-outlined">arrow_back_ios</span>
+<span>Back</span>
+</a>
+<button class="text-primary font-bold px-4 py-2 bg-primary-fixed rounded-full text-sm">Save</button>
+</header>
+<div class="p-6 space-y-6">
+<h2 class="text-2xl font-headline font-extrabold text-primary">Shop Profile</h2>
+<div class="space-y-4">
+<div class="space-y-2">
+<label class="text-xs font-bold uppercase tracking-wider text-outline">Business Name</label>
+<input class="w-full bg-surface-container-low border-none rounded-xl py-4 px-4 text-on-surface font-semibold focus:ring-2 focus:ring-primary" type="text" value="PhoneDukaan Alpha"/>
+</div>
+<div class="space-y-2">
+<label class="text-xs font-bold uppercase tracking-wider text-outline">GSTIN Number</label>
+<input class="w-full bg-surface-container-low border-none rounded-xl py-4 px-4 text-on-surface font-semibold tabular-nums focus:ring-2 focus:ring-primary" type="text" value="22AAAAA0000A1Z5"/>
+</div>
+<div class="space-y-2">
+<label class="text-xs font-bold uppercase tracking-wider text-outline">Business Address</label>
+<textarea class="w-full bg-surface-container-low border-none rounded-xl py-4 px-4 text-on-surface font-medium focus:ring-2 focus:ring-primary" rows="4">Suite 405, Tech Plaza, Commercial Street, Bangalore, KA - 560001</textarea>
+</div>
+</div>
+</div>
+</div>
+</section>
+<section class="overlay overflow-y-auto" id="overlay-invoice">
+<div class="flex flex-col h-full">
+<header class="sticky top-0 bg-white px-4 h-16 flex items-center justify-between border-b z-20">
+<a class="p-2 -ml-2 text-secondary flex items-center gap-1 font-bold" href="#">
+<span class="material-symbols-outlined">arrow_back_ios</span>
+<span>Back</span>
+</a>
+<button class="text-secondary font-bold px-4 py-2 bg-secondary-fixed rounded-full text-sm">Save</button>
+</header>
+<div class="p-6 space-y-6">
+<h2 class="text-2xl font-headline font-extrabold text-secondary">Invoicing</h2>
+<div class="grid grid-cols-2 gap-4">
+<div class="space-y-2">
+<label class="text-xs font-bold uppercase tracking-wider text-outline">Prefix</label>
+<input class="w-full bg-surface-container-low border-none rounded-xl py-4 px-4 text-on-surface font-semibold focus:ring-2 focus:ring-secondary" type="text" value="PD-2024"/>
+</div>
+<div class="space-y-2">
+<label class="text-xs font-bold uppercase tracking-wider text-outline">Start Seq</label>
+<input class="w-full bg-surface-container-low border-none rounded-xl py-4 px-4 text-on-surface font-semibold tabular-nums focus:ring-2 focus:ring-secondary" type="number" value="1001"/>
+</div>
+</div>
+<div class="space-y-2">
+<label class="text-xs font-bold uppercase tracking-wider text-outline">Footer Notes</label>
+<textarea class="w-full bg-surface-container-low border-none rounded-xl py-4 px-4 text-on-surface font-medium focus:ring-2 focus:ring-secondary" rows="8">1. Goods once sold will not be taken back.
+2. 18% Interest for late payment.
+3. Subject to local jurisdiction.
+Thank you for shopping!</textarea>
+</div>
+</div>
+</div>
+</section>
+<section class="overlay overflow-y-auto" id="overlay-status">
+<div class="flex flex-col h-full">
+<header class="sticky top-0 bg-white px-4 h-16 flex items-center border-b z-20">
+<a class="p-2 -ml-2 text-on-tertiary-container flex items-center gap-1 font-bold" href="#">
+<span class="material-symbols-outlined">arrow_back_ios</span>
+<span>Back</span>
+</a>
+</header>
+<div class="p-6 space-y-6">
+<h2 class="text-2xl font-headline font-extrabold text-tertiary-container">Terminal Status</h2>
+<div class="bg-tertiary-container p-6 rounded-xl text-white space-y-4">
+<div class="flex justify-between items-center pb-4 border-b border-white/20">
+<span class="text-sm opacity-80 font-bold uppercase tracking-widest">Cloud Sync</span>
+<span class="px-2 py-0.5 bg-tertiary-fixed text-on-tertiary-fixed rounded-full text-[10px] font-extrabold">ONLINE</span>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<div class="flex flex-col gap-1">
+<span class="text-[10px] opacity-70 uppercase font-bold">Last Sync</span>
+<span class="text-lg font-bold tabular-nums">2m ago</span>
+</div>
+<div class="flex flex-col gap-1">
+<span class="text-[10px] opacity-70 uppercase font-bold">Local Cache</span>
+<span class="text-lg font-bold tabular-nums">124 items</span>
+</div>
+</div>
+<button class="w-full py-3 bg-white/20 hover:bg-white/30 rounded-xl text-sm font-bold flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-sm" data-icon="sync">sync</span>
+                            FORCE RE-SYNC NOW
+                        </button>
+</div>
+<div class="p-4 bg-error-container/20 border border-error-container/30 rounded-xl space-y-3">
+<h4 class="font-bold text-on-error-container flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">warning</span>
+                            Maintenance Zone
+                        </h4>
+<p class="text-xs text-on-error-container/80">Clearing cache will force a logout and re-download of all store data. Use with caution.</p>
+<button class="w-full py-3 bg-error text-white font-bold rounded-xl text-sm">Initialize Terminal Reset</button>
+</div>
+</div>
+</div>
+</section>
+<section class="overlay overflow-y-auto" id="overlay-mode">
+<div class="flex flex-col h-full">
+<header class="sticky top-0 bg-white px-4 h-16 flex items-center border-b z-20">
+<a class="p-2 -ml-2 text-on-surface flex items-center gap-1 font-bold" href="#">
+<span class="material-symbols-outlined">arrow_back_ios</span>
+<span>Back</span>
+</a>
+</header>
+<div class="p-6 space-y-6">
+<h2 class="text-2xl font-headline font-extrabold text-on-surface">Business Mode</h2>
+<p class="text-sm text-on-surface-variant font-medium">Switching modes reconfigures the terminal interface for specific workflows.</p>
+<div class="space-y-4">
+<label class="flex items-center gap-4 p-5 bg-primary-fixed rounded-2xl border-2 border-primary cursor-pointer">
+<div class="w-12 h-12 bg-white rounded-full flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">shopping_bag</span>
+</div>
+<div class="flex flex-col">
+<span class="text-base font-bold text-primary">General Retail</span>
+<span class="text-xs text-on-primary-fixed-variant">Optimized for fast counter sales</span>
+</div>
+<span class="ml-auto material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</label>
+<label class="flex items-center gap-4 p-5 bg-surface-container-low rounded-2xl border-2 border-transparent hover:border-outline-variant/30 cursor-pointer">
+<div class="w-12 h-12 bg-white rounded-full flex items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined">build</span>
+</div>
+<div class="flex flex-col">
+<span class="text-base font-bold">Repair Pro</span>
+<span class="text-xs text-on-surface-variant">Service tracking and lab workflows</span>
+</div>
+</label>
+</div>
+</div>
+</div>
+</section>
+<nav class="lg:hidden fixed bottom-0 left-0 w-full flex justify-around items-center pt-2 pb-6 px-2 bg-white/90 backdrop-blur-xl z-50 border-t border-surface-container">
+<a class="flex flex-col items-center justify-center text-slate-400" href="#">
+<span class="material-symbols-outlined">inventory_2</span>
+<span class="text-[10px] font-medium mt-1">Inventory</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-400" href="#">
+<span class="material-symbols-outlined">payments</span>
+<span class="text-[10px] font-medium mt-1">Sales</span>
+</a>
+<div class="relative -top-4">
+<button class="w-14 h-14 bg-primary text-white rounded-full shadow-xl shadow-primary/20 flex items-center justify-center active:scale-90 transition-all">
+<span class="material-symbols-outlined text-2xl">barcode_scanner</span>
+</button>
+</div>
+<a class="flex flex-col items-center justify-center text-slate-400" href="#">
+<span class="material-symbols-outlined">build</span>
+<span class="text-[10px] font-medium mt-1">Repairs</span>
+</a>
+<a class="flex flex-col items-center justify-center text-primary bg-primary-fixed/50 rounded-2xl px-4 py-1" href="#">
+<span class="material-symbols-outlined">settings_applications</span>
+<span class="text-[10px] font-bold mt-1">Admin</span>
+</a>
+</nav>
+</main>
+</div>
+
+</body></html>

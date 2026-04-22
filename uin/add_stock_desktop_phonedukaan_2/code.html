@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Add Stock - The Retail Editorial</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "secondary-container": "#2761fe",
+                        "tertiary-fixed-dim": "#88d982",
+                        "error-container": "#ffdad6",
+                        "tertiary-fixed": "#a3f69c",
+                        "on-secondary": "#ffffff",
+                        "secondary-fixed": "#dce1ff",
+                        "tertiary-container": "#003909",
+                        "surface-container": "#eceef1",
+                        "on-secondary-fixed": "#001550",
+                        "error": "#ba1a1a",
+                        "primary-fixed-dim": "#bdc2ff",
+                        "on-error": "#ffffff",
+                        "surface-tint": "#4c56af",
+                        "on-surface-variant": "#454652",
+                        "surface-container-highest": "#e0e3e6",
+                        "on-primary-container": "#8690ee",
+                        "secondary-fixed-dim": "#b6c4ff",
+                        "primary-fixed": "#e0e0ff",
+                        "surface-container-low": "#f2f4f7",
+                        "on-secondary-fixed-variant": "#003ab3",
+                        "on-background": "#191c1e",
+                        "surface": "#f7f9fc",
+                        "surface-dim": "#d8dadd",
+                        "primary": "#000666",
+                        "outline-variant": "#c6c5d4",
+                        "surface-bright": "#f7f9fc",
+                        "on-tertiary-container": "#5aa958",
+                        "outline": "#767683",
+                        "on-tertiary-fixed-variant": "#005312",
+                        "on-error-container": "#93000a",
+                        "secondary": "#0048d8",
+                        "inverse-on-surface": "#eff1f4",
+                        "on-tertiary": "#ffffff",
+                        "on-primary-fixed": "#000767",
+                        "inverse-primary": "#bdc2ff",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-container-high": "#e6e8eb",
+                        "primary-container": "#1a237e",
+                        "surface-variant": "#e0e3e6",
+                        "on-secondary-container": "#f4f3ff",
+                        "on-primary-fixed-variant": "#343d96",
+                        "tertiary": "#002103",
+                        "on-surface": "#191c1e",
+                        "on-primary": "#ffffff",
+                        "background": "#f7f9fc",
+                        "on-tertiary-fixed": "#002204",
+                        "inverse-surface": "#2d3133"
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    fontFamily: {
+                        "headline": ["Plus Jakarta Sans", "sans-serif"],
+                        "body": ["Inter", "sans-serif"],
+                        "label": ["Inter", "sans-serif"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .material-symbols-outlined.fill {
+            font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface font-body antialiased min-h-screen flex">
+<!-- SideNavBar (Shared Component) -->
+<nav class="fixed left-0 top-0 h-screen w-72 flex flex-col bg-surface-dim shadow-none border-none z-40">
+<div class="h-full flex flex-col p-6">
+<!-- Brand -->
+<div class="mb-10 flex items-center gap-3">
+<div class="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-on-primary">
+<span class="material-symbols-outlined fill">inventory_2</span>
+</div>
+<div>
+<h1 class="text-xl font-extrabold tracking-tighter text-primary uppercase font-headline">The Editorial</h1>
+<p class="text-xs text-on-surface-variant font-medium">Inventory Hub</p>
+</div>
+</div>
+<!-- Navigation Links -->
+<div class="flex flex-col gap-2 flex-grow">
+<a class="flex items-center gap-4 px-4 py-3 rounded-xl text-on-surface-variant hover:bg-surface hover:text-primary transition-all duration-200" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-medium text-sm">Dashboard</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 rounded-xl text-primary font-bold bg-surface/50 border-r-4 border-primary transition-all duration-200" href="#">
+<span class="material-symbols-outlined fill">inventory_2</span>
+<span class="font-medium text-sm">Inventory</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 rounded-xl text-on-surface-variant hover:bg-surface hover:text-primary transition-all duration-200" href="#">
+<span class="material-symbols-outlined">payments</span>
+<span class="font-medium text-sm">Sales</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 rounded-xl text-on-surface-variant hover:bg-surface hover:text-primary transition-all duration-200" href="#">
+<span class="material-symbols-outlined">leaderboard</span>
+<span class="font-medium text-sm">Analytics</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 rounded-xl text-on-surface-variant hover:bg-surface hover:text-primary transition-all duration-200 mt-auto" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-medium text-sm">Settings</span>
+</a>
+</div>
+<!-- CTA -->
+<button class="mt-6 w-full py-3 px-4 bg-primary text-on-primary rounded-xl font-medium text-sm flex items-center justify-center gap-2 hover:bg-primary/90 transition-colors shadow-[0_8px_16px_-6px_rgba(0,6,102,0.3)]">
+<span class="material-symbols-outlined">qr_code_scanner</span>
+                Quick Scan
+            </button>
+</div>
+</nav>
+<!-- Main Content Area -->
+<main class="ml-72 flex-1 flex flex-col min-h-screen">
+<!-- TopAppBar (Shared Component) -->
+<header class="sticky top-0 z-30 w-full bg-surface border-b border-outline-variant/15 px-12 py-6 flex justify-between items-center transition-all backdrop-blur-md bg-surface/90">
+<div class="flex items-center gap-4">
+<h2 class="text-2xl font-black tracking-tight text-primary font-headline">Add Stock</h2>
+<div class="h-6 w-px bg-outline-variant/30"></div>
+<div class="flex gap-6">
+<button class="text-primary font-bold border-b-2 border-primary pb-1 text-sm">New Entry</button>
+<button class="text-on-surface-variant hover:text-primary transition-colors text-sm font-medium">Bulk Import</button>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<!-- Search -->
+<div class="relative focus-within:ring-2 focus-within:ring-primary-fixed-dim rounded-xl transition-all">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-sm">search</span>
+<input class="pl-10 pr-4 py-2 bg-surface-container-highest border-none rounded-xl text-sm w-64 focus:ring-0 text-on-surface placeholder-outline font-body" placeholder="Search IMEI or Model..." type="text"/>
+</div>
+<!-- Actions -->
+<button class="text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined">notifications_active</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined">help_outline</span>
+</button>
+<!-- Profile -->
+<img alt="Store Manager Avatar" class="w-10 h-10 rounded-full object-cover border-2 border-surface-container-highest" data-alt="professional headshot of a man with short hair and a neat beard, wearing a crisp blue collared shirt, well-lit studio lighting against a neutral grey background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC3ytyeh1FM6dn7NLb5sqgQ3y_SkRdk07bFYfsLpXamGjW0LEDalTE-q5TI5m52wCJ-vMOK7jAiUbSg0qIBsJedud6coXo1FFLRIU0iJggmIfJKrnI195m3dhd6PFcnNk7KfRavk6wUuV4ae3NF_WsjZar7FZtv7Ss1faGAf-x9JEbPalCv56bzy0RNrjIEIzyLaN032ogQC3Gj4_p7tEHpW6HcwH8QOZroQ8KtitSRbJx6vt10olyYGufbBAeSzF2JKmmfH2bARUc"/>
+</div>
+</header>
+<!-- Canvas -->
+<div class="p-12 overflow-y-auto flex-1">
+<div class="max-w-7xl mx-auto space-y-8">
+<!-- Photo Upload Bento Section -->
+<section class="bg-surface-container-low rounded-xl p-8">
+<div class="flex justify-between items-end mb-6">
+<div>
+<h3 class="text-lg font-bold font-headline text-on-surface">Device Imagery</h3>
+<p class="text-sm text-on-surface-variant mt-1">Upload high-quality images of the device condition and documentation.</p>
+</div>
+<button class="text-sm font-medium text-secondary hover:text-primary transition-colors flex items-center gap-1">
+<span class="material-symbols-outlined text-[18px]">cloud_upload</span> Bulk Upload
+                        </button>
+</div>
+<div class="grid grid-cols-3 gap-6">
+<!-- Front -->
+<div class="relative group cursor-pointer aspect-video bg-surface-container-lowest rounded-xl border border-outline-variant/15 flex flex-col items-center justify-center hover:bg-surface-container transition-colors overflow-hidden">
+<div class="text-outline group-hover:text-primary transition-colors mb-2">
+<span class="material-symbols-outlined text-3xl">smartphone</span>
+</div>
+<span class="text-sm font-medium text-on-surface-variant group-hover:text-primary transition-colors">Device Front</span>
+<span class="text-xs text-outline mt-1">Click or drag</span>
+</div>
+<!-- Back -->
+<div class="relative group cursor-pointer aspect-video bg-surface-container-lowest rounded-xl border border-outline-variant/15 flex flex-col items-center justify-center hover:bg-surface-container transition-colors overflow-hidden">
+<div class="text-outline group-hover:text-primary transition-colors mb-2">
+<span class="material-symbols-outlined text-3xl">cameraswitch</span>
+</div>
+<span class="text-sm font-medium text-on-surface-variant group-hover:text-primary transition-colors">Device Back</span>
+<span class="text-xs text-outline mt-1">Show camera housing</span>
+</div>
+<!-- Bill/Box -->
+<div class="relative group cursor-pointer aspect-video bg-surface-container-lowest rounded-xl border border-outline-variant/15 flex flex-col items-center justify-center hover:bg-surface-container transition-colors overflow-hidden">
+<div class="text-outline group-hover:text-primary transition-colors mb-2">
+<span class="material-symbols-outlined text-3xl">receipt_long</span>
+</div>
+<span class="text-sm font-medium text-on-surface-variant group-hover:text-primary transition-colors">Bill &amp; Accessories</span>
+<span class="text-xs text-outline mt-1">Original invoice</span>
+</div>
+</div>
+</section>
+<div class="grid grid-cols-12 gap-8">
+<!-- Left Column: Device Details -->
+<div class="col-span-7 space-y-8">
+<section class="bg-surface-container-lowest rounded-xl p-8 shadow-[0_12px_24px_-12px_rgba(25,28,30,0.04)] border border-outline-variant/10">
+<h3 class="text-lg font-bold font-headline text-on-surface border-b border-outline-variant/15 pb-4 mb-6">Device Specifications</h3>
+<div class="grid grid-cols-2 gap-6">
+<!-- Brand -->
+<div>
+<label class="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-2 font-label">Brand</label>
+<div class="relative">
+<select class="w-full bg-surface-variant border-none rounded-md py-3 pl-4 pr-10 text-sm text-on-surface font-medium focus:ring-0 focus:bg-primary-fixed focus:border-b-2 focus:border-primary transition-colors appearance-none cursor-pointer">
+<option>Apple</option>
+<option>Samsung</option>
+<option>Google</option>
+<option>OnePlus</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-outline pointer-events-none">expand_more</span>
+</div>
+</div>
+<!-- Model -->
+<div>
+<label class="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-2 font-label">Model</label>
+<input class="w-full bg-surface-variant border-none rounded-md py-3 px-4 text-sm text-on-surface font-medium focus:ring-0 focus:bg-primary-fixed focus:border-b-2 focus:border-primary transition-colors placeholder-outline" placeholder="e.g. iPhone 14 Pro Max" type="text"/>
+</div>
+<!-- Condition -->
+<div class="col-span-2">
+<label class="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-2 font-label">Condition Grade</label>
+<div class="flex gap-3">
+<label class="flex-1 cursor-pointer">
+<input checked="" class="peer sr-only" name="condition" type="radio"/>
+<div class="w-full py-2 px-4 rounded-md border border-outline-variant/30 text-center text-sm font-medium text-on-surface-variant peer-checked:bg-secondary-fixed peer-checked:text-on-secondary-fixed peer-checked:border-secondary transition-all">A (Flawless)</div>
+</label>
+<label class="flex-1 cursor-pointer">
+<input class="peer sr-only" name="condition" type="radio"/>
+<div class="w-full py-2 px-4 rounded-md border border-outline-variant/30 text-center text-sm font-medium text-on-surface-variant peer-checked:bg-secondary-fixed peer-checked:text-on-secondary-fixed peer-checked:border-secondary transition-all">B (Good)</div>
+</label>
+<label class="flex-1 cursor-pointer">
+<input class="peer sr-only" name="condition" type="radio"/>
+<div class="w-full py-2 px-4 rounded-md border border-outline-variant/30 text-center text-sm font-medium text-on-surface-variant peer-checked:bg-secondary-fixed peer-checked:text-on-secondary-fixed peer-checked:border-secondary transition-all">C (Fair)</div>
+</label>
+</div>
+</div>
+<!-- Storage & RAM -->
+<div>
+<label class="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-2 font-label">Storage</label>
+<div class="relative">
+<select class="w-full bg-surface-variant border-none rounded-md py-3 pl-4 pr-10 text-sm text-on-surface font-medium focus:ring-0 focus:bg-primary-fixed focus:border-b-2 focus:border-primary transition-colors appearance-none cursor-pointer">
+<option>128 GB</option>
+<option>256 GB</option>
+<option>512 GB</option>
+<option>1 TB</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-outline pointer-events-none">expand_more</span>
+</div>
+</div>
+<div>
+<label class="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-2 font-label">Color</label>
+<input class="w-full bg-surface-variant border-none rounded-md py-3 px-4 text-sm text-on-surface font-medium focus:ring-0 focus:bg-primary-fixed focus:border-b-2 focus:border-primary transition-colors placeholder-outline" placeholder="e.g. Deep Purple" type="text"/>
+</div>
+</div>
+</section>
+<!-- IMEI Section High Density -->
+<section class="bg-surface-container-lowest rounded-xl p-8 shadow-[0_12px_24px_-12px_rgba(25,28,30,0.04)] border border-outline-variant/10">
+<div class="flex justify-between items-center border-b border-outline-variant/15 pb-4 mb-6">
+<h3 class="text-lg font-bold font-headline text-on-surface">Identification</h3>
+<div class="group relative cursor-help">
+<span class="material-symbols-outlined text-outline hover:text-primary transition-colors text-sm">info</span>
+<div class="absolute bottom-full right-0 mb-2 w-48 p-2 bg-inverse-surface text-inverse-on-surface text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-lg">
+                                        Scan barcode directly or type manually. Dial *#06# on device to view IMEI.
+                                    </div>
+</div>
+</div>
+<div class="space-y-5">
+<!-- IMEI 1 -->
+<div>
+<label class="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-2 font-label">IMEI 1 (Primary)</label>
+<div class="relative flex items-center">
+<input class="w-full bg-surface-variant border-none rounded-md py-3 pl-4 pr-12 text-sm text-on-surface font-body tabular-nums tracking-widest focus:ring-0 focus:bg-primary-fixed focus:border-b-2 focus:border-primary transition-colors placeholder-outline/50" placeholder="Enter 15-digit IMEI" type="text"/>
+<button class="absolute right-2 p-1.5 rounded bg-surface-container hover:bg-secondary-fixed text-on-surface-variant hover:text-secondary transition-colors" title="Scan Barcode">
+<span class="material-symbols-outlined text-[20px]">barcode_scanner</span>
+</button>
+</div>
+</div>
+<!-- IMEI 2 -->
+<div>
+<label class="flex items-center justify-between text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-2 font-label">
+<span>IMEI 2 (Optional)</span>
+</label>
+<div class="relative flex items-center">
+<input class="w-full bg-surface-variant border-none rounded-md py-3 pl-4 pr-12 text-sm text-on-surface font-body tabular-nums tracking-widest focus:ring-0 focus:bg-primary-fixed focus:border-b-2 focus:border-primary transition-colors placeholder-outline/50" placeholder="Enter 15-digit IMEI" type="text"/>
+<button class="absolute right-2 p-1.5 rounded bg-surface-container hover:bg-secondary-fixed text-on-surface-variant hover:text-secondary transition-colors" title="Scan Barcode">
+<span class="material-symbols-outlined text-[20px]">barcode_scanner</span>
+</button>
+</div>
+</div>
+</div>
+</section>
+</div>
+<!-- Right Column: Pricing & Inventory -->
+<div class="col-span-5 space-y-8">
+<section class="bg-surface-container-low rounded-xl p-8 sticky top-32">
+<h3 class="text-lg font-bold font-headline text-on-surface border-b border-outline-variant/15 pb-4 mb-6">Financials</h3>
+<div class="space-y-6">
+<!-- Buy Price -->
+<div>
+<label class="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-2 font-label">Purchase Price</label>
+<div class="relative flex items-center">
+<span class="absolute left-4 text-outline font-medium text-sm">₹</span>
+<input class="w-full bg-surface-container-lowest border border-outline-variant/20 rounded-md py-4 pl-8 pr-4 text-xl text-on-surface font-body tabular-nums font-semibold focus:ring-0 focus:border-primary focus:bg-white transition-colors" placeholder="0.00" type="text"/>
+</div>
+</div>
+<!-- Sell Price -->
+<div>
+<label class="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-2 font-label">Target Selling Price</label>
+<div class="relative flex items-center">
+<span class="absolute left-4 text-outline font-medium text-sm">₹</span>
+<input class="w-full bg-surface-container-lowest border border-outline-variant/20 rounded-md py-4 pl-8 pr-4 text-xl text-on-surface font-body tabular-nums font-semibold focus:ring-0 focus:border-primary focus:bg-white transition-colors" placeholder="0.00" type="text"/>
+</div>
+</div>
+<!-- Margin Calculation (Auto) -->
+<div class="bg-tertiary-fixed/30 rounded-lg p-4 flex justify-between items-center border border-tertiary-fixed-dim/30">
+<div>
+<span class="block text-xs font-semibold text-on-tertiary-fixed-variant uppercase tracking-wider font-label">Projected Margin</span>
+<span class="text-sm text-tertiary font-medium mt-0.5 block">Est. Profit</span>
+</div>
+<div class="text-right">
+<span class="text-lg font-bold font-headline text-tertiary">-- %</span>
+<span class="block text-xs font-body tabular-nums text-on-tertiary-fixed-variant">₹ 0.00</span>
+</div>
+</div>
+<hr class="border-outline-variant/15 my-4"/>
+<!-- Supplier Details -->
+<div>
+<label class="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-2 font-label">Supplier / Source</label>
+<div class="relative">
+<select class="w-full bg-surface-container-lowest border border-outline-variant/20 rounded-md py-3 pl-4 pr-10 text-sm text-on-surface font-medium focus:ring-0 focus:border-primary transition-colors appearance-none cursor-pointer">
+<option>Select Supplier</option>
+<option>Walk-in Customer</option>
+<option>Wholesale Distributor A</option>
+<option>Trade-in Program</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-outline pointer-events-none">expand_more</span>
+</div>
+</div>
+<!-- Action Buttons -->
+<div class="pt-4 flex gap-4">
+<button class="flex-1 py-3 px-4 bg-surface text-on-surface font-medium text-sm rounded-xl border border-outline-variant/20 hover:bg-surface-container-highest transition-colors">
+                                        Save Draft
+                                    </button>
+<button class="flex-1 py-3 px-4 bg-primary text-on-primary font-bold text-sm rounded-xl hover:bg-primary/90 transition-colors shadow-[0_8px_16px_-6px_rgba(0,6,102,0.3)] flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-[18px]">add_circle</span>
+                                        Add to Inventory
+                                    </button>
+</div>
+</div>
+</section>
+</div>
+</div>
+</div>
+</div>
+</main>
+</body></html>

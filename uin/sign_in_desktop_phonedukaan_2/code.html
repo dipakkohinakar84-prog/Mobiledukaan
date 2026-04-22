@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>PhoneDukaan - Sign In</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-error-container": "#93000a",
+                        "secondary": "#0048d8",
+                        "surface-container-high": "#e6e8eb",
+                        "primary-fixed-dim": "#bdc2ff",
+                        "inverse-on-surface": "#eff1f4",
+                        "surface-container": "#eceef1",
+                        "outline-variant": "#c6c5d4",
+                        "tertiary": "#002103",
+                        "on-secondary": "#ffffff",
+                        "secondary-container": "#2761fe",
+                        "tertiary-fixed": "#a3f69c",
+                        "tertiary-fixed-dim": "#88d982",
+                        "on-tertiary-fixed-variant": "#005312",
+                        "primary-container": "#1a237e",
+                        "tertiary-container": "#003909",
+                        "surface-container-lowest": "#ffffff",
+                        "primary": "#000666",
+                        "on-secondary-fixed-variant": "#003ab3",
+                        "surface": "#f7f9fc",
+                        "inverse-primary": "#bdc2ff",
+                        "on-surface-variant": "#454652",
+                        "on-primary-fixed": "#000767",
+                        "on-secondary-fixed": "#001550",
+                        "surface-variant": "#e0e3e6",
+                        "on-secondary-container": "#f4f3ff",
+                        "surface-container-highest": "#e0e3e6",
+                        "on-primary-container": "#8690ee",
+                        "secondary-fixed": "#dce1ff",
+                        "on-background": "#191c1e",
+                        "primary-fixed": "#e0e0ff",
+                        "error": "#ba1a1a",
+                        "surface-container-low": "#f2f4f7",
+                        "background": "#f7f9fc",
+                        "on-tertiary-fixed": "#002204",
+                        "on-error": "#ffffff",
+                        "inverse-surface": "#2d3133",
+                        "on-surface": "#191c1e",
+                        "surface-tint": "#4c56af",
+                        "surface-bright": "#f7f9fc",
+                        "on-primary-fixed-variant": "#343d96",
+                        "secondary-fixed-dim": "#b6c4ff",
+                        "on-primary": "#ffffff",
+                        "surface-dim": "#d8dadd",
+                        "on-tertiary": "#ffffff",
+                        "outline": "#767683",
+                        "on-tertiary-container": "#5aa958",
+                        "error-container": "#ffdad6"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {},
+                    "fontFamily": {
+                        "headline": ["Plus Jakarta Sans"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: theme('colors.surface');
+            color: theme('colors.on-surface');
+        }
+        h1, h2, h3, h4, h5, h6, .font-headline {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .material-symbols-outlined.fill {
+            font-variation-settings: 'FILL' 1;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-surface text-on-surface flex items-center justify-center p-4 md:p-0">
+<div class="w-full h-screen max-w-none flex flex-col md:flex-row overflow-hidden shadow-[0_0_40px_rgba(0,0,0,0.08)] bg-surface-container-lowest">
+<!-- Left Side: Hero Image & Branding -->
+<div class="hidden md:flex md:w-1/2 relative bg-surface-container-low flex-col justify-end p-12">
+<div class="absolute inset-0 z-0">
+<img alt="Modern mobile retail store checkout desk with barcode scanner, clean minimalist setting with cool artificial lighting" class="w-full h-full object-cover mix-blend-overlay opacity-60" data-alt="Modern mobile retail store checkout desk with barcode scanner, clean minimalist setting with cool artificial lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAfhiVMVfy6SWGQcBtT1JyuhJPHtNw5T-MdsPFRQua1XzQw2yJNIr7OYAVFIXDUtbZj_WO8vDfGaEd1n1RdrO6-SywLFVHOG1xeXTn7xBQgQGQ5u_mJxYtRktTd6ALFV-K1p25eu0MbWi0eFoW-GvwtxBOuNw3mrHTN3cnHOVQdrxoxfQwcKEm1Zbt3rcJhphPrzGGprliRMT-S_drXrhL8-cbeEMAuo_XgqPVvSahqagy43orzswWt4BE1ftHVWJvPepFM4SsjGbo"/>
+<div class="absolute inset-0 bg-gradient-to-t from-primary/90 via-primary/50 to-transparent mix-blend-multiply"></div>
+</div>
+<div class="relative z-10 space-y-6 max-w-lg mb-12 text-on-primary">
+<div class="inline-flex items-center space-x-2 bg-primary-container/40 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 mb-4">
+<span class="material-symbols-outlined text-sm text-primary-fixed">storefront</span>
+<span class="font-label text-xs tracking-wider uppercase text-primary-fixed font-semibold">PhoneDukaan Retail Terminal</span>
+</div>
+<h1 class="font-headline text-[3.5rem] leading-[1.1] tracking-tight font-bold text-white">
+                    The Precise Architect of Your Retail Success.
+                </h1>
+<p class="font-body text-lg text-primary-fixed-dim leading-relaxed font-medium max-w-md">
+                    High-density utility meets editorial sophistication. Powering modern mobile retail operations with precision.
+                </p>
+</div>
+<div class="relative z-10 flex space-x-8 text-primary-fixed-dim/80 text-sm font-label">
+<div class="flex items-center space-x-2">
+<span class="material-symbols-outlined text-lg">bolt</span>
+<span>High-Speed Checkout</span>
+</div>
+<div class="flex items-center space-x-2">
+<span class="material-symbols-outlined text-lg">inventory</span>
+<span>Live Inventory sync</span>
+</div>
+</div>
+</div>
+<!-- Right Side: Login Form -->
+<div class="w-full md:w-1/2 flex flex-col justify-between bg-surface-container-lowest h-full relative">
+<div class="flex-1 flex flex-col justify-center px-8 md:px-20 lg:px-32 max-w-3xl mx-auto w-full">
+<!-- Header -->
+<div class="mb-10">
+<div class="md:hidden flex items-center space-x-2 mb-8">
+<span class="material-symbols-outlined text-3xl text-primary">storefront</span>
+<span class="font-headline font-bold text-2xl tracking-tighter text-primary">PhoneDukaan</span>
+</div>
+<h2 class="font-headline text-[2rem] font-bold tracking-tight text-on-surface mb-2">Shop Login</h2>
+<p class="font-body text-on-surface-variant text-base">Enter your credentials to access the terminal dashboard.</p>
+</div>
+<!-- Form -->
+<form class="space-y-6">
+<div class="space-y-2">
+<label class="font-label text-sm font-semibold text-on-surface block" for="mobile">Mobile Number</label>
+<div class="relative">
+<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-on-surface-variant">phone_iphone</span>
+</div>
+<input class="block w-full pl-10 pr-3 py-3.5 bg-surface-variant border-none rounded-md font-body text-on-surface focus:ring-0 focus:bg-primary-fixed focus:border-b-2 focus:border-primary focus:rounded-b-none transition-all duration-200 placeholder:text-outline-variant" id="mobile" placeholder="+91 90000 00000" type="tel"/>
+</div>
+</div>
+<div class="space-y-2">
+<div class="flex justify-between items-center">
+<label class="font-label text-sm font-semibold text-on-surface block" for="pin">Terminal PIN / Password</label>
+<a class="font-label text-sm font-medium text-secondary hover:text-secondary-container transition-colors" href="#">Forgot?</a>
+</div>
+<div class="relative">
+<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-on-surface-variant">lock</span>
+</div>
+<input class="block w-full pl-10 pr-10 py-3.5 bg-surface-variant border-none rounded-md font-body text-on-surface focus:ring-0 focus:bg-primary-fixed focus:border-b-2 focus:border-primary focus:rounded-b-none transition-all duration-200 placeholder:text-outline-variant" id="pin" placeholder="••••••••" type="password"/>
+<button class="absolute inset-y-0 right-0 pr-3 flex items-center text-on-surface-variant hover:text-primary transition-colors" type="button">
+<span class="material-symbols-outlined">visibility_off</span>
+</button>
+</div>
+</div>
+<div class="pt-4">
+<button class="w-full flex items-center justify-center space-x-2 bg-gradient-to-r from-secondary to-secondary-container hover:from-primary hover:to-secondary-container text-white py-4 rounded-xl font-label font-bold text-base shadow-[0_4px_14px_0_rgba(0,72,216,0.25)] hover:shadow-[0_6px_20px_rgba(0,72,216,0.3)] transition-all duration-300 transform hover:-translate-y-0.5" type="button">
+<span>Launch Terminal</span>
+<span class="material-symbols-outlined">arrow_forward</span>
+</button>
+</div>
+</form>
+<div class="mt-8 text-center">
+<p class="font-body text-sm text-on-surface-variant">
+                        New store? <a class="font-medium text-primary hover:underline underline-offset-4" href="#">Request Registration</a>
+</p>
+</div>
+</div>
+<!-- Bottom Location Card -->
+<div class="px-8 pb-8 md:px-12 md:pb-12 mt-auto">
+<div class="bg-surface-container-low p-4 rounded-xl flex items-center justify-between border border-outline-variant/15">
+<div class="flex items-center space-x-3">
+<div class="bg-surface-container-lowest p-2 rounded-lg shadow-sm border border-outline-variant/10">
+<span class="material-symbols-outlined text-primary text-xl">location_on</span>
+</div>
+<div>
+<p class="font-label text-xs text-outline font-medium uppercase tracking-wider mb-0.5">Current Location</p>
+<p class="font-body text-sm font-semibold text-on-surface">Alpha Terminal • Hubli South</p>
+</div>
+</div>
+<div class="bg-tertiary-fixed px-3 py-1.5 rounded-full flex items-center space-x-1.5">
+<div class="w-1.5 h-1.5 rounded-full bg-on-tertiary-fixed-variant animate-pulse"></div>
+<span class="font-label text-xs font-bold text-on-tertiary-fixed-variant uppercase tracking-wide">Secure</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</body></html>

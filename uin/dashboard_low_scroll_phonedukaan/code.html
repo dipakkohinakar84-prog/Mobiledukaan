@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>PhoneDukaan Shop Dashboard</title>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<!-- Icons -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "primary-container": "#1a237e",
+                    "secondary": "#0048d8",
+                    "on-error": "#ffffff",
+                    "tertiary-fixed-dim": "#88d982",
+                    "background": "#f7f9fc",
+                    "on-surface-variant": "#454652",
+                    "on-primary-container": "#8690ee",
+                    "surface-container": "#eceef1",
+                    "inverse-surface": "#2d3133",
+                    "primary-fixed": "#e0e0ff",
+                    "on-primary-fixed": "#000767",
+                    "on-tertiary-fixed": "#002204",
+                    "on-tertiary": "#ffffff",
+                    "on-primary": "#ffffff",
+                    "surface-dim": "#d8dadd",
+                    "on-tertiary-container": "#5aa958",
+                    "error": "#ba1a1a",
+                    "primary-fixed-dim": "#bdc2ff",
+                    "inverse-primary": "#bdc2ff",
+                    "surface-container-lowest": "#ffffff",
+                    "on-surface": "#191c1e",
+                    "surface-container-high": "#e6e8eb",
+                    "tertiary": "#002103",
+                    "primary": "#000666",
+                    "outline-variant": "#c6c5d4",
+                    "error-container": "#ffdad6",
+                    "tertiary-container": "#003909",
+                    "secondary-container": "#2761fe",
+                    "on-secondary": "#ffffff",
+                    "surface-bright": "#f7f9fc",
+                    "on-tertiary-fixed-variant": "#005312",
+                    "inverse-on-surface": "#eff1f4",
+                    "on-secondary-container": "#f4f3ff",
+                    "tertiary-fixed": "#a3f69c",
+                    "surface-container-low": "#f2f4f7",
+                    "on-secondary-fixed": "#001550",
+                    "surface-tint": "#4c56af",
+                    "outline": "#767683",
+                    "surface-container-highest": "#e0e3e6",
+                    "secondary-fixed-dim": "#b6c4ff",
+                    "on-error-container": "#93000a",
+                    "surface": "#f7f9fc",
+                    "on-primary-fixed-variant": "#343d96",
+                    "surface-variant": "#e0e3e6",
+                    "secondary-fixed": "#dce1ff",
+                    "on-background": "#191c1e",
+                    "on-secondary-fixed-variant": "#003ab3"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "fontFamily": {
+                    "headline": ["Plus Jakarta Sans"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      }
+      .tabular-nums { font-variant-numeric: tabular-nums; }
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+<style>
+    body {
+      min-height: 100dvh;
+      overflow-x: hidden;
+    }
+  </style>
+</head>
+<body class="bg-background text-on-surface font-body min-h-screen">
+<div class="flex">
+<!-- Sidebar (Desktop Context) -->
+<aside class="hidden lg:flex flex-col h-screen w-72 border-r border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-950 p-4 gap-2 sticky top-0">
+<div class="flex items-center gap-3 px-2 py-6 mb-4">
+<div class="w-10 h-10 rounded-xl bg-primary-container flex items-center justify-center text-on-primary-container shadow-lg overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="professional minimalist mobile shop logo with circuit pattern on deep blue background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDMSJcNXsRJmHGzlOmV2M_phMdAAGkW_4NeD5Qwkex2Q26ugcYtfPkA4YvhQf2pN8VAVl58f2KHLZtiIMavgzoOUEIsiFzO69Y6ILg7HGJJqOtnq_0Qevul-nTvI9PygXUpnGOVGXWLHL82HLs9X7ai4CVT-0cz3QDv_ReLAsfIyqCBRqB--97NLUHBinucZS6mVst7qbLUykyp8i_JumRQKz13_B7mimu_lQH_w6LTvidoNHEIextZ6EMJDEitvA6BN2Mlhgfvgd4"/>
+</div>
+<div>
+<h1 class="text-blue-900 dark:text-blue-100 font-black text-lg leading-none">PhoneDukaan Alpha</h1>
+<span class="text-xs font-medium text-slate-500 uppercase tracking-widest">Admin Terminal</span>
+</div>
+</div>
+<nav class="flex-1 flex flex-col gap-1">
+<a class="flex items-center gap-3 px-4 py-3 bg-white dark:bg-slate-900 text-blue-700 dark:text-blue-400 shadow-sm font-bold border-r-4 border-blue-700 transition-transform duration-300 ease-out" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-headline">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:translate-x-1 hover:bg-slate-200 dark:hover:bg-slate-800 transition-all" href="#">
+<span class="material-symbols-outlined">devices</span>
+<span class="font-headline">Inventory</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:translate-x-1 hover:bg-slate-200 dark:hover:bg-slate-800 transition-all" href="#">
+<span class="material-symbols-outlined">receipt_long</span>
+<span class="font-headline">Sales Ledger</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:translate-x-1 hover:bg-slate-200 dark:hover:bg-slate-800 transition-all" href="#">
+<span class="material-symbols-outlined">biotech</span>
+<span class="font-headline">Repair Lab</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:translate-x-1 hover:bg-slate-200 dark:hover:bg-slate-800 transition-all" href="#">
+<span class="material-symbols-outlined">group</span>
+<span class="font-headline">Customer CRM</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:translate-x-1 hover:bg-slate-200 dark:hover:bg-slate-800 transition-all" href="#">
+<span class="material-symbols-outlined">settings_applications</span>
+<span class="font-headline">System Settings</span>
+</a>
+</nav>
+<div class="mt-auto p-4 bg-slate-200/50 dark:bg-slate-900/50 rounded-xl">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-blue-100 text-blue-900 flex items-center justify-center font-bold text-xs">SM</div>
+<div>
+<p class="text-sm font-bold text-blue-900 dark:text-blue-100">Store Manager</p>
+<p class="text-[10px] text-slate-500">v2.4.1</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 min-w-0 pb-24 lg:pb-8">
+<!-- TopAppBar -->
+<header class="flex justify-between items-center px-4 md:px-8 h-14 w-full sticky top-0 z-40 bg-slate-50 dark:bg-slate-950/80 backdrop-blur-md border-b border-slate-100">
+<div class="flex items-center gap-3">
+<div class="lg:hidden w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center">
+<span class="material-symbols-outlined text-blue-900 text-sm">sync</span>
+</div>
+<div class="text-blue-900 dark:text-blue-100 text-lg font-extrabold tracking-tight">PhoneDukaan</div>
+<div class="flex items-center gap-1 px-2 py-0.5 bg-tertiary-fixed text-on-tertiary-fixed rounded-full text-[9px] font-bold uppercase tracking-wider">
+<span class="material-symbols-outlined text-[12px]" style="font-variation-settings: 'FILL' 1;">cloud_done</span>
+                        Online
+                    </div>
+</div>
+<div class="flex items-center gap-1">
+<button class="p-2 text-slate-500 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 rounded-full transition-all">
+<span class="material-symbols-outlined">search</span>
+</button>
+<button class="p-2 text-slate-500 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 rounded-full transition-all">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+</div>
+</header>
+<div class="px-4 md:px-8 max-w-7xl mx-auto space-y-4 mt-4">
+<!-- Compact Search Bar -->
+<div class="relative group">
+<input class="w-full h-11 pl-10 pr-4 bg-surface-container-lowest rounded-lg border-none shadow-sm focus:ring-1 focus:ring-secondary/20 transition-all font-body text-xs" placeholder="Search Inventory, IMEI or Invoices..." type="text"/>
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-lg group-focus-within:text-secondary">search</span>
+</div>
+<!-- Horizontal Scroll KPI Cards -->
+<section class="flex gap-3 overflow-x-auto no-scrollbar py-1">
+<div class="flex-shrink-0 w-40 bg-surface-container-lowest p-4 rounded-xl border border-slate-100 shadow-sm">
+<div class="flex justify-between items-start mb-2">
+<div class="p-1.5 bg-blue-50 rounded-lg text-blue-900">
+<span class="material-symbols-outlined text-lg">inventory_2</span>
+</div>
+<span class="text-[9px] font-bold text-on-tertiary-container bg-tertiary-fixed px-1 py-0.5 rounded">+4.2%</span>
+</div>
+<p class="text-[10px] font-medium text-outline">Stock Value</p>
+<h3 class="text-lg font-bold tabular-nums">₹14.2L</h3>
+</div>
+<div class="flex-shrink-0 w-40 bg-surface-container-lowest p-4 rounded-xl border border-slate-100 shadow-sm">
+<div class="flex justify-between items-start mb-2">
+<div class="p-1.5 bg-indigo-50 rounded-lg text-indigo-900">
+<span class="material-symbols-outlined text-lg">payments</span>
+</div>
+</div>
+<p class="text-[10px] font-medium text-outline">Monthly Sales</p>
+<h3 class="text-lg font-bold tabular-nums">₹4.82L</h3>
+</div>
+<div class="flex-shrink-0 w-40 bg-surface-container-lowest p-4 rounded-xl border border-slate-100 shadow-sm">
+<div class="flex justify-between items-start mb-2">
+<div class="p-1.5 bg-red-50 rounded-lg text-red-900">
+<span class="material-symbols-outlined text-lg">pending_actions</span>
+</div>
+</div>
+<p class="text-[10px] font-medium text-outline">Dues to Collect</p>
+<h3 class="text-lg font-bold tabular-nums">₹28.4K</h3>
+</div>
+<div class="flex-shrink-0 w-40 bg-surface-container-lowest p-4 rounded-xl border border-slate-100 shadow-sm">
+<div class="flex justify-between items-start mb-2">
+<div class="p-1.5 bg-amber-50 rounded-lg text-amber-900">
+<span class="material-symbols-outlined text-lg">build</span>
+</div>
+<span class="text-[9px] font-bold text-white bg-error px-1 py-0.5 rounded">8</span>
+</div>
+<p class="text-[10px] font-medium text-outline">Repairs Pending</p>
+<h3 class="text-lg font-bold tabular-nums">Ongoing</h3>
+</div>
+</section>
+<!-- Compact Quick Actions Grid -->
+<div class="grid grid-cols-3 gap-3">
+<button class="flex flex-col items-center justify-center p-3 bg-secondary text-white rounded-xl shadow-md active:scale-95 transition-all">
+<span class="material-symbols-outlined mb-1">barcode_scanner</span>
+<span class="text-[11px] font-bold">Quick Scan</span>
+</button>
+<button class="flex flex-col items-center justify-center p-3 bg-primary-container text-white rounded-xl shadow-md active:scale-95 transition-all">
+<span class="material-symbols-outlined mb-1">add_box</span>
+<span class="text-[11px] font-bold">Add Stock</span>
+</button>
+<button class="flex flex-col items-center justify-center p-3 bg-indigo-600 text-white rounded-xl shadow-md active:scale-95 transition-all">
+<span class="material-symbols-outlined mb-1">shopping_cart</span>
+<span class="text-[11px] font-bold">New Sale</span>
+</button>
+</div>
+<!-- Split Layout -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+<!-- Compact Condition Breakdown -->
+<div class="bg-surface-container-lowest rounded-xl p-4 border border-slate-100">
+<div class="flex justify-between items-center mb-4">
+<h2 class="font-headline font-bold text-sm">Stock Mix</h2>
+<span class="text-[10px] font-bold text-primary px-2 py-0.5 bg-blue-50 rounded">78% Full</span>
+</div>
+<div class="space-y-3">
+<div class="flex items-center gap-3">
+<div class="w-1 h-6 bg-primary rounded-full"></div>
+<div class="flex-1">
+<div class="flex justify-between text-[11px] font-semibold mb-1">
+<span>New Devices</span>
+<span class="tabular-nums">142</span>
+</div>
+<div class="w-full bg-slate-100 h-1 rounded-full overflow-hidden">
+<div class="bg-primary h-full w-[65%]"></div>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<div class="w-1 h-6 bg-secondary rounded-full"></div>
+<div class="flex-1">
+<div class="flex justify-between text-[11px] font-semibold mb-1">
+<span>Refurbished</span>
+<span class="tabular-nums">48</span>
+</div>
+<div class="w-full bg-slate-100 h-1 rounded-full overflow-hidden">
+<div class="bg-secondary h-full w-[25%]"></div>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<div class="w-1 h-6 bg-outline rounded-full"></div>
+<div class="flex-1">
+<div class="flex justify-between text-[11px] font-semibold mb-1">
+<span>Used / Other</span>
+<span class="tabular-nums">12</span>
+</div>
+<div class="w-full bg-slate-100 h-1 rounded-full overflow-hidden">
+<div class="bg-outline h-full w-[10%]"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Compact Recent Activity -->
+<div class="bg-surface-container-lowest rounded-xl p-4 border border-slate-100">
+<div class="flex justify-between items-center mb-3">
+<h2 class="font-headline font-bold text-sm">Recent Activity</h2>
+<button class="text-[10px] font-bold text-secondary hover:underline">View All</button>
+</div>
+<div class="space-y-2">
+<!-- Compact Transaction Row -->
+<div class="flex items-center justify-between p-2.5 bg-surface-container-low rounded-lg border-l-2 border-tertiary-container">
+<div class="flex items-center gap-2">
+<div class="text-secondary"><span class="material-symbols-outlined text-lg">receipt</span></div>
+<div>
+<h4 class="text-[11px] font-bold leading-tight">iPhone 15 Pro Max</h4>
+<p class="text-[9px] text-outline">2 mins ago</p>
+</div>
+</div>
+<div class="text-right">
+<div class="text-[11px] font-bold">₹1.14L</div>
+<span class="text-[8px] px-1 bg-tertiary-fixed text-on-tertiary-fixed rounded font-bold">GST</span>
+</div>
+</div>
+<!-- Compact Transaction Row -->
+<div class="flex items-center justify-between p-2.5 bg-surface-container-low rounded-lg border-l-2 border-outline">
+<div class="flex items-center gap-2">
+<div class="text-outline"><span class="material-symbols-outlined text-lg">receipt</span></div>
+<div>
+<h4 class="text-[11px] font-bold leading-tight">S23 Ultra (Refurb)</h4>
+<p class="text-[9px] text-outline">45 mins ago</p>
+</div>
+</div>
+<div class="text-right">
+<div class="text-[11px] font-bold">₹54,999</div>
+<span class="text-[8px] px-1 bg-slate-200 text-slate-500 rounded font-bold">NO-GST</span>
+</div>
+</div>
+<!-- Compact Transaction Row -->
+<div class="flex items-center justify-between p-2.5 bg-surface-container-low rounded-lg border-l-2 border-tertiary-container">
+<div class="flex items-center gap-2">
+<div class="text-secondary"><span class="material-symbols-outlined text-lg">receipt</span></div>
+<div>
+<h4 class="text-[11px] font-bold leading-tight">Nothing Phone (2a)</h4>
+<p class="text-[9px] text-outline">2 hrs ago</p>
+</div>
+</div>
+<div class="text-right">
+<div class="text-[11px] font-bold">₹23,999</div>
+<span class="text-[8px] px-1 bg-tertiary-fixed text-on-tertiary-fixed rounded font-bold">GST</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Bottom Navigation (Mobile) -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full flex justify-around items-center pt-2 pb-5 px-2 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl z-50 border-t border-slate-200/50 shadow-lg">
+<a class="flex flex-col items-center justify-center text-blue-900 dark:text-blue-100 transition-all" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">dashboard</span>
+<span class="text-[9px] font-bold">Dash</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 opacity-60 transition-all" href="#">
+<span class="material-symbols-outlined">inventory_2</span>
+<span class="text-[9px] font-medium">Stock</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 opacity-60 transition-all" href="#">
+<span class="material-symbols-outlined">payments</span>
+<span class="text-[9px] font-medium">Sales</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 opacity-60 transition-all" href="#">
+<span class="material-symbols-outlined">build</span>
+<span class="text-[9px] font-medium">Repair</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 opacity-60 transition-all" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="text-[9px] font-medium">Admin</span>
+</a>
+</nav>
+</div>
+</body></html>

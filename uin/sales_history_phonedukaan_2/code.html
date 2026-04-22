@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "primary-container": "#1a237e",
+                    "secondary": "#0048d8",
+                    "on-error": "#ffffff",
+                    "tertiary-fixed-dim": "#88d982",
+                    "background": "#f7f9fc",
+                    "on-surface-variant": "#454652",
+                    "on-primary-container": "#8690ee",
+                    "surface-container": "#eceef1",
+                    "inverse-surface": "#2d3133",
+                    "primary-fixed": "#e0e0ff",
+                    "on-primary-fixed": "#000767",
+                    "on-tertiary-fixed": "#002204",
+                    "on-tertiary": "#ffffff",
+                    "on-primary": "#ffffff",
+                    "surface-dim": "#d8dadd",
+                    "on-tertiary-container": "#5aa958",
+                    "error": "#ba1a1a",
+                    "primary-fixed-dim": "#bdc2ff",
+                    "inverse-primary": "#bdc2ff",
+                    "surface-container-lowest": "#ffffff",
+                    "on-surface": "#191c1e",
+                    "surface-container-high": "#e6e8eb",
+                    "tertiary": "#002103",
+                    "primary": "#000666",
+                    "outline-variant": "#c6c5d4",
+                    "error-container": "#ffdad6",
+                    "tertiary-container": "#003909",
+                    "secondary-container": "#2761fe",
+                    "on-secondary": "#ffffff",
+                    "surface-bright": "#f7f9fc",
+                    "on-tertiary-fixed-variant": "#005312",
+                    "inverse-on-surface": "#eff1f4",
+                    "on-secondary-container": "#f4f3ff",
+                    "tertiary-fixed": "#a3f69c",
+                    "surface-container-low": "#f2f4f7",
+                    "on-secondary-fixed": "#001550",
+                    "surface-tint": "#4c56af",
+                    "outline": "#767683",
+                    "surface-container-highest": "#e0e3e6",
+                    "secondary-fixed-dim": "#b6c4ff",
+                    "on-error-container": "#93000a",
+                    "surface": "#f7f9fc",
+                    "on-primary-fixed-variant": "#343d96",
+                    "surface-variant": "#e0e3e6",
+                    "secondary-fixed": "#dce1ff",
+                    "on-background": "#191c1e",
+                    "on-secondary-fixed-variant": "#003ab3"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "fontFamily": {
+                    "headline": ["Plus Jakarta Sans"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style type="text/tailwindcss">
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
+            font-size: 1.25rem;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3 { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .tabular-nums { font-variant-numeric: tabular-nums; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-surface min-h-screen flex flex-col md:flex-row pb-24 lg:pb-0">
+<aside class="hidden lg:flex flex-col h-screen w-64 border-r border-slate-200 bg-slate-100 p-4 gap-2 shrink-0">
+<div class="flex items-center gap-3 px-2 mb-8">
+<div class="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container">
+<span class="material-symbols-outlined" style="font-size: 18px;">sync</span>
+</div>
+<h2 class="text-blue-900 font-black text-base">PhoneDukaan</h2>
+</div>
+<nav class="flex flex-col gap-1">
+<a class="flex items-center gap-3 px-4 py-2.5 text-slate-600 hover:bg-slate-200 rounded-lg transition-all" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-medium text-sm">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2.5 bg-white text-blue-700 shadow-sm font-bold border-r-4 border-blue-700 rounded-lg" href="#">
+<span class="material-symbols-outlined">receipt_long</span>
+<span class="font-medium text-sm">Sales Ledger</span>
+</a>
+</nav>
+</aside>
+<main class="flex-1 flex flex-col h-screen overflow-hidden">
+<header class="bg-white/80 backdrop-blur-md flex justify-between items-center px-4 h-14 w-full sticky top-0 z-40 border-b border-slate-100">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">receipt_long</span>
+<h1 class="headline-sm font-bold text-lg tracking-tight text-blue-900">Invoices</h1>
+</div>
+<div class="flex items-center gap-1">
+<button class="p-2 text-slate-500"><span class="material-symbols-outlined">search</span></button>
+<button class="p-2 text-slate-500"><span class="material-symbols-outlined">filter_list</span></button>
+</div>
+</header>
+<div class="flex-1 overflow-y-auto hide-scrollbar">
+<section class="px-4 py-3 space-y-3 bg-white border-b border-slate-100">
+<div class="relative w-full">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-sm">search</span>
+<input class="w-full bg-slate-50 border-none rounded-lg pl-10 pr-4 py-2 text-sm focus:ring-1 focus:ring-primary shadow-inner placeholder:text-slate-400" placeholder="Search Invoice, IMEI, Customer..." type="text"/>
+</div>
+<div class="flex items-center justify-between gap-2">
+<div class="flex bg-slate-100 p-1 rounded-lg">
+<button class="px-3 py-1 text-xs font-bold rounded-md bg-white shadow-sm text-primary">All</button>
+<button class="px-3 py-1 text-xs font-medium text-slate-500">GST</button>
+<button class="px-3 py-1 text-xs font-medium text-slate-500">Non-GST</button>
+</div>
+<button class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600">
+<span class="material-symbols-outlined" style="font-size: 14px;">calendar_month</span>
+                        This Month
+                    </button>
+</div>
+</section>
+<section class="flex overflow-x-auto snap-x snap-mandatory hide-scrollbar gap-3 p-4 bg-slate-50/50">
+<div class="flex-shrink-0 w-[70vw] md:w-64 snap-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+<p class="text-[10px] text-slate-500 uppercase font-bold tracking-tight mb-1">Period Sales</p>
+<div class="flex items-baseline gap-1">
+<span class="text-xl font-extrabold tabular-nums">₹ 4,82,390</span>
+<span class="text-[10px] text-emerald-600 font-bold flex items-center">
+<span class="material-symbols-outlined" style="font-size: 12px;">trending_up</span>12%
+                        </span>
+</div>
+</div>
+<div class="flex-shrink-0 w-[70vw] md:w-64 snap-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+<p class="text-[10px] text-slate-500 uppercase font-bold tracking-tight mb-1">Amount Due</p>
+<div class="flex items-baseline gap-1">
+<span class="text-xl font-extrabold text-error tabular-nums">₹ 24,500</span>
+<span class="text-[10px] text-slate-400 font-medium">3 Pending</span>
+</div>
+</div>
+<div class="flex-shrink-0 w-[70vw] md:w-64 snap-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+<p class="text-[10px] text-slate-500 uppercase font-bold tracking-tight mb-1">GST Collected</p>
+<div class="flex items-baseline gap-1">
+<span class="text-xl font-extrabold text-secondary tabular-nums">₹ 86,210</span>
+</div>
+</div>
+<div class="flex-shrink-0 w-[70vw] md:w-64 snap-center bg-primary p-4 rounded-xl shadow-lg flex items-center justify-between">
+<div>
+<p class="text-[10px] text-white/70 uppercase font-bold mb-1">New Sale</p>
+<p class="text-white font-bold text-sm">Quick Generate</p>
+</div>
+<div class="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center text-white">
+<span class="material-symbols-outlined">add</span>
+</div>
+</div>
+</section>
+<section class="flex-1">
+<div class="flex items-center justify-between px-4 py-2 bg-white border-b border-slate-100">
+<h2 class="text-xs font-bold text-slate-400 uppercase tracking-widest">Recent Invoices (48)</h2>
+<button class="text-[10px] font-bold text-primary flex items-center gap-1">VIEW ALL <span class="material-symbols-outlined" style="font-size: 12px;">chevron_right</span></button>
+</div>
+<div class="divide-y divide-slate-100 bg-white">
+<div class="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 transition-colors">
+<div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined" style="font-size: 16px; font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex justify-between items-baseline mb-0.5">
+<span class="text-sm font-bold truncate">INV-0892</span>
+<span class="text-sm font-bold tabular-nums">₹54,999</span>
+</div>
+<div class="flex justify-between text-[11px] text-slate-500 font-medium">
+<span class="truncate">Aditya Sharma • 24 Oct</span>
+<div class="flex gap-2">
+<span class="material-symbols-outlined" style="font-size: 14px;">share</span>
+<span class="material-symbols-outlined" style="font-size: 14px;">download</span>
+</div>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 transition-colors">
+<div class="w-8 h-8 rounded-lg bg-red-50 text-red-600 flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined" style="font-size: 16px; font-variation-settings: 'FILL' 1;">error</span>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex justify-between items-baseline mb-0.5">
+<span class="text-sm font-bold truncate">INV-0891</span>
+<span class="text-sm font-bold tabular-nums text-red-600">₹21,500</span>
+</div>
+<div class="flex justify-between text-[11px] text-slate-500 font-medium">
+<span class="truncate">Rajesh Khanna • 24 Oct</span>
+<div class="flex gap-2">
+<span class="material-symbols-outlined" style="font-size: 14px;">share</span>
+<span class="material-symbols-outlined" style="font-size: 14px;">download</span>
+</div>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 transition-colors">
+<div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined" style="font-size: 16px; font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex justify-between items-baseline mb-0.5">
+<span class="text-sm font-bold truncate">INV-0890</span>
+<span class="text-sm font-bold tabular-nums">₹18,900</span>
+</div>
+<div class="flex justify-between text-[11px] text-slate-500 font-medium">
+<span class="truncate">Priya Verma • 23 Oct</span>
+<div class="flex gap-2">
+<span class="material-symbols-outlined" style="font-size: 14px;">share</span>
+<span class="material-symbols-outlined" style="font-size: 14px;">download</span>
+</div>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 transition-colors">
+<div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined" style="font-size: 16px; font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex justify-between items-baseline mb-0.5">
+<span class="text-sm font-bold truncate">INV-0889</span>
+<span class="text-sm font-bold tabular-nums">₹12,200</span>
+</div>
+<div class="flex justify-between text-[11px] text-slate-500 font-medium">
+<span class="truncate">Suresh Singh • 22 Oct</span>
+<div class="flex gap-2">
+<span class="material-symbols-outlined" style="font-size: 14px;">share</span>
+<span class="material-symbols-outlined" style="font-size: 14px;">download</span>
+</div>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 transition-colors">
+<div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined" style="font-size: 16px; font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex justify-between items-baseline mb-0.5">
+<span class="text-sm font-bold truncate">INV-0888</span>
+<span class="text-sm font-bold tabular-nums">₹8,499</span>
+</div>
+<div class="flex justify-between text-[11px] text-slate-500 font-medium">
+<span class="truncate">Neha Gupta • 21 Oct</span>
+<div class="flex gap-2">
+<span class="material-symbols-outlined" style="font-size: 14px;">share</span>
+<span class="material-symbols-outlined" style="font-size: 14px;">download</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+</div>
+<footer class="fixed bottom-0 left-0 lg:left-64 right-0 bg-white border-t border-slate-200 px-4 py-3 flex items-center justify-between z-30 shadow-[0_-8px_16px_rgba(0,0,0,0.03)] md:relative md:left-0 md:w-auto">
+<div class="flex items-center gap-4">
+<div>
+<p class="text-[9px] uppercase font-bold text-slate-400">Total Period Sales</p>
+<p class="text-sm font-extrabold text-on-surface tabular-nums">₹ 4,82,390</p>
+</div>
+<div class="h-6 w-px bg-slate-100"></div>
+<div>
+<p class="text-[9px] uppercase font-bold text-red-400">Due</p>
+<p class="text-sm font-extrabold text-red-600 tabular-nums">₹ 24,500</p>
+</div>
+</div>
+<button class="bg-primary text-on-primary px-4 py-2 rounded-lg text-xs font-bold shadow-sm active:scale-95 transition-transform flex items-center gap-1.5">
+<span class="material-symbols-outlined" style="font-size: 14px;">picture_as_pdf</span>
+                REPORT
+            </button>
+</footer>
+<nav class="md:hidden fixed bottom-0 left-0 w-full flex justify-around items-center pt-2 pb-5 px-2 bg-white/90 backdrop-blur-xl z-50 border-t border-slate-100">
+<button class="flex flex-col items-center justify-center text-slate-400 w-12">
+<span class="material-symbols-outlined" style="font-size: 20px;">inventory_2</span>
+<span class="font-medium text-[9px]">Inventory</span>
+</button>
+<button class="flex flex-col items-center justify-center text-primary w-12 border-t-2 border-primary -mt-2 pt-2">
+<span class="material-symbols-outlined" style="font-size: 20px; font-variation-settings: 'FILL' 1;">payments</span>
+<span class="font-bold text-[9px]">Sales</span>
+</button>
+<button class="flex flex-col items-center justify-center -mt-6">
+<div class="w-12 h-12 bg-primary rounded-full flex items-center justify-center text-white shadow-lg ring-4 ring-white">
+<span class="material-symbols-outlined" style="font-size: 24px;">barcode_scanner</span>
+</div>
+</button>
+<button class="flex flex-col items-center justify-center text-slate-400 w-12">
+<span class="material-symbols-outlined" style="font-size: 20px;">build</span>
+<span class="font-medium text-[9px]">Repairs</span>
+</button>
+<button class="flex flex-col items-center justify-center text-slate-400 w-12">
+<span class="material-symbols-outlined" style="font-size: 20px;">account_circle</span>
+<span class="font-medium text-[9px]">Profile</span>
+</button>
+</nav>
+</main>
+
+</body></html>

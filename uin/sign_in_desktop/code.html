@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>PhoneDukaan | Secure Terminal Login</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "primary-fixed": "#e0e0ff",
+                    "inverse-on-surface": "#eff1f4",
+                    "on-secondary-fixed": "#001550",
+                    "on-secondary-container": "#f4f3ff",
+                    "secondary-fixed-dim": "#b6c4ff",
+                    "tertiary-fixed": "#a3f69c",
+                    "tertiary": "#002103",
+                    "on-primary-fixed-variant": "#343d96",
+                    "secondary-fixed": "#dce1ff",
+                    "on-error-container": "#93000a",
+                    "outline-variant": "#c6c5d4",
+                    "on-tertiary": "#ffffff",
+                    "on-error": "#ffffff",
+                    "surface-dim": "#d8dadd",
+                    "on-primary": "#ffffff",
+                    "on-background": "#191c1e",
+                    "on-surface": "#191c1e",
+                    "on-primary-container": "#8690ee",
+                    "inverse-surface": "#2d3133",
+                    "surface-container-high": "#e6e8eb",
+                    "secondary": "#0048d8",
+                    "on-tertiary-container": "#5aa958",
+                    "primary-container": "#1a237e",
+                    "surface-bright": "#f7f9fc",
+                    "on-surface-variant": "#454652",
+                    "on-primary-fixed": "#000767",
+                    "surface-container-low": "#f2f4f7",
+                    "error": "#ba1a1a",
+                    "background": "#f7f9fc",
+                    "primary-fixed-dim": "#bdc2ff",
+                    "surface-container-highest": "#e0e3e6",
+                    "secondary-container": "#2761fe",
+                    "primary": "#000666",
+                    "outline": "#767683",
+                    "surface-tint": "#4c56af",
+                    "error-container": "#ffdad6",
+                    "surface-variant": "#e0e3e6",
+                    "tertiary-container": "#003909",
+                    "surface-container-lowest": "#ffffff",
+                    "on-tertiary-fixed-variant": "#005312",
+                    "surface-container": "#eceef1",
+                    "surface": "#f7f9fc",
+                    "on-tertiary-fixed": "#002204",
+                    "inverse-primary": "#bdc2ff",
+                    "on-secondary-fixed-variant": "#003ab3",
+                    "tertiary-fixed-dim": "#88d982",
+                    "on-secondary": "#ffffff"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "fontFamily": {
+                    "headline": ["Plus Jakarta Sans"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .numeric-tabular {
+            font-variant-numeric: tabular-nums;
+        }
+        .glass-panel {
+            backdrop-filter: blur(12px);
+            background: rgba(255, 255, 255, 0.85);
+        }
+    </style>
+</head>
+<body class="bg-surface font-body text-on-surface">
+<div class="flex min-h-screen w-full overflow-hidden">
+<!-- Left Side: Editorial Branding -->
+<div class="relative hidden w-1/2 flex-col justify-between bg-primary-container p-16 lg:flex overflow-hidden">
+<div class="absolute inset-0 opacity-10 pointer-events-none" data-alt="Abstract geometric architectural patterns with intersecting lines in deep navy blue tones" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBC-GLjNgrmQR4yA8lAYAhTUSD2wLTvCvk_jTsp4Xr8pRINrSXkBSXEfP5tNDp1zfFKwIGsJDTcepEWwif74-nRl35y1gDfInYsIAUWRQajws2UIBq8NIk_g2oScMCFdx-rzYu15jLs6kFzWszQjiE7l9uZuV4olBx7Jkw2WkZW7ZdzEKUg4iWn4RSRl6wnWcY3VFQ1y8LUHLXrzAvCbmEYqLX6mbVN3TNTHkSfpdL5q2Jw3Wj3-0qvuB9sDu_TIwh9v-dcxMMt-_U'); background-size: cover;"></div>
+<div class="relative z-10 flex items-center gap-3">
+<div class="size-10 text-surface-container-lowest">
+<svg fill="none" viewbox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+<path d="M44 4H30.6666V17.3334H17.3334V30.6666H4V44H44V4Z" fill="currentColor"></path>
+</svg>
+</div>
+<span class="font-headline text-2xl font-bold tracking-tight text-white">PhoneDukaan</span>
+</div>
+<div class="relative z-10 max-w-lg">
+<h1 class="font-headline text-5xl font-extrabold leading-tight tracking-tight text-white">
+                    The Precise Architect of Retail Operations.
+                </h1>
+<p class="mt-6 text-xl text-primary-fixed-dim/80 font-light leading-relaxed">
+                    Elevating mobile inventory management into a sophisticated digital dashboard for elite partners.
+                </p>
+</div>
+<div class="relative z-10">
+<div class="flex items-center gap-4 border-l-2 border-secondary px-6">
+<div>
+<p class="font-label text-xs uppercase tracking-widest text-secondary-fixed-dim">Current Node</p>
+<p class="text-lg font-semibold text-white">Alpha Terminal, Hubli South</p>
+</div>
+<div class="ml-auto flex items-center gap-2 rounded-full bg-tertiary-fixed px-3 py-1">
+<span class="material-symbols-outlined text-[14px] text-on-tertiary-fixed" style="font-variation-settings: 'FILL' 1;">verified_user</span>
+<span class="font-label text-[10px] font-bold uppercase tracking-wider text-on-tertiary-fixed">Secure Connection</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Right Side: Login Terminal -->
+<div class="flex w-full flex-col items-center justify-center bg-surface p-6 lg:w-1/2">
+<div class="w-full max-w-md">
+<!-- Mobile Logo Header (Visible on small screens) -->
+<div class="mb-12 flex items-center gap-3 lg:hidden">
+<div class="size-8 text-primary">
+<svg fill="none" viewbox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+<path d="M44 4H30.6666V17.3334H17.3334V30.6666H4V44H44V4Z" fill="currentColor"></path>
+</svg>
+</div>
+<span class="font-headline text-xl font-bold tracking-tight text-on-surface">PhoneDukaan</span>
+</div>
+<div class="mb-10">
+<h2 class="font-headline text-3xl font-bold text-on-surface">Partner Access</h2>
+<p class="mt-2 text-on-surface-variant font-medium">Log in to your retail terminal to manage inventory</p>
+</div>
+<!-- Form Section -->
+<div class="space-y-6">
+<div class="group">
+<label class="mb-2 block font-label text-xs font-semibold uppercase tracking-wider text-outline">Mobile Number</label>
+<div class="relative flex items-center">
+<span class="absolute left-4 material-symbols-outlined text-outline" data-icon="phone">phone</span>
+<input class="h-14 w-full rounded-xl border-none bg-surface-container-low pl-12 pr-4 text-on-surface placeholder:text-outline/60 focus:bg-surface-container-lowest focus:ring-2 focus:ring-primary/20" placeholder="Enter registered number" type="text"/>
+</div>
+</div>
+<div class="group">
+<div class="mb-2 flex items-center justify-between">
+<label class="font-label text-xs font-semibold uppercase tracking-wider text-outline">Terminal PIN</label>
+<a class="text-xs font-bold text-secondary hover:underline" href="#">Forgot?</a>
+</div>
+<div class="relative flex items-center">
+<span class="absolute left-4 material-symbols-outlined text-outline" data-icon="lock">lock</span>
+<input class="h-14 w-full rounded-xl border-none bg-surface-container-low pl-12 pr-12 text-on-surface placeholder:text-outline/60 focus:bg-surface-container-lowest focus:ring-2 focus:ring-primary/20" placeholder="6-digit secure PIN" type="password"/>
+<button class="absolute right-4 flex items-center justify-center text-outline hover:text-primary">
+<span class="material-symbols-outlined" data-icon="visibility">visibility</span>
+</button>
+</div>
+</div>
+<button class="flex h-14 w-full items-center justify-center gap-3 rounded-xl bg-primary px-8 text-white transition-all hover:bg-primary-container shadow-lg shadow-primary/10">
+<span class="font-headline text-sm font-bold tracking-wide">LAUNCH TERMINAL</span>
+<span class="material-symbols-outlined text-[20px]" data-icon="arrow_forward">arrow_forward</span>
+</button>
+</div>
+<!-- Footer Request Section -->
+<div class="mt-12 rounded-xl bg-surface-container-low p-6">
+<div class="flex items-start gap-4">
+<div class="flex size-10 shrink-0 items-center justify-center rounded-full bg-secondary-fixed text-on-secondary-fixed-variant">
+<span class="material-symbols-outlined" data-icon="store">store</span>
+</div>
+<div>
+<h4 class="font-headline text-sm font-bold text-on-surface">Become a Partner</h4>
+<p class="mt-1 text-xs text-on-surface-variant leading-relaxed">
+                                Ready to scale your retail business? Request access to our digital distribution network.
+                            </p>
+<button class="mt-4 text-xs font-extrabold uppercase tracking-widest text-secondary hover:text-on-secondary-fixed-variant">
+                                Submit Request →
+                            </button>
+</div>
+</div>
+</div>
+<!-- System Info for Desktop -->
+<div class="mt-8 flex items-center justify-center gap-6 opacity-40">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px]" data-icon="public">public</span>
+<span class="text-[11px] font-bold uppercase tracking-tighter">API V2.4.0</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px]" data-icon="shield">shield</span>
+<span class="text-[11px] font-bold uppercase tracking-tighter">AES-256 Encrypted</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</body></html>

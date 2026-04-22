@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>PhoneDukaan - Repair Lab</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .tabular-nums {
+            font-variant-numeric: tabular-nums;
+        }.no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "primary-container": "#1a237e",
+                        "secondary": "#0048d8",
+                        "on-error": "#ffffff",
+                        "tertiary-fixed-dim": "#88d982",
+                        "background": "#f7f9fc",
+                        "on-surface-variant": "#454652",
+                        "on-primary-container": "#8690ee",
+                        "surface-container": "#eceef1",
+                        "inverse-surface": "#2d3133",
+                        "primary-fixed": "#e0e0ff",
+                        "on-primary-fixed": "#000767",
+                        "on-tertiary-fixed": "#002204",
+                        "on-tertiary": "#ffffff",
+                        "on-primary": "#ffffff",
+                        "surface-dim": "#d8dadd",
+                        "on-tertiary-container": "#5aa958",
+                        "error": "#ba1a1a",
+                        "primary-fixed-dim": "#bdc2ff",
+                        "inverse-primary": "#bdc2ff",
+                        "surface-container-lowest": "#ffffff",
+                        "on-surface": "#191c1e",
+                        "surface-container-high": "#e6e8eb",
+                        "tertiary": "#002103",
+                        "primary": "#000666",
+                        "outline-variant": "#c6c5d4",
+                        "error-container": "#ffdad6",
+                        "tertiary-container": "#003909",
+                        "secondary-container": "#2761fe",
+                        "on-secondary": "#ffffff",
+                        "surface-bright": "#f7f9fc",
+                        "on-tertiary-fixed-variant": "#005312",
+                        "inverse-on-surface": "#eff1f4",
+                        "on-secondary-container": "#f4f3ff",
+                        "tertiary-fixed": "#a3f69c",
+                        "surface-container-low": "#f2f4f7",
+                        "on-secondary-fixed": "#001550",
+                        "surface-tint": "#4c56af",
+                        "outline": "#767683",
+                        "surface-container-highest": "#e0e3e6",
+                        "secondary-fixed-dim": "#b6c4ff",
+                        "on-error-container": "#93000a",
+                        "surface": "#f7f9fc",
+                        "on-primary-fixed-variant": "#343d96",
+                        "surface-variant": "#e0e3e6",
+                        "secondary-fixed": "#dce1ff",
+                        "on-background": "#191c1e",
+                        "on-secondary-fixed-variant": "#003ab3"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Plus Jakarta Sans"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-surface font-body selection:bg-primary-fixed-dim overflow-hidden">
+<div class="flex h-screen">
+<aside class="hidden lg:flex flex-col h-full p-4 gap-2 bg-slate-100 dark:bg-slate-950 w-72 border-r border-slate-200 dark:border-slate-800 shrink-0">
+<div class="flex flex-col gap-1 mb-8 px-2">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-xl bg-primary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-on-primary-container">sync</span>
+</div>
+<div>
+<h1 class="text-blue-900 dark:text-blue-100 font-black text-xl tracking-tight">PhoneDukaan</h1>
+<p class="text-[10px] text-on-surface-variant font-bold tracking-widest uppercase">Repair Lab</p>
+</div>
+</div>
+</div>
+<nav class="space-y-1">
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-xl transition-all" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-headline text-headline-sm font-semibold">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 bg-white dark:bg-slate-900 text-blue-700 dark:text-blue-400 shadow-sm font-bold border-r-4 border-blue-700 rounded-xl" href="#">
+<span class="material-symbols-outlined">biotech</span>
+<span class="font-headline text-headline-sm font-semibold">Repair Lab</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-xl transition-all" href="#">
+<span class="material-symbols-outlined">devices</span>
+<span class="font-headline text-headline-sm font-semibold">Inventory</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-xl transition-all" href="#">
+<span class="material-symbols-outlined">receipt_long</span>
+<span class="font-headline text-headline-sm font-semibold">Sales Ledger</span>
+</a>
+</nav>
+<div class="mt-auto p-4 bg-surface-container-low rounded-xl">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-primary-fixed flex items-center justify-center overflow-hidden">
+<img alt="Store Manager" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAaObGE0UzMqyf7Ti-306Qmeah_tIf6voftDBOWoENYqRaPk6d6NmhjzHoed0e7hYcTWAt2wTFc3moeMVy8XYx99mnu4d2KPJ5z49tghxQNHHizpvM8Q1oE0thAiobjZ6ml-TQeCt42G6Tbd0clK-lxyTaIOXQejjqO2s95P8wn6NXVXe3l3Cbbcubk2SIKu90-JTrE1vFsWc9ZnjsAKir7crwuTL4ROCZn8sOdafZAd4lIdDhCGy2L5Bey8NaK-U1sYNkNdXAK0fQ"/>
+</div>
+<div class="flex flex-col">
+<span class="text-sm font-bold text-blue-900 dark:text-blue-100">Admin Terminal</span>
+<span class="text-[10px] text-on-surface-variant tabular-nums">v2.4.1</span>
+</div>
+</div>
+</div>
+</aside>
+<main class="flex-1 flex flex-col min-h-0 bg-background relative">
+<header class="bg-white dark:bg-slate-950 flex justify-between items-center px-4 h-14 w-full border-b border-surface-container shrink-0 z-40">
+<div class="flex items-center gap-3">
+<button class="lg:hidden p-1 text-blue-900 dark:text-blue-200">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<h2 class="font-headline text-lg font-bold tracking-tight text-blue-900 dark:text-blue-100">Repair Lab</h2>
+</div>
+<div class="flex items-center gap-2">
+<button class="w-8 h-8 flex items-center justify-center rounded-full text-blue-900 dark:text-blue-200">
+<span class="material-symbols-outlined text-xl">notifications</span>
+</button>
+<div class="w-7 h-7 rounded-full bg-primary-fixed-dim"></div>
+</div>
+</header>
+<section class="grid grid-cols-3 gap-2 p-3 bg-surface-container-low shrink-0">
+<div class="bg-white p-2.5 rounded-lg border-l-2 border-primary shadow-sm">
+<p class="text-[9px] font-bold text-outline-variant uppercase tracking-wider">Open</p>
+<div class="flex items-baseline gap-1">
+<span class="text-lg font-headline font-extrabold tabular-nums">24</span>
+<span class="text-[8px] text-on-tertiary-container bg-tertiary-fixed px-1 rounded-sm font-bold">+3</span>
+</div>
+</div>
+<div class="bg-white p-2.5 rounded-lg border-l-2 border-tertiary-fixed-dim shadow-sm">
+<p class="text-[9px] font-bold text-outline-variant uppercase tracking-wider">Ready</p>
+<div class="flex items-baseline gap-1">
+<span class="text-lg font-headline font-extrabold tabular-nums text-on-tertiary-container">12</span>
+</div>
+</div>
+<div class="bg-white p-2.5 rounded-lg border-l-2 border-error-container shadow-sm">
+<p class="text-[9px] font-bold text-outline-variant uppercase tracking-wider">Pending</p>
+<div class="flex items-baseline gap-1">
+<span class="text-lg font-headline font-extrabold tabular-nums text-error">07</span>
+</div>
+</div>
+</section>
+<section class="px-3 py-2 bg-white flex items-center gap-2 border-b border-surface-container shrink-0 overflow-x-auto no-scrollbar">
+<button class="px-3 py-1 bg-surface-container-high text-on-surface rounded-full font-bold text-xs whitespace-nowrap">All</button>
+<button class="px-3 py-1 text-outline-variant font-medium text-xs whitespace-nowrap">In Progress</button>
+<button class="px-3 py-1 text-outline-variant font-medium text-xs whitespace-nowrap">Ready</button>
+<button class="px-3 py-1 text-outline-variant font-medium text-xs whitespace-nowrap">Pending</button>
+</section>
+<div class="flex-1 overflow-y-auto bg-surface-container-lowest pb-32">
+<div class="divide-y divide-surface-container">
+<div class="p-3 flex items-center gap-3 hover:bg-slate-50">
+<div class="flex-1 min-w-0">
+<div class="flex items-center justify-between mb-0.5">
+<h4 class="font-bold text-sm text-on-surface truncate">iPhone 14 Pro Max</h4>
+<span class="px-1.5 py-0.5 bg-yellow-100 text-yellow-800 text-[9px] font-extrabold uppercase rounded">In Progress</span>
+</div>
+<div class="flex items-center justify-between text-[11px]">
+<span class="text-outline-variant">#RD-9821 • <span class="text-on-surface font-semibold">Rahul Malhotra</span></span>
+<span class="font-extrabold text-secondary tabular-nums">₹14,500</span>
+</div>
+</div>
+<button class="p-2 text-[#25D366] shrink-0">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">chat</span>
+</button>
+</div>
+<div class="p-3 flex items-center gap-3 hover:bg-slate-50">
+<div class="flex-1 min-w-0">
+<div class="flex items-center justify-between mb-0.5">
+<h4 class="font-bold text-sm text-on-surface truncate">MacBook Air M2</h4>
+<span class="px-1.5 py-0.5 bg-tertiary-fixed text-on-tertiary-fixed text-[9px] font-extrabold uppercase rounded">Ready</span>
+</div>
+<div class="flex items-center justify-between text-[11px]">
+<span class="text-outline-variant">#RD-9844 • <span class="text-on-surface font-semibold">Sarah Williams</span></span>
+<span class="font-extrabold text-on-tertiary-container tabular-nums">₹42,000</span>
+</div>
+</div>
+<button class="p-2 text-[#25D366] shrink-0">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">chat</span>
+</button>
+</div>
+<div class="p-3 flex items-center gap-3 hover:bg-slate-50">
+<div class="flex-1 min-w-0">
+<div class="flex items-center justify-between mb-0.5">
+<h4 class="font-bold text-sm text-on-surface truncate">Samsung Tab S8</h4>
+<span class="px-1.5 py-0.5 bg-error-container text-on-error-container text-[9px] font-extrabold uppercase rounded">Pending</span>
+</div>
+<div class="flex items-center justify-between text-[11px]">
+<span class="text-outline-variant">#RD-9901 • <span class="text-on-surface font-semibold">Priya Sharma</span></span>
+<span class="font-extrabold text-secondary tabular-nums">₹8,900</span>
+</div>
+</div>
+<button class="p-2 text-[#25D366] shrink-0">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">chat</span>
+</button>
+</div>
+<div class="p-3 flex items-center gap-3 hover:bg-slate-50">
+<div class="flex-1 min-w-0">
+<div class="flex items-center justify-between mb-0.5">
+<h4 class="font-bold text-sm text-on-surface truncate">Apple Watch S7</h4>
+<span class="px-1.5 py-0.5 bg-yellow-100 text-yellow-800 text-[9px] font-extrabold uppercase rounded">In Progress</span>
+</div>
+<div class="flex items-center justify-between text-[11px]">
+<span class="text-outline-variant">#RD-9905 • <span class="text-on-surface font-semibold">Amit Verma</span></span>
+<span class="font-extrabold text-secondary tabular-nums">₹5,200</span>
+</div>
+</div>
+<button class="p-2 text-[#25D366] shrink-0">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">chat</span>
+</button>
+</div>
+<div class="p-3 flex items-center gap-3 hover:bg-slate-50">
+<div class="flex-1 min-w-0">
+<div class="flex items-center justify-between mb-0.5">
+<h4 class="font-bold text-sm text-on-surface truncate">Pixel 7 Pro</h4>
+<span class="px-1.5 py-0.5 bg-yellow-100 text-yellow-800 text-[9px] font-extrabold uppercase rounded">In Progress</span>
+</div>
+<div class="flex items-center justify-between text-[11px]">
+<span class="text-outline-variant">#RD-9912 • <span class="text-on-surface font-semibold">Vikram Singh</span></span>
+<span class="font-extrabold text-secondary tabular-nums">₹12,200</span>
+</div>
+</div>
+<button class="p-2 text-[#25D366] shrink-0">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">chat</span>
+</button>
+</div>
+<div class="p-3 flex items-center gap-3 hover:bg-slate-50">
+<div class="flex-1 min-w-0">
+<div class="flex items-center justify-between mb-0.5">
+<h4 class="font-bold text-sm text-on-surface truncate">iPad Air 5</h4>
+<span class="px-1.5 py-0.5 bg-tertiary-fixed text-on-tertiary-fixed text-[9px] font-extrabold uppercase rounded">Ready</span>
+</div>
+<div class="flex items-center justify-between text-[11px]">
+<span class="text-outline-variant">#RD-9915 • <span class="text-on-surface font-semibold">Neha Goel</span></span>
+<span class="font-extrabold text-on-tertiary-container tabular-nums">₹18,000</span>
+</div>
+</div>
+<button class="p-2 text-[#25D366] shrink-0">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">chat</span>
+</button>
+</div>
+</div>
+</div>
+<div class="fixed bottom-0 left-0 w-full z-50">
+<div class="px-4 pb-2">
+<div class="flex items-center bg-white border border-slate-200 shadow-lg rounded-full px-4 h-12 gap-3 focus-within:ring-2 focus-within:ring-primary/20 transition-all">
+<span class="material-symbols-outlined text-outline text-xl">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-sm flex-1 placeholder:text-outline-variant" placeholder="Job ID or Phone" type="text"/>
+<button class="bg-primary text-white h-9 px-4 rounded-full text-xs font-bold flex items-center gap-2">
+<span class="material-symbols-outlined text-base">add</span>
+                        New Repair
+                    </button>
+</div>
+</div>
+<nav class="md:hidden flex justify-around items-center pt-2 pb-6 px-2 bg-white/95 backdrop-blur-xl border-t border-slate-200">
+<a class="flex flex-col items-center justify-center text-slate-500" href="#">
+<span class="material-symbols-outlined">inventory_2</span>
+<span class="text-[10px] font-medium">Inventory</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500" href="#">
+<span class="material-symbols-outlined">payments</span>
+<span class="text-[10px] font-medium">Sales</span>
+</a>
+<a class="flex flex-col items-center justify-center text-blue-700 font-bold" href="#">
+<span class="material-symbols-outlined">build</span>
+<span class="text-[10px]">Repairs</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="text-[10px] font-medium">Admin</span>
+</a>
+</nav>
+</div>
+</main>
+</div>
+
+</body></html>

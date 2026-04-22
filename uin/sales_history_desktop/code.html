@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>PhoneDukaan - Sales History</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "on-background": "#191c1e",
+                        "on-tertiary-container": "#5aa958",
+                        "on-surface-variant": "#454652",
+                        "on-tertiary": "#ffffff",
+                        "error": "#ba1a1a",
+                        "inverse-primary": "#bdc2ff",
+                        "on-secondary-fixed-variant": "#003ab3",
+                        "inverse-on-surface": "#eff1f4",
+                        "tertiary-fixed-dim": "#88d982",
+                        "on-primary-fixed": "#000767",
+                        "surface-container-highest": "#e0e3e6",
+                        "on-tertiary-fixed-variant": "#005312",
+                        "on-surface": "#191c1e",
+                        "tertiary-fixed": "#a3f69c",
+                        "surface-container-high": "#e6e8eb",
+                        "primary-fixed": "#e0e0ff",
+                        "on-secondary-fixed": "#001550",
+                        "on-primary-fixed-variant": "#343d96",
+                        "tertiary": "#002103",
+                        "outline-variant": "#c6c5d4",
+                        "surface-container": "#eceef1",
+                        "surface-bright": "#f7f9fc",
+                        "on-error-container": "#93000a",
+                        "on-tertiary-fixed": "#002204",
+                        "surface-tint": "#4c56af",
+                        "surface-variant": "#e0e3e6",
+                        "on-secondary": "#ffffff",
+                        "tertiary-container": "#003909",
+                        "secondary-container": "#2761fe",
+                        "surface-container-low": "#f2f4f7",
+                        "on-primary-container": "#8690ee",
+                        "on-primary": "#ffffff",
+                        "primary": "#000666",
+                        "surface-container-lowest": "#ffffff",
+                        "primary-fixed-dim": "#bdc2ff",
+                        "secondary-fixed-dim": "#b6c4ff",
+                        "secondary": "#0048d8",
+                        "on-secondary-container": "#f4f3ff",
+                        "on-error": "#ffffff",
+                        "secondary-fixed": "#dce1ff",
+                        "outline": "#767683",
+                        "surface-dim": "#d8dadd",
+                        "primary-container": "#1a237e",
+                        "error-container": "#ffdad6",
+                        "background": "#f7f9fc",
+                        "inverse-surface": "#2d3133",
+                        "surface": "#f7f9fc"
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    fontFamily: {
+                        "headline": ["Plus Jakarta Sans", "sans-serif"],
+                        "body": ["Inter", "sans-serif"],
+                        "label": ["Inter", "sans-serif"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .tabular-nums { font-variant-numeric: tabular-nums; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface font-body antialiased flex h-screen overflow-hidden">
+<!-- SideNavBar -->
+<nav class="hidden md:flex flex-col bg-[#f0f2f5] dark:bg-slate-900 fixed left-0 top-0 h-full w-64 py-6 border-r border-transparent flex-shrink-0 z-20">
+<div class="px-6 mb-8 flex items-center space-x-3">
+<div class="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-on-primary font-headline font-bold text-xl">
+                TE
+            </div>
+<div>
+<h1 class="text-lg font-bold text-[#000666] dark:text-blue-200 font-headline leading-tight">Management</h1>
+<p class="text-xs text-on-surface-variant font-label">Operations Hub</p>
+</div>
+</div>
+<div class="flex-1 overflow-y-auto px-4 space-y-1">
+<a class="flex items-center space-x-3 text-slate-600 dark:text-slate-400 px-4 py-3 hover:text-[#000666] font-['Inter'] text-sm tracking-normal hover:bg-[#e2e7f0] dark:hover:bg-slate-800 transition-all rounded-lg" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">dashboard</span>
+<span>Dashboard</span>
+</a>
+<a class="flex items-center space-x-3 bg-[#e2e7f0] dark:bg-slate-800 text-[#000666] dark:text-blue-100 rounded-lg px-4 py-3 font-semibold font-['Inter'] text-sm tracking-normal" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">receipt_long</span>
+<span>Sales History</span>
+</a>
+<a class="flex items-center space-x-3 text-slate-600 dark:text-slate-400 px-4 py-3 hover:text-[#000666] font-['Inter'] text-sm tracking-normal hover:bg-[#e2e7f0] dark:hover:bg-slate-800 transition-all rounded-lg" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">inventory_2</span>
+<span>Inventory</span>
+</a>
+<a class="flex items-center space-x-3 text-slate-600 dark:text-slate-400 px-4 py-3 hover:text-[#000666] font-['Inter'] text-sm tracking-normal hover:bg-[#e2e7f0] dark:hover:bg-slate-800 transition-all rounded-lg" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">group</span>
+<span>Customers</span>
+</a>
+<a class="flex items-center space-x-3 text-slate-600 dark:text-slate-400 px-4 py-3 hover:text-[#000666] font-['Inter'] text-sm tracking-normal hover:bg-[#e2e7f0] dark:hover:bg-slate-800 transition-all rounded-lg" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">analytics</span>
+<span>Reports</span>
+</a>
+</div>
+<div class="px-4 mt-auto space-y-4">
+<button class="w-full bg-gradient-to-r from-secondary to-secondary-container text-on-secondary rounded-xl py-3 font-semibold flex items-center justify-center space-x-2 hover:opacity-90 transition-opacity shadow-[0_4px_12px_rgba(0,72,216,0.2)]">
+<span class="material-symbols-outlined text-sm">add_circle</span>
+<span>Quick Sale</span>
+</button>
+<div class="space-y-1">
+<a class="flex items-center space-x-3 text-slate-600 dark:text-slate-400 px-4 py-2 hover:text-[#000666] font-['Inter'] text-sm tracking-normal hover:bg-[#e2e7f0] dark:hover:bg-slate-800 transition-all rounded-lg" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">help</span>
+<span>Help Center</span>
+</a>
+<a class="flex items-center space-x-3 text-slate-600 dark:text-slate-400 px-4 py-2 hover:text-[#000666] font-['Inter'] text-sm tracking-normal hover:bg-[#e2e7f0] dark:hover:bg-slate-800 transition-all rounded-lg" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">logout</span>
+<span>Logout</span>
+</a>
+</div>
+</div>
+</nav>
+<!-- Main Content Area -->
+<div class="flex-1 flex flex-col md:ml-64 relative min-w-0 bg-surface">
+<!-- TopNavBar -->
+<header class="bg-[#f7f9fc] dark:bg-slate-950 flex justify-between items-center w-full px-8 h-16 max-w-full mx-auto flex-shrink-0 z-10 sticky top-0">
+<div class="flex items-center flex-1">
+<div class="relative w-64 md:w-96 hidden md:block">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline-variant">search</span>
+<input class="w-full bg-surface-container-low border-none rounded-full py-2 pl-10 pr-4 text-sm font-body text-on-surface focus:ring-2 focus:ring-primary focus:bg-surface-container-lowest transition-all placeholder:text-outline" placeholder="Search invoices, IMEI, customers..." type="text"/>
+</div>
+<div class="md:hidden">
+<span class="text-xl font-black text-[#000666] dark:text-blue-200 tracking-tighter font-['Plus_Jakarta_Sans'] font-semibold tracking-tight">The Retail Editorial</span>
+</div>
+</div>
+<div class="flex items-center space-x-4">
+<button class="w-10 h-10 rounded-full flex items-center justify-center text-slate-500 hover:bg-slate-200/50 dark:hover:bg-slate-800 transition-colors relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full"></span>
+</button>
+<button class="w-10 h-10 rounded-full flex items-center justify-center text-slate-500 hover:bg-slate-200/50 dark:hover:bg-slate-800 transition-colors">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<div class="w-9 h-9 rounded-full bg-surface-container-high border-2 border-surface overflow-hidden cursor-pointer ml-2">
+<img alt="Store Manager Profile" class="w-full h-full object-cover" data-alt="professional portrait of a store manager smiling slightly, well-lit, soft background focus" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDsHPzB0_lQdG2SBl3AyXHmoNsanRgUHCK9HgFl16WNZglYhBy10QVLGZI52EgNwxY2KyvEs7V1ZZVbgExzZ3LeYjbVpk6vx-ujSvv6A1IGLx1UuVI1Ft5MMgW0DTPkUIXN8r8Vxub_Zov553wxZbnUs7Ud-2mP-xN-aF7rXwDloZkSZpy280kIuUK8ibRLHo0TR9HJgI8dt2I6yoxLkrLYj0Es0hsC0zPa3SYb6d_12FVj2M9z44l5-8KOBP0XR0K4q4j93eDKZFw"/>
+</div>
+</div>
+</header>
+<!-- Canvas -->
+<main class="flex-1 overflow-y-auto p-4 md:p-8 flex flex-col space-y-6">
+<!-- Header Section -->
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-4">
+<div>
+<h2 class="text-3xl font-headline font-bold text-primary tracking-tight">Sales History</h2>
+<p class="text-sm font-body text-on-surface-variant mt-1">Review and manage past transactions.</p>
+</div>
+<div class="flex space-x-3">
+<button class="flex items-center space-x-2 px-4 py-2 bg-surface-container-lowest text-on-surface font-body text-sm font-medium rounded-lg hover:bg-surface-container-low transition-colors shadow-sm">
+<span class="material-symbols-outlined text-sm">download</span>
+<span>Export CSV</span>
+</button>
+<button class="flex items-center space-x-2 px-4 py-2 bg-primary text-on-primary font-body text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors shadow-sm">
+<span class="material-symbols-outlined text-sm">print</span>
+<span>Print Report</span>
+</button>
+</div>
+</div>
+<!-- Summary Cards (Asymmetric Layout) -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+<!-- Total Sales -->
+<div class="bg-surface-container-lowest rounded-xl p-6 relative overflow-hidden flex flex-col justify-between shadow-[0_4px_24px_rgba(25,28,30,0.04)] h-32">
+<div class="absolute -right-4 -bottom-4 opacity-[0.03] text-9xl font-headline font-black text-primary pointer-events-none select-none">
+                        ₹
+                    </div>
+<div class="flex justify-between items-start z-10">
+<span class="text-sm font-label text-on-surface-variant font-medium uppercase tracking-wider">Total Sales</span>
+<div class="bg-tertiary-fixed px-2 py-1 rounded text-on-tertiary-fixed text-xs font-label font-bold flex items-center space-x-1">
+<span class="material-symbols-outlined text-[10px]">trending_up</span>
+<span>+12%</span>
+</div>
+</div>
+<div class="z-10 text-right">
+<span class="text-3xl font-headline font-bold text-primary tabular-nums tracking-tight">₹ 4,80,000</span>
+</div>
+</div>
+<!-- Outstanding -->
+<div class="bg-surface-container-lowest rounded-xl p-6 relative overflow-hidden flex flex-col justify-between shadow-[0_4px_24px_rgba(25,28,30,0.04)] h-32">
+<div class="flex justify-between items-start z-10">
+<span class="text-sm font-label text-on-surface-variant font-medium uppercase tracking-wider">Outstanding</span>
+<div class="bg-error-container px-2 py-1 rounded text-on-error-container text-xs font-label font-bold">
+                            3 Invoices
+                        </div>
+</div>
+<div class="z-10 text-right">
+<span class="text-2xl font-headline font-bold text-on-surface tabular-nums tracking-tight">₹ 24,500</span>
+</div>
+</div>
+<!-- GST Collected -->
+<div class="bg-surface-container-lowest rounded-xl p-6 relative overflow-hidden flex flex-col justify-between shadow-[0_4px_24px_rgba(25,28,30,0.04)] h-32">
+<div class="flex justify-between items-start z-10">
+<span class="text-sm font-label text-on-surface-variant font-medium uppercase tracking-wider">GST Collected</span>
+</div>
+<div class="z-10 text-right">
+<span class="text-2xl font-headline font-bold text-on-surface tabular-nums tracking-tight">₹ 86,000</span>
+</div>
+</div>
+</div>
+<!-- Filter Bar -->
+<div class="bg-surface-container-lowest p-3 rounded-xl flex flex-wrap items-center gap-3 shadow-[0_2px_12px_rgba(25,28,30,0.02)]">
+<div class="flex items-center bg-surface-container-low rounded-lg px-3 py-1.5 flex-1 min-w-[200px]">
+<span class="material-symbols-outlined text-outline-variant text-sm mr-2">calendar_month</span>
+<input class="bg-transparent border-none text-sm font-body text-on-surface focus:ring-0 w-full p-0 h-6 cursor-pointer" readonly="" type="text" value="Oct 1, 2023 - Oct 31, 2023"/>
+</div>
+<div class="h-6 w-px bg-outline-variant/30 hidden md:block"></div>
+<div class="flex items-center space-x-1">
+<button class="px-3 py-1.5 bg-primary-fixed text-on-primary-fixed font-body text-sm font-medium rounded-md transition-colors">All</button>
+<button class="px-3 py-1.5 text-on-surface-variant hover:bg-surface-container-low font-body text-sm font-medium rounded-md transition-colors">GST</button>
+<button class="px-3 py-1.5 text-on-surface-variant hover:bg-surface-container-low font-body text-sm font-medium rounded-md transition-colors">Non-GST</button>
+</div>
+<div class="h-6 w-px bg-outline-variant/30 hidden md:block"></div>
+<select class="bg-surface-container-low border-none text-sm font-body text-on-surface rounded-lg py-1.5 pl-3 pr-8 focus:ring-0 cursor-pointer">
+<option>Payment Mode</option>
+<option>UPI</option>
+<option>Card</option>
+<option>Cash</option>
+</select>
+<button class="ml-auto flex items-center space-x-1 text-primary hover:text-primary/80 font-body text-sm font-medium px-2 py-1">
+<span class="material-symbols-outlined text-sm">filter_list</span>
+<span>More Filters</span>
+</button>
+</div>
+<!-- Main Workspace Area (Table + Preview) -->
+<div class="flex flex-1 gap-6 min-h-0">
+<!-- Invoice Data Table -->
+<div class="flex-1 bg-surface-container-lowest rounded-xl flex flex-col shadow-[0_4px_24px_rgba(25,28,30,0.03)] overflow-hidden">
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-low/50">
+<th class="py-3 px-4 font-label text-xs font-semibold text-on-surface-variant uppercase tracking-wider whitespace-nowrap">Invoice #</th>
+<th class="py-3 px-4 font-label text-xs font-semibold text-on-surface-variant uppercase tracking-wider whitespace-nowrap">Date</th>
+<th class="py-3 px-4 font-label text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Customer</th>
+<th class="py-3 px-4 font-label text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Device</th>
+<th class="py-3 px-4 font-label text-xs font-semibold text-on-surface-variant uppercase tracking-wider text-right whitespace-nowrap">Amount</th>
+<th class="py-3 px-4 font-label text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Status</th>
+<th class="py-3 px-4 font-label text-xs font-semibold text-on-surface-variant uppercase tracking-wider text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="font-body text-sm divide-y divide-outline-variant/10">
+<!-- Row 1 (Active) -->
+<tr class="hover:bg-surface-container-low/50 transition-colors cursor-pointer bg-primary-fixed/30 relative">
+<td class="py-3 px-4 whitespace-nowrap">
+<div class="absolute left-0 top-0 bottom-0 w-1 bg-primary"></div>
+<span class="font-semibold text-primary tabular-nums">INV-23-1042</span>
+</td>
+<td class="py-3 px-4 text-on-surface-variant whitespace-nowrap tabular-nums text-xs">24 Oct, 14:30</td>
+<td class="py-3 px-4">
+<div class="font-medium text-on-surface">Rahul Sharma</div>
+<div class="text-xs text-on-surface-variant tabular-nums">98765 43210</div>
+</td>
+<td class="py-3 px-4">
+<div class="font-medium text-on-surface">iPhone 15 Pro Max</div>
+<div class="text-xs text-on-surface-variant">256GB • Natural Titanium</div>
+</td>
+<td class="py-3 px-4 text-right">
+<div class="font-semibold text-on-surface tabular-nums">₹ 1,59,900</div>
+<div class="text-xs text-on-surface-variant">UPI</div>
+</td>
+<td class="py-3 px-4">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-tertiary-fixed text-on-tertiary-fixed">Paid</span>
+</td>
+<td class="py-3 px-4 text-right whitespace-nowrap">
+<div class="flex items-center justify-end space-x-2">
+<button class="w-8 h-8 rounded-full hover:bg-surface-container flex items-center justify-center text-on-surface-variant transition-colors" title="WhatsApp">
+<span class="material-symbols-outlined text-sm">chat</span>
+</button>
+<button class="w-8 h-8 rounded-full hover:bg-surface-container flex items-center justify-center text-on-surface-variant transition-colors" title="Download PDF">
+<span class="material-symbols-outlined text-sm">picture_as_pdf</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-surface-container-low/50 transition-colors cursor-pointer">
+<td class="py-3 px-4 whitespace-nowrap font-medium text-on-surface tabular-nums">INV-23-1041</td>
+<td class="py-3 px-4 text-on-surface-variant whitespace-nowrap tabular-nums text-xs">24 Oct, 11:15</td>
+<td class="py-3 px-4">
+<div class="font-medium text-on-surface">Priya Patel</div>
+<div class="text-xs text-on-surface-variant tabular-nums">91234 56789</div>
+</td>
+<td class="py-3 px-4">
+<div class="font-medium text-on-surface">Samsung S23 Ultra</div>
+<div class="text-xs text-on-surface-variant">512GB • Phantom Black</div>
+</td>
+<td class="py-3 px-4 text-right">
+<div class="font-semibold text-on-surface tabular-nums">₹ 1,24,999</div>
+<div class="text-xs text-on-surface-variant">Card</div>
+</td>
+<td class="py-3 px-4">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-tertiary-fixed text-on-tertiary-fixed">Paid</span>
+</td>
+<td class="py-3 px-4 text-right whitespace-nowrap">
+<div class="flex items-center justify-end space-x-2">
+<button class="w-8 h-8 rounded-full hover:bg-surface-container flex items-center justify-center text-on-surface-variant transition-colors">
+<span class="material-symbols-outlined text-sm">chat</span>
+</button>
+<button class="w-8 h-8 rounded-full hover:bg-surface-container flex items-center justify-center text-on-surface-variant transition-colors">
+<span class="material-symbols-outlined text-sm">picture_as_pdf</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 3 (Due) -->
+<tr class="hover:bg-surface-container-low/50 transition-colors cursor-pointer">
+<td class="py-3 px-4 whitespace-nowrap font-medium text-on-surface tabular-nums">INV-23-1040</td>
+<td class="py-3 px-4 text-on-surface-variant whitespace-nowrap tabular-nums text-xs">23 Oct, 18:45</td>
+<td class="py-3 px-4">
+<div class="font-medium text-on-surface">Amit Singh</div>
+<div class="text-xs text-on-surface-variant tabular-nums">99887 76655</div>
+</td>
+<td class="py-3 px-4">
+<div class="font-medium text-on-surface">OnePlus 11R</div>
+<div class="text-xs text-on-surface-variant">128GB • Sonic Black</div>
+</td>
+<td class="py-3 px-4 text-right">
+<div class="font-semibold text-on-surface tabular-nums">₹ 39,999</div>
+<div class="text-xs text-on-surface-variant text-error font-medium">₹ 10,000 Due</div>
+</td>
+<td class="py-3 px-4">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-error-container text-on-error-container">Partial</span>
+</td>
+<td class="py-3 px-4 text-right whitespace-nowrap">
+<div class="flex items-center justify-end space-x-2">
+<button class="w-8 h-8 rounded-full hover:bg-surface-container flex items-center justify-center text-on-surface-variant transition-colors">
+<span class="material-symbols-outlined text-sm">chat</span>
+</button>
+<button class="w-8 h-8 rounded-full hover:bg-surface-container flex items-center justify-center text-on-surface-variant transition-colors">
+<span class="material-symbols-outlined text-sm">picture_as_pdf</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 4 -->
+<tr class="hover:bg-surface-container-low/50 transition-colors cursor-pointer">
+<td class="py-3 px-4 whitespace-nowrap font-medium text-on-surface tabular-nums">INV-23-1039</td>
+<td class="py-3 px-4 text-on-surface-variant whitespace-nowrap tabular-nums text-xs">23 Oct, 10:20</td>
+<td class="py-3 px-4">
+<div class="font-medium text-on-surface">Sneha Gupta</div>
+<div class="text-xs text-on-surface-variant tabular-nums">94433 22110</div>
+</td>
+<td class="py-3 px-4">
+<div class="font-medium text-on-surface">AirPods Pro (2nd Gen)</div>
+<div class="text-xs text-on-surface-variant">Accessories</div>
+</td>
+<td class="py-3 px-4 text-right">
+<div class="font-semibold text-on-surface tabular-nums">₹ 24,900</div>
+<div class="text-xs text-on-surface-variant">Cash</div>
+</td>
+<td class="py-3 px-4">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-tertiary-fixed text-on-tertiary-fixed">Paid</span>
+</td>
+<td class="py-3 px-4 text-right whitespace-nowrap">
+<div class="flex items-center justify-end space-x-2">
+<button class="w-8 h-8 rounded-full hover:bg-surface-container flex items-center justify-center text-on-surface-variant transition-colors">
+<span class="material-symbols-outlined text-sm">chat</span>
+</button>
+<button class="w-8 h-8 rounded-full hover:bg-surface-container flex items-center justify-center text-on-surface-variant transition-colors">
+<span class="material-symbols-outlined text-sm">picture_as_pdf</span>
+</button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<!-- Preview Panel (Right Side) -->
+<div class="hidden lg:flex flex-col w-[380px] bg-surface-container-lowest rounded-xl shadow-[0_4px_24px_rgba(25,28,30,0.06)] border border-outline-variant/10 overflow-hidden flex-shrink-0">
+<!-- Panel Header -->
+<div class="p-6 border-b border-outline-variant/10 bg-surface-container-low/30">
+<div class="flex justify-between items-start mb-4">
+<div>
+<h3 class="font-headline font-bold text-xl text-primary tabular-nums">INV-23-1042</h3>
+<p class="text-sm font-body text-on-surface-variant mt-1">24 Oct 2023, 14:30</p>
+</div>
+<span class="inline-flex items-center px-2.5 py-1 rounded text-xs font-medium bg-tertiary-fixed text-on-tertiary-fixed">
+                                Paid
+                            </span>
+</div>
+<div class="flex space-x-2">
+<button class="flex-1 bg-surface-container text-on-surface font-body text-sm font-medium py-2 rounded-lg hover:bg-surface-container-high transition-colors flex items-center justify-center space-x-1">
+<span class="material-symbols-outlined text-sm">receipt</span>
+<span>Receipt</span>
+</button>
+<button class="flex-1 bg-surface-container text-on-surface font-body text-sm font-medium py-2 rounded-lg hover:bg-surface-container-high transition-colors flex items-center justify-center space-x-1">
+<span class="material-symbols-outlined text-sm">more_horiz</span>
+<span>More</span>
+</button>
+</div>
+</div>
+<!-- Panel Content -->
+<div class="flex-1 overflow-y-auto p-6 space-y-6">
+<!-- Customer Section -->
+<div class="space-y-3">
+<h4 class="text-xs font-label font-bold text-on-surface-variant uppercase tracking-wider">Customer Details</h4>
+<div class="bg-surface-container-low rounded-lg p-4">
+<div class="font-medium text-on-surface">Rahul Sharma</div>
+<div class="text-sm text-on-surface-variant tabular-nums mt-1">+91 98765 43210</div>
+<div class="text-sm text-on-surface-variant mt-1 line-clamp-2">A-12, Green Valley Apartments, Andheri West, Mumbai, 400053</div>
+</div>
+</div>
+<!-- Item Section -->
+<div class="space-y-3">
+<h4 class="text-xs font-label font-bold text-on-surface-variant uppercase tracking-wider">Line Items</h4>
+<div class="flex justify-between items-start py-2 border-b border-outline-variant/10">
+<div class="flex-1 pr-4">
+<div class="font-medium text-sm text-on-surface">iPhone 15 Pro Max</div>
+<div class="text-xs text-on-surface-variant mt-0.5">256GB • Natural Titanium</div>
+<div class="text-[10px] font-label text-on-surface-variant/70 mt-1 tabular-nums bg-surface-variant inline-block px-1.5 py-0.5 rounded">IMEI: 358473019284756</div>
+</div>
+<div class="text-right">
+<div class="font-medium text-sm text-on-surface tabular-nums">₹ 1,59,900</div>
+<div class="text-xs text-on-surface-variant mt-0.5">Qty: 1</div>
+</div>
+</div>
+<div class="flex justify-between items-start py-2 border-b border-outline-variant/10">
+<div class="flex-1 pr-4">
+<div class="font-medium text-sm text-on-surface">Apple 20W USB-C Adapter</div>
+</div>
+<div class="text-right">
+<div class="font-medium text-sm text-on-surface tabular-nums">₹ 1,900</div>
+<div class="text-xs text-on-surface-variant mt-0.5">Qty: 1</div>
+</div>
+</div>
+</div>
+<!-- Summary Section -->
+<div class="bg-surface-container-low rounded-lg p-4 space-y-2">
+<div class="flex justify-between text-sm">
+<span class="text-on-surface-variant">Subtotal</span>
+<span class="text-on-surface tabular-nums">₹ 1,37,118.64</span>
+</div>
+<div class="flex justify-between text-sm">
+<span class="text-on-surface-variant">CGST (9%)</span>
+<span class="text-on-surface tabular-nums">₹ 12,340.68</span>
+</div>
+<div class="flex justify-between text-sm pb-2 border-b border-outline-variant/20">
+<span class="text-on-surface-variant">SGST (9%)</span>
+<span class="text-on-surface tabular-nums">₹ 12,340.68</span>
+</div>
+<div class="flex justify-between items-center pt-1">
+<span class="font-bold text-on-surface">Total</span>
+<span class="font-headline font-bold text-lg text-primary tabular-nums">₹ 1,61,800</span>
+</div>
+</div>
+<!-- Payment Section -->
+<div class="space-y-2">
+<h4 class="text-xs font-label font-bold text-on-surface-variant uppercase tracking-wider">Payment Activity</h4>
+<div class="flex justify-between items-center text-sm bg-surface-container-low px-3 py-2 rounded-lg">
+<div class="flex items-center space-x-2">
+<span class="material-symbols-outlined text-sm text-on-surface-variant">qr_code_scanner</span>
+<span class="text-on-surface">UPI (PhonePe)</span>
+</div>
+<span class="text-on-surface font-medium tabular-nums">₹ 1,61,800</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>

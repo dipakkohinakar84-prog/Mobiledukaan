@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>PhoneDukaan - Sell Device</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "primary-container": "#1a237e",
+                        "secondary": "#0048d8",
+                        "on-error": "#ffffff",
+                        "tertiary-fixed-dim": "#88d982",
+                        "background": "#f7f9fc",
+                        "on-surface-variant": "#454652",
+                        "on-primary-container": "#8690ee",
+                        "surface-container": "#eceef1",
+                        "inverse-surface": "#2d3133",
+                        "primary-fixed": "#e0e0ff",
+                        "on-primary-fixed": "#000767",
+                        "on-tertiary-fixed": "#002204",
+                        "on-tertiary": "#ffffff",
+                        "on-primary": "#ffffff",
+                        "surface-dim": "#d8dadd",
+                        "on-tertiary-container": "#5aa958",
+                        "error": "#ba1a1a",
+                        "primary-fixed-dim": "#bdc2ff",
+                        "inverse-primary": "#bdc2ff",
+                        "surface-container-lowest": "#ffffff",
+                        "on-surface": "#191c1e",
+                        "surface-container-high": "#e6e8eb",
+                        "tertiary": "#002103",
+                        "primary": "#000666",
+                        "outline-variant": "#c6c5d4",
+                        "error-container": "#ffdad6",
+                        "tertiary-container": "#003909",
+                        "secondary-container": "#2761fe",
+                        "on-secondary": "#ffffff",
+                        "surface-bright": "#f7f9fc",
+                        "on-tertiary-fixed-variant": "#005312",
+                        "inverse-on-surface": "#eff1f4",
+                        "on-secondary-container": "#f4f3ff",
+                        "tertiary-fixed": "#a3f69c",
+                        "surface-container-low": "#f2f4f7",
+                        "on-secondary-fixed": "#001550",
+                        "surface-tint": "#4c56af",
+                        "outline": "#767683",
+                        "surface-container-highest": "#e0e3e6",
+                        "secondary-fixed-dim": "#b6c4ff",
+                        "on-error-container": "#93000a",
+                        "surface": "#f7f9fc",
+                        "on-primary-fixed-variant": "#343d96",
+                        "surface-variant": "#e0e3e6",
+                        "secondary-fixed": "#dce1ff",
+                        "on-background": "#191c1e",
+                        "on-secondary-fixed-variant": "#003ab3"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Plus Jakarta Sans"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .tabular-nums { font-variant-numeric: tabular-nums; }
+        details > summary { list-style: none; }
+        details > summary::-webkit-details-marker { display: none; }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body min-h-screen pb-40 md:pb-0">
+<!-- TopAppBar -->
+<header class="bg-slate-50 dark:bg-slate-950 flex justify-between items-center px-4 h-16 w-full docked full-width top-0 sticky z-40">
+<div class="flex items-center gap-3">
+<button class="p-2 text-blue-900 dark:text-blue-200 transition-all scale-95 active:opacity-80">
+<span class="material-symbols-outlined" data-icon="sync">sync</span>
+</button>
+<h1 class="text-blue-900 dark:text-blue-100 text-xl font-extrabold tracking-tight">PhoneDukaan</h1>
+</div>
+<div class="flex items-center gap-2">
+<button class="p-2 text-blue-900 dark:text-blue-200 transition-all scale-95 active:opacity-80">
+<span class="material-symbols-outlined" data-icon="search">search</span>
+</button>
+</div>
+</header>
+<div class="flex">
+<!-- NavigationDrawer (Desktop Only) -->
+<aside class="hidden lg:flex flex-col h-[calc(100vh-4rem)] w-72 border-r border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-950 p-4 gap-2 sticky top-16">
+<div class="flex items-center gap-4 mb-8 px-2">
+<div class="w-12 h-12 rounded-full bg-primary flex items-center justify-center text-white font-bold">SM</div>
+<div>
+<p class="text-blue-900 dark:text-blue-100 font-semibold Plus Jakarta Sans">PhoneDukaan Alpha</p>
+<p class="text-xs text-slate-500">Admin Terminal</p>
+</div>
+</div>
+<nav class="space-y-1">
+<a class="flex items-center gap-3 p-3 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 hover:translate-x-1 transition-transform duration-300 rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span class="font-medium">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 p-3 bg-white dark:bg-slate-900 text-blue-700 dark:text-blue-400 shadow-sm font-bold border-r-4 border-blue-700 rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="devices">devices</span>
+<span class="font-medium">Inventory</span>
+</a>
+<a class="flex items-center gap-3 p-3 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 hover:translate-x-1 transition-transform duration-300 rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="receipt_long">receipt_long</span>
+<span class="font-medium">Sales Ledger</span>
+</a>
+<a class="flex items-center gap-3 p-3 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 hover:translate-x-1 transition-transform duration-300 rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="biotech">biotech</span>
+<span class="font-medium">Repair Lab</span>
+</a>
+</nav>
+<div class="mt-auto p-4 bg-surface-container-low rounded-xl">
+<p class="text-xs text-outline font-medium">SYSTEM STATUS</p>
+<p class="text-sm font-bold text-tertiary-container">v2.4.1 Online</p>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="flex-1 p-4 md:p-6 lg:p-8">
+<div class="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
+<!-- Left Column: Form Steps -->
+<div class="lg:col-span-7 space-y-4">
+<!-- Step 1 & 2: Identification (Collapsible) -->
+<details class="bg-surface-container-low rounded-xl group" open="">
+<summary class="p-4 flex items-center justify-between cursor-pointer focus:outline-none">
+<h2 class="text-title-md font-bold text-primary flex items-center gap-2">
+<span class="material-symbols-outlined" data-icon="barcode_scanner">barcode_scanner</span>
+                                Device Identification
+                            </h2>
+<span class="material-symbols-outlined group-open:rotate-180 transition-transform">expand_more</span>
+</summary>
+<div class="px-4 pb-6 space-y-4">
+<div class="relative">
+<label class="text-[10px] font-bold text-outline uppercase tracking-wider mb-1 block">IMEI / Serial Number</label>
+<div class="flex gap-2">
+<div class="flex-1 bg-surface-container-lowest flex items-center px-4 rounded-xl shadow-sm focus-within:ring-2 ring-primary transition-all">
+<input class="w-full bg-transparent border-none focus:ring-0 py-3 tabular-nums text-on-surface font-semibold text-sm" placeholder="Scan or type 15-digit IMEI..." type="text" value="358492048512394"/>
+<span class="material-symbols-outlined text-secondary text-sm" data-icon="verified" style="font-variation-settings: 'FILL' 1;">verified</span>
+</div>
+<button class="bg-secondary text-white p-3 rounded-xl shadow-lg hover:opacity-90 transition-all flex items-center justify-center">
+<span class="material-symbols-outlined" data-icon="qr_code_scanner">qr_code_scanner</span>
+</button>
+</div>
+</div>
+<!-- Device Card (Auto-filled) -->
+<div class="bg-surface-container-lowest rounded-xl p-3 shadow-sm border-l-4 border-secondary flex gap-4 items-center">
+<div class="w-16 h-16 bg-surface-container rounded-lg flex-shrink-0 flex items-center justify-center overflow-hidden">
+<img class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDUG6x8IlQD2-0M1tIGz88IFnBZRlVDlHkBuxEljDJc0SmhoWGvdAnX3dGvbWfhmK0qKVvA_RyoCtk9fnOSAwUe_K6mPJiS5PZmoxGmJ0ZhCrRP_9Knkj1vIblhxMRvIIxSVUjciAXCNMmuFqr5LDxSXyZ0q3ZxRc5TKWmD-rkgynitN12u4KXRCKT9oy-WGKnKkHGbFEhGTI4K-nE8w42e_-QZYALZSZz-IbLq2wz_2SBWHRsknfcBU7b5NlgWsDf3e4qW5nH7nRw"/>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex justify-between items-start">
+<div>
+<h3 class="text-sm font-bold text-on-surface truncate">iPhone 14 Pro Max</h3>
+<p class="text-[10px] text-outline">Space Black | 256GB | Grade A</p>
+</div>
+<div class="text-right">
+<p class="text-sm font-bold text-on-surface tabular-nums">₹ 82,400</p>
+</div>
+</div>
+<div class="flex gap-2 mt-1">
+<span class="bg-tertiary-fixed text-on-tertiary-fixed text-[8px] px-1.5 py-0.5 rounded font-bold uppercase">Battery 94%</span>
+<span class="bg-secondary-fixed text-on-secondary-fixed text-[8px] px-1.5 py-0.5 rounded font-bold uppercase">Warranty</span>
+</div>
+</div>
+</div>
+</div>
+</details>
+<!-- Step 3: Customer Information (Collapsible) -->
+<details class="bg-surface-container-low rounded-xl group">
+<summary class="p-4 flex items-center justify-between cursor-pointer focus:outline-none">
+<h2 class="text-title-md font-bold text-primary flex items-center gap-2">
+<span class="material-symbols-outlined" data-icon="person_search">person_search</span>
+                                Customer Details
+                            </h2>
+<span class="material-symbols-outlined group-open:rotate-180 transition-transform">expand_more</span>
+</summary>
+<div class="px-4 pb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+<div>
+<label class="text-[10px] font-bold text-outline uppercase tracking-wider mb-1 block">Customer Name</label>
+<input class="w-full bg-surface-container-lowest border-none rounded-xl py-3 px-4 shadow-sm focus:ring-2 ring-primary transition-all text-sm" placeholder="Enter Full Name" type="text"/>
+</div>
+<div>
+<label class="text-[10px] font-bold text-outline uppercase tracking-wider mb-1 block">Phone Number</label>
+<input class="w-full bg-surface-container-lowest border-none rounded-xl py-3 px-4 shadow-sm focus:ring-2 ring-primary transition-all tabular-nums text-sm" placeholder="+91 XXXXX XXXXX" type="tel"/>
+</div>
+</div>
+</details>
+<!-- Step 4: Billing Options -->
+<section class="bg-surface-container-low p-4 rounded-xl space-y-4">
+<h2 class="text-title-md font-bold text-primary flex items-center gap-2">
+<span class="material-symbols-outlined" data-icon="account_balance_wallet">account_balance_wallet</span>
+                            Billing &amp; Settlement
+                        </h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div class="space-y-3">
+<div class="flex items-center justify-between p-3 bg-surface-container-lowest rounded-xl shadow-sm">
+<div>
+<p class="text-sm font-bold text-on-surface">GST Invoice</p>
+<p class="text-[10px] text-outline">Include 18% Tax</p>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox" value=""/>
+<div class="w-9 h-5 bg-outline-variant peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-secondary"></div>
+</label>
+</div>
+<div class="relative">
+<label class="text-[10px] font-bold text-outline uppercase tracking-wider mb-1 block">Discount (INR)</label>
+<div class="relative">
+<span class="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-outline text-sm">₹</span>
+<input class="w-full bg-surface-container-lowest border-none rounded-xl py-3 pl-10 px-4 shadow-sm focus:ring-2 ring-primary tabular-nums font-bold text-sm" placeholder="0.00" type="number"/>
+</div>
+</div>
+</div>
+<div class="space-y-2">
+<label class="text-[10px] font-bold text-outline uppercase tracking-wider block">Payment Mode</label>
+<div class="grid grid-cols-3 gap-2">
+<button class="flex flex-col items-center justify-center p-3 bg-secondary text-white rounded-xl shadow-md border-2 border-secondary transition-all">
+<span class="material-symbols-outlined text-xl mb-1" data-icon="qr_code_2">qr_code_2</span>
+<span class="text-[8px] font-bold">UPI</span>
+</button>
+<button class="flex flex-col items-center justify-center p-3 bg-surface-container-lowest text-outline rounded-xl hover:bg-slate-200 transition-all border-2 border-transparent">
+<span class="material-symbols-outlined text-xl mb-1" data-icon="payments">payments</span>
+<span class="text-[8px] font-bold uppercase">Cash</span>
+</button>
+<button class="flex flex-col items-center justify-center p-3 bg-surface-container-lowest text-outline rounded-xl hover:bg-slate-200 transition-all border-2 border-transparent">
+<span class="material-symbols-outlined text-xl mb-1" data-icon="credit_card">credit_card</span>
+<span class="text-[8px] font-bold uppercase">Card</span>
+</button>
+</div>
+</div>
+</div>
+</section>
+</div>
+<!-- Right Column: Live Preview & Action (Summary View) -->
+<div class="lg:col-span-5 hidden lg:block">
+<div class="sticky top-24 space-y-4">
+<!-- Compact Invoice Preview -->
+<div class="bg-white rounded-xl shadow-xl overflow-hidden border border-slate-100 flex flex-col">
+<div class="bg-primary text-white p-4">
+<div class="flex justify-between items-center">
+<p class="font-extrabold tracking-tighter text-lg">PHONEDUKAAN</p>
+<div class="text-right">
+<p class="text-[8px] opacity-70">INVOICE NO.</p>
+<p class="text-xs font-bold font-mono">PD-2024-8842</p>
+</div>
+</div>
+</div>
+<div class="p-4 space-y-4">
+<div class="space-y-2">
+<div class="flex justify-between border-b border-slate-50 pb-1">
+<span class="text-[10px] text-outline">iPhone 14 Pro Max 256GB</span>
+<span class="text-xs font-bold tabular-nums">₹ 89,999.00</span>
+</div>
+<div class="flex justify-between text-[10px] text-outline">
+<span>GST (18%)</span>
+<span class="tabular-nums">₹ 16,199.82</span>
+</div>
+<div class="flex justify-between text-[10px] text-outline italic">
+<span>Discount</span>
+<span class="tabular-nums">- ₹ 0.00</span>
+</div>
+</div>
+<div class="border-t-2 border-dashed border-slate-100 pt-4 space-y-3">
+<div class="flex justify-between items-center">
+<p class="text-sm font-bold text-on-surface">Total Pay</p>
+<p class="text-xl font-extrabold text-secondary tabular-nums tracking-tight">₹ 1,06,198.82</p>
+</div>
+<div class="bg-tertiary-container/10 p-3 rounded-xl flex items-center justify-between border border-tertiary-container/20">
+<div class="flex items-center gap-2">
+<div class="bg-on-tertiary-container text-white p-0.5 rounded">
+<span class="material-symbols-outlined text-[12px]" data-icon="trending_up">trending_up</span>
+</div>
+<span class="text-[10px] font-bold text-on-tertiary-fixed-variant">EST. PROFIT</span>
+</div>
+<span class="text-on-tertiary-container text-xs font-black tabular-nums">₹ 7,598.82</span>
+</div>
+</div>
+</div>
+</div>
+<button class="w-full py-4 bg-gradient-to-br from-secondary to-blue-800 text-white rounded-xl shadow-2xl font-extrabold text-md flex items-center justify-center gap-3 active:scale-[0.98] transition-transform">
+                            Generate Invoice &amp; Finish
+                            <span class="material-symbols-outlined text-xl" data-icon="receipt">receipt</span>
+</button>
+</div>
+</div>
+</div>
+</main>
+</div>
+<!-- Mobile Summary Toggle & Sticky Bottom Bar -->
+<div class="md:hidden fixed bottom-0 left-0 w-full z-[60] flex flex-col pointer-events-none">
+<!-- Floating Summary Button (Mobile) -->
+<div class="px-4 pb-2 flex justify-end pointer-events-auto">
+<button class="bg-white/90 backdrop-blur shadow-lg border border-slate-200 p-2 rounded-full flex items-center gap-2 text-primary font-bold text-xs pr-4" onclick="document.getElementById('mobile-summary').classList.toggle('hidden')">
+<span class="bg-primary text-white rounded-full w-6 h-6 flex items-center justify-center">
+<span class="material-symbols-outlined text-[16px]" data-icon="receipt_long">receipt_long</span>
+</span>
+                View Summary: ₹ 1.06L
+            </button>
+</div>
+<!-- Sticky Generate Bar -->
+<div class="bg-white dark:bg-slate-900 border-t border-slate-200/50 p-4 pointer-events-auto shadow-[0_-4px_16px_rgba(0,0,0,0.1)]">
+<button class="w-full py-4 bg-secondary text-white rounded-xl font-extrabold text-md flex items-center justify-center gap-3">
+                Generate Invoice &amp; Finish
+                <span class="material-symbols-outlined" data-icon="receipt">receipt</span>
+</button>
+</div>
+<!-- Bottom Nav (spacer) -->
+<div class="h-16 bg-white dark:bg-slate-900"></div>
+</div>
+<!-- Mobile Summary Overlay (Hidden by default) -->
+<div class="hidden fixed inset-0 bg-black/40 backdrop-blur-sm z-[70] p-4 flex items-end md:hidden" id="mobile-summary">
+<div class="bg-white rounded-t-2xl w-full max-h-[80vh] overflow-y-auto p-6 space-y-6 animate-in slide-in-from-bottom duration-300">
+<div class="flex justify-between items-center border-b pb-4">
+<h3 class="font-extrabold text-primary text-lg">Sale Summary</h3>
+<button class="p-1" onclick="document.getElementById('mobile-summary').classList.add('hidden')">
+<span class="material-symbols-outlined" data-icon="close">close</span>
+</button>
+</div>
+<div class="space-y-4">
+<div class="flex justify-between">
+<span class="text-sm text-outline">Device Price</span>
+<span class="font-bold tabular-nums">₹ 89,999.00</span>
+</div>
+<div class="flex justify-between">
+<span class="text-sm text-outline">GST (18%)</span>
+<span class="font-bold tabular-nums">₹ 16,199.82</span>
+</div>
+<div class="flex justify-between text-error">
+<span class="text-sm">Discount</span>
+<span class="font-bold tabular-nums">- ₹ 0.00</span>
+</div>
+<hr class="border-slate-100"/>
+<div class="flex justify-between items-center">
+<span class="text-lg font-bold">Total Amount</span>
+<span class="text-2xl font-black text-secondary tabular-nums">₹ 1,06,198.82</span>
+</div>
+<div class="bg-tertiary-container/10 p-4 rounded-xl border border-tertiary-container/20 flex justify-between items-center">
+<span class="text-xs font-bold text-on-tertiary-fixed-variant uppercase">Margin Profit</span>
+<span class="text-on-tertiary-container font-black tabular-nums">₹ 7,598.82</span>
+</div>
+</div>
+<button class="w-full py-4 bg-primary text-white rounded-xl font-bold" onclick="document.getElementById('mobile-summary').classList.add('hidden')">Return to Form</button>
+</div>
+</div>
+<!-- BottomNavBar (Mobile Only) -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full flex justify-around items-center pt-2 pb-6 px-2 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl z-50 border-t border-slate-200/50 dark:border-slate-800/50 shadow-[0_-4px_12px_0_rgba(0,0,0,0.05)]">
+<div class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400">
+<span class="material-symbols-outlined" data-icon="inventory_2">inventory_2</span>
+<span class="text-[10px] font-medium">Inventory</span>
+</div>
+<div class="flex flex-col items-center justify-center bg-slate-200 dark:bg-slate-800 text-blue-900 dark:text-blue-100 rounded-full px-4 py-1">
+<span class="material-symbols-outlined" data-icon="payments">payments</span>
+<span class="text-[10px] font-bold">Sales</span>
+</div>
+<div class="relative -top-4">
+<div class="bg-secondary text-white w-14 h-14 rounded-full flex items-center justify-center shadow-lg border-4 border-white dark:border-slate-900">
+<span class="material-symbols-outlined text-3xl" data-icon="barcode_scanner">barcode_scanner</span>
+</div>
+</div>
+<div class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400">
+<span class="material-symbols-outlined" data-icon="build">build</span>
+<span class="text-[10px] font-medium">Repairs</span>
+</div>
+<div class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="text-[10px] font-medium">Admin</span>
+</div>
+</nav>
+</body></html>

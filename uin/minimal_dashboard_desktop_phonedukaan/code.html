@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>PhoneDukaan Retail Terminal</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "primary-fixed": "#e0e0ff",
+                        "on-secondary": "#ffffff",
+                        "surface-dim": "#d8dadd",
+                        "surface-container-lowest": "#ffffff",
+                        "on-primary-container": "#8690ee",
+                        "secondary": "#0048d8",
+                        "on-surface": "#191c1e",
+                        "on-tertiary": "#ffffff",
+                        "surface-tint": "#4c56af",
+                        "surface": "#f7f9fc",
+                        "primary": "#000666",
+                        "error": "#ba1a1a",
+                        "on-tertiary-fixed-variant": "#005312",
+                        "on-primary-fixed-variant": "#343d96",
+                        "surface-container-low": "#f2f4f7",
+                        "tertiary-fixed-dim": "#88d982",
+                        "on-secondary-fixed": "#001550",
+                        "background": "#f7f9fc",
+                        "secondary-container": "#2761fe",
+                        "error-container": "#ffdad6",
+                        "inverse-surface": "#2d3133",
+                        "tertiary-container": "#003909",
+                        "secondary-fixed": "#dce1ff",
+                        "on-surface-variant": "#454652",
+                        "outline": "#767683",
+                        "on-secondary-container": "#f4f3ff",
+                        "secondary-fixed-dim": "#b6c4ff",
+                        "surface-container-highest": "#e0e3e6",
+                        "inverse-on-surface": "#eff1f4",
+                        "surface-bright": "#f7f9fc",
+                        "on-error-container": "#93000a",
+                        "on-background": "#191c1e",
+                        "on-tertiary-container": "#5aa958",
+                        "surface-variant": "#e0e3e6",
+                        "on-primary": "#ffffff",
+                        "surface-container": "#eceef1",
+                        "tertiary-fixed": "#a3f69c",
+                        "tertiary": "#002103",
+                        "on-tertiary-fixed": "#002204",
+                        "primary-fixed-dim": "#bdc2ff",
+                        "on-primary-fixed": "#000767",
+                        "on-secondary-fixed-variant": "#003ab3",
+                        "on-error": "#ffffff",
+                        "primary-container": "#1a237e",
+                        "outline-variant": "#c6c5d4",
+                        "inverse-primary": "#bdc2ff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Plus Jakarta Sans"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 20;
+            vertical-align: middle;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3, .brand-font { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .tabular-nums { font-variant-numeric: tabular-nums; }
+        .thin-scrollbar::-webkit-scrollbar { width: 4px; }
+        .thin-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .thin-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+    </style>
+</head>
+<body class="bg-[#fcfdfe] text-on-surface overflow-hidden">
+<!-- SideNavBar -->
+<aside class="bg-slate-900 font-['Plus_Jakarta_Sans'] font-medium text-sm h-screen w-64 fixed left-0 top-0 flex flex-col py-6 z-50">
+<div class="px-8 mb-10">
+<h1 class="text-xl font-bold tracking-tight text-white mb-1">The Architect</h1>
+<p class="text-slate-500 text-[10px] font-bold uppercase tracking-widest">Flagship Store</p>
+</div>
+<nav class="flex-1 space-y-1 px-4">
+<a class="bg-indigo-600/10 text-indigo-400 rounded-lg flex items-center px-4 py-3 transition-all" href="#">
+<span class="material-symbols-outlined mr-3 !text-indigo-500" data-icon="dashboard">dashboard</span>
+                Dashboard
+            </a>
+<a class="text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg flex items-center px-4 py-3 transition-all" href="#">
+<span class="material-symbols-outlined mr-3" data-icon="inventory_2">inventory_2</span>
+                Inventory
+            </a>
+<a class="text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg flex items-center px-4 py-3 transition-all" href="#">
+<span class="material-symbols-outlined mr-3" data-icon="payments">payments</span>
+                Sales
+            </a>
+<a class="text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg flex items-center px-4 py-3 transition-all" href="#">
+<span class="material-symbols-outlined mr-3" data-icon="badge">badge</span>
+                Staff
+            </a>
+<a class="text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg flex items-center px-4 py-3 transition-all" href="#">
+<span class="material-symbols-outlined mr-3" data-icon="insights">insights</span>
+                Analytics
+            </a>
+<a class="text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg flex items-center px-4 py-3 transition-all" href="#">
+<span class="material-symbols-outlined mr-3" data-icon="settings">settings</span>
+                Settings
+            </a>
+</nav>
+<div class="mt-auto px-4 space-y-4">
+<button class="w-full bg-indigo-600 text-white py-3 rounded-lg font-bold flex items-center justify-center gap-2 active:scale-95 transition-all shadow-lg shadow-indigo-600/20">
+<span class="material-symbols-outlined text-lg" data-icon="barcode_scanner">barcode_scanner</span>
+                Scan Barcode
+            </button>
+<div class="pt-6 border-t border-slate-800 flex items-center gap-3 px-2">
+<div class="w-8 h-8 rounded-full overflow-hidden bg-slate-700 ring-2 ring-slate-800">
+<img alt="Retail Manager" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAWHLcJKWlgcw1MQC_hIzUbQ2Y3KwZJzK21D7sICh1QPVcAfiX_BC-4CW_E28V4aFr_oow0FlgqB8zNUmYsYOvsHFgQkHAe0gEC_54Eh0qePgd_lKvAAdk-DaxXDt8KR-nT1V7MwP4Z69fQ30iqqBuOcczhHgO9jGT9-VsbBxo9qGTTlvtO5AO-5wK-QFdaVGB_T8ljhFOPBybSK083meeAIf8I3c3CmjhLeEzF3VBLCWplEvHufxLUhM-3Nch-JifTLKjK_XCaQWo"/>
+</div>
+<div class="text-[11px]">
+<p class="text-white font-semibold">Anand K.</p>
+<p class="text-slate-500">Store Lead</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- Header -->
+<header class="h-20 sticky top-0 z-40 ml-64 bg-white/50 backdrop-blur-xl flex justify-between items-center px-12 w-[calc(100%-16rem)] border-b border-slate-100">
+<div class="flex items-center gap-8">
+<span class="font-['Plus_Jakarta_Sans'] font-extrabold text-indigo-950 text-xl tracking-tight">Retail Editorial</span>
+<div class="relative group">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm" data-icon="search">search</span>
+<input class="bg-slate-100/50 border-none rounded-full pl-10 pr-6 py-2 text-xs w-72 focus:ring-2 focus:ring-indigo-600/10 transition-all placeholder:text-slate-400" placeholder="Search IMEI, Bill No or Product..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-8 font-['Inter'] text-xs tracking-wide">
+<nav class="hidden md:flex gap-8">
+<a class="text-indigo-600 font-semibold relative after:content-[''] after:absolute after:-bottom-7 after:left-0 after:w-full after:h-0.5 after:bg-indigo-600" href="#">Quick Report</a>
+<a class="text-slate-400 hover:text-slate-900 transition-all font-medium" href="#">Stock Alert</a>
+</nav>
+<div class="flex items-center gap-4">
+<button class="w-10 h-10 flex items-center justify-center text-slate-400 hover:text-indigo-600 transition-all">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center text-slate-400 hover:text-indigo-600 transition-all">
+<span class="material-symbols-outlined" data-icon="account_circle">account_circle</span>
+</button>
+</div>
+</div>
+</header>
+<!-- Main Content -->
+<main class="ml-64 p-12 overflow-y-auto h-[calc(100vh-80px)] space-y-16 thin-scrollbar">
+<!-- KPI Cards Section -->
+<section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12">
+<div class="space-y-3">
+<p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Stock Value</p>
+<div class="flex items-baseline gap-2">
+<span class="text-3xl font-bold tracking-tight text-on-surface tabular-nums">₹42,85,200</span>
+<span class="text-[11px] font-bold text-emerald-600">+12%</span>
+</div>
+<div class="h-0.5 w-full bg-slate-100 rounded-full">
+<div class="h-full bg-indigo-600 w-3/4"></div>
+</div>
+</div>
+<div class="space-y-3">
+<p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Monthly Sales</p>
+<div class="flex items-baseline gap-2">
+<span class="text-3xl font-bold tracking-tight text-on-surface tabular-nums">₹18,24,000</span>
+<span class="text-[11px] font-bold text-emerald-600">+8.4%</span>
+</div>
+<div class="flex gap-1 h-6 items-end">
+<div class="flex-1 bg-slate-100 h-2/3 rounded-sm"></div>
+<div class="flex-1 bg-slate-100 h-full rounded-sm"></div>
+<div class="flex-1 bg-slate-100 h-1/2 rounded-sm"></div>
+<div class="flex-1 bg-indigo-600/20 h-3/4 rounded-sm"></div>
+<div class="flex-1 bg-indigo-600 h-full rounded-sm"></div>
+</div>
+</div>
+<div class="space-y-3">
+<p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Dues to Collect</p>
+<div class="flex items-baseline gap-2">
+<span class="text-3xl font-bold tracking-tight text-on-surface tabular-nums">₹3,12,450</span>
+<span class="text-[11px] font-bold text-rose-500">24 High</span>
+</div>
+<p class="text-[10px] text-slate-400 font-medium">AVG. AGE: 14 DAYS</p>
+</div>
+<div class="space-y-3">
+<p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Pending Repairs</p>
+<div class="flex items-baseline gap-2">
+<span class="text-3xl font-bold tracking-tight text-on-surface tabular-nums">84 <span class="text-lg font-medium text-slate-400">Units</span></span>
+<span class="text-[11px] font-bold text-amber-500">5 Urgent</span>
+</div>
+<div class="flex -space-x-2">
+<div class="w-6 h-6 rounded-full ring-2 ring-white bg-slate-200"></div>
+<div class="w-6 h-6 rounded-full ring-2 ring-white bg-slate-300"></div>
+<div class="w-6 h-6 rounded-full ring-2 ring-white bg-slate-100 flex items-center justify-center text-[8px] font-bold text-slate-500">+79</div>
+</div>
+</div>
+</section>
+<!-- Main Dashboard Layout -->
+<section class="flex gap-16 items-start">
+<!-- Recent Activity -->
+<div class="flex-1">
+<div class="flex justify-between items-end mb-10">
+<div>
+<h2 class="text-xl font-bold tracking-tight mb-1">Recent Activity</h2>
+<p class="text-[11px] text-slate-400 font-medium">Tracking live retail movements across the floor</p>
+</div>
+<button class="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 transition-all uppercase tracking-wider">View Full History</button>
+</div>
+<div class="w-full">
+<table class="w-full text-left">
+<thead>
+<tr class="text-[10px] text-slate-400 uppercase tracking-widest border-b border-slate-100">
+<th class="pb-4 font-bold">Transaction Ref</th>
+<th class="pb-4 font-bold">Category</th>
+<th class="pb-4 font-bold text-right">Value</th>
+<th class="pb-4 font-bold text-center">Status</th>
+<th class="pb-4 font-bold text-right">Time</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-slate-50">
+<tr class="group hover:bg-slate-50/50 transition-colors">
+<td class="py-6 pr-4">
+<p class="text-sm font-bold text-slate-900 mb-0.5">iPhone 15 Pro Max (256GB)</p>
+<p class="text-[10px] text-slate-400 font-mono tracking-tighter">IMEI: 358204910248552</p>
+</td>
+<td class="py-6 pr-4">
+<span class="text-[10px] font-bold text-slate-400 uppercase">Sale</span>
+</td>
+<td class="py-6 pr-4 text-right">
+<p class="text-sm font-bold tabular-nums text-slate-900">₹1,44,900</p>
+<p class="text-[9px] text-slate-400 font-medium">+18% GST</p>
+</td>
+<td class="py-6 px-4 text-center">
+<span class="text-[9px] font-bold px-2 py-0.5 rounded-sm bg-emerald-50 text-emerald-700 uppercase tracking-wider">Paid</span>
+</td>
+<td class="py-6 text-right text-[11px] text-slate-400 font-medium tabular-nums">14:22 PM</td>
+</tr>
+<tr class="group hover:bg-slate-50/50 transition-colors">
+<td class="py-6 pr-4">
+<p class="text-sm font-bold text-slate-900 mb-0.5">Samsung S24 Ultra (Repair)</p>
+<p class="text-[10px] text-slate-400 font-mono tracking-tighter">Job Card: #JC-8821</p>
+</td>
+<td class="py-6 pr-4">
+<span class="text-[10px] font-bold text-slate-400 uppercase">Repair</span>
+</td>
+<td class="py-6 pr-4 text-right">
+<p class="text-sm font-bold tabular-nums text-slate-900">₹12,400</p>
+<p class="text-[9px] text-slate-400 font-medium italic">Estimate</p>
+</td>
+<td class="py-6 px-4 text-center">
+<span class="text-[9px] font-bold px-2 py-0.5 rounded-sm bg-rose-50 text-rose-700 uppercase tracking-wider">Due</span>
+</td>
+<td class="py-6 text-right text-[11px] text-slate-400 font-medium tabular-nums">12:10 PM</td>
+</tr>
+<tr class="group hover:bg-slate-50/50 transition-colors">
+<td class="py-6 pr-4">
+<p class="text-sm font-bold text-slate-900 mb-0.5">Inbound: Bulk Accessories</p>
+<p class="text-[10px] text-slate-400 font-mono tracking-tighter">PO: #PO-99120 (Airtel Dist.)</p>
+</td>
+<td class="py-6 pr-4">
+<span class="text-[10px] font-bold text-slate-400 uppercase">Stock</span>
+</td>
+<td class="py-6 pr-4 text-right">
+<p class="text-sm font-bold tabular-nums text-slate-900">₹8,45,000</p>
+<p class="text-[9px] text-slate-400 font-medium">24 Items</p>
+</td>
+<td class="py-6 px-4 text-center">
+<span class="text-[9px] font-bold px-2 py-0.5 rounded-sm bg-slate-100 text-slate-600 uppercase tracking-wider">Settled</span>
+</td>
+<td class="py-6 text-right text-[11px] text-slate-400 font-medium tabular-nums">10:45 AM</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<!-- Sidebar -->
+<div class="w-80 space-y-12">
+<!-- Stock Mix -->
+<div>
+<h3 class="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-6">Stock Composition</h3>
+<div class="space-y-6">
+<div class="space-y-2">
+<div class="flex justify-between items-center text-[11px] font-medium">
+<span class="text-slate-900">New Inventory</span>
+<span class="text-slate-400">65%</span>
+</div>
+<div class="h-1 bg-slate-100 rounded-full">
+<div class="h-full bg-indigo-600 w-[65%]"></div>
+</div>
+</div>
+<div class="space-y-2">
+<div class="flex justify-between items-center text-[11px] font-medium">
+<span class="text-slate-900">Refurbished</span>
+<span class="text-slate-400">22%</span>
+</div>
+<div class="h-1 bg-slate-100 rounded-full">
+<div class="h-full bg-slate-400 w-[22%]"></div>
+</div>
+</div>
+<div class="space-y-2">
+<div class="flex justify-between items-center text-[11px] font-medium">
+<span class="text-slate-900">Pre-Owned</span>
+<span class="text-slate-400">13%</span>
+</div>
+<div class="h-1 bg-slate-100 rounded-full">
+<div class="h-full bg-slate-200 w-[13%]"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Quick Actions Grid -->
+<div>
+<h3 class="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-6">Quick Actions</h3>
+<div class="grid grid-cols-2 gap-4">
+<button class="flex flex-col items-center justify-center gap-3 p-4 rounded-xl border border-slate-100 hover:bg-slate-50 transition-all text-slate-600 group">
+<span class="material-symbols-outlined !text-xl group-hover:text-indigo-600" data-icon="add_circle">add_circle</span>
+<span class="text-[10px] font-bold uppercase tracking-tight">New Sale</span>
+</button>
+<button class="flex flex-col items-center justify-center gap-3 p-4 rounded-xl border border-slate-100 hover:bg-slate-50 transition-all text-slate-600 group">
+<span class="material-symbols-outlined !text-xl group-hover:text-indigo-600" data-icon="inventory">inventory</span>
+<span class="text-[10px] font-bold uppercase tracking-tight">Add Stock</span>
+</button>
+<button class="flex flex-col items-center justify-center gap-3 p-4 rounded-xl border border-slate-100 hover:bg-slate-50 transition-all text-slate-600 group">
+<span class="material-symbols-outlined !text-xl group-hover:text-indigo-600" data-icon="construction">construction</span>
+<span class="text-[10px] font-bold uppercase tracking-tight">Repair</span>
+</button>
+<button class="flex flex-col items-center justify-center gap-3 p-4 rounded-xl border border-slate-100 hover:bg-slate-50 transition-all text-slate-600 group">
+<span class="material-symbols-outlined !text-xl group-hover:text-indigo-600" data-icon="description">description</span>
+<span class="text-[10px] font-bold uppercase tracking-tight">Report</span>
+</button>
+</div>
+</div>
+<!-- Live Update -->
+<div class="p-6 bg-slate-50 rounded-2xl">
+<div class="flex items-center gap-2 mb-4">
+<div class="w-1.5 h-1.5 rounded-full bg-indigo-600 animate-pulse"></div>
+<h4 class="text-[10px] font-bold text-indigo-900 uppercase tracking-widest">Live Feed</h4>
+</div>
+<ul class="space-y-4">
+<li class="text-[11px] leading-relaxed text-slate-500">
+<span class="font-bold text-slate-900">Rahul S.</span> scanned IMEI ...882
+                        </li>
+<li class="text-[11px] leading-relaxed text-slate-500">
+<span class="font-bold text-slate-900">Stock Alert:</span> Apple 20W Adapters low
+                        </li>
+</ul>
+</div>
+</div>
+</section>
+</main>
+<!-- Floating Action -->
+<button class="fixed bottom-10 right-10 w-14 h-14 rounded-full bg-slate-900 text-white shadow-2xl flex items-center justify-center hover:bg-indigo-600 active:scale-95 transition-all z-50">
+<span class="material-symbols-outlined !text-xl" data-icon="qr_code_scanner" style="font-variation-settings: 'FILL' 1;">qr_code_scanner</span>
+</button>
+</body></html>

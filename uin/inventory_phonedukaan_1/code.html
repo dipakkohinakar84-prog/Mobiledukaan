@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "primary-container": "#1a237e",
+                        "secondary": "#0048d8",
+                        "on-error": "#ffffff",
+                        "tertiary-fixed-dim": "#88d982",
+                        "background": "#f7f9fc",
+                        "on-surface-variant": "#454652",
+                        "on-primary-container": "#8690ee",
+                        "surface-container": "#eceef1",
+                        "inverse-surface": "#2d3133",
+                        "primary-fixed": "#e0e0ff",
+                        "on-primary-fixed": "#000767",
+                        "on-tertiary-fixed": "#002204",
+                        "on-tertiary": "#ffffff",
+                        "on-primary": "#ffffff",
+                        "surface-dim": "#d8dadd",
+                        "on-tertiary-container": "#5aa958",
+                        "error": "#ba1a1a",
+                        "primary-fixed-dim": "#bdc2ff",
+                        "inverse-primary": "#bdc2ff",
+                        "surface-container-lowest": "#ffffff",
+                        "on-surface": "#191c1e",
+                        "surface-container-high": "#e6e8eb",
+                        "tertiary": "#002103",
+                        "primary": "#000666",
+                        "outline-variant": "#c6c5d4",
+                        "error-container": "#ffdad6",
+                        "tertiary-container": "#003909",
+                        "secondary-container": "#2761fe",
+                        "on-secondary": "#ffffff",
+                        "surface-bright": "#f7f9fc",
+                        "on-tertiary-fixed-variant": "#005312",
+                        "inverse-on-surface": "#eff1f4",
+                        "on-secondary-container": "#f4f3ff",
+                        "tertiary-fixed": "#a3f69c",
+                        "surface-container-low": "#f2f4f7",
+                        "on-secondary-fixed": "#001550",
+                        "surface-tint": "#4c56af",
+                        "outline": "#767683",
+                        "surface-container-highest": "#e0e3e6",
+                        "secondary-fixed-dim": "#b6c4ff",
+                        "on-error-container": "#93000a",
+                        "surface": "#f7f9fc",
+                        "on-primary-fixed-variant": "#343d96",
+                        "surface-variant": "#e0e3e6",
+                        "secondary-fixed": "#dce1ff",
+                        "on-background": "#191c1e",
+                        "on-secondary-fixed-variant": "#003ab3"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Plus Jakarta Sans"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .tabular-nums { font-variant-numeric: tabular-nums; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        body { min-height: 100dvh; }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-surface font-body selection:bg-primary-fixed selection:text-on-primary-fixed">
+<div class="flex min-h-screen">
+<aside class="hidden lg:flex flex-col h-screen w-72 border-r border-slate-200 bg-slate-100 p-4 gap-2 sticky top-0">
+<div class="mb-8 px-2 flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-3xl">sync</span>
+<h1 class="text-blue-900 font-black text-xl tracking-tight">PhoneDukaan Alpha</h1>
+</div>
+<nav class="flex flex-col gap-1">
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 hover:bg-slate-200 transition-transform duration-300 ease-out rounded-xl" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-semibold">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 bg-white text-blue-700 shadow-sm font-bold border-r-4 border-blue-700 rounded-l-xl" href="#">
+<span class="material-symbols-outlined">devices</span>
+<span class="font-semibold">Inventory</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 hover:bg-slate-200 transition-transform duration-300 ease-out rounded-xl" href="#">
+<span class="material-symbols-outlined">receipt_long</span>
+<span class="font-semibold">Sales Ledger</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 hover:bg-slate-200 transition-transform duration-300 ease-out rounded-xl" href="#">
+<span class="material-symbols-outlined">biotech</span>
+<span class="font-semibold">Repair Lab</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 hover:bg-slate-200 transition-transform duration-300 ease-out rounded-xl" href="#">
+<span class="material-symbols-outlined">group</span>
+<span class="font-semibold">Customer CRM</span>
+</a>
+</nav>
+<div class="mt-auto p-4 bg-surface-container rounded-xl flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container font-bold">SM</div>
+<div class="flex flex-col">
+<span class="text-sm font-bold text-primary">Store Manager</span>
+<span class="text-xs text-outline">v2.4.1</span>
+</div>
+</div>
+</aside>
+<main class="flex-1 flex flex-col min-w-0">
+<header class="bg-slate-50 text-blue-900 flex justify-between items-center px-4 h-16 w-full sticky top-0 z-30">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-xl">sync</span>
+<span class="font-headline font-extrabold tracking-tight text-xl">PhoneDukaan</span>
+</div>
+<button class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-200/50 scale-95 active:opacity-80 transition-all">
+<span class="material-symbols-outlined">search</span>
+</button>
+</header>
+<div class="sticky top-16 bg-surface/80 backdrop-blur-md z-20 px-4 py-4 border-b border-outline-variant/15">
+<div class="max-w-7xl mx-auto space-y-4">
+<div class="flex flex-col md:flex-row gap-4">
+<div class="relative flex-1 group">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline group-focus-within:text-primary">search</span>
+<input class="w-full pl-12 pr-4 py-3 bg-surface-container-low rounded-xl border-none focus:ring-2 focus:ring-primary-fixed-dim text-on-surface" placeholder="Search by Model or IMEI..." type="text"/>
+</div>
+<div class="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0 scrollbar-hide">
+<select class="bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm font-medium focus:ring-2 focus:ring-primary-fixed-dim">
+<option>All Brands</option>
+<option>Apple</option>
+<option>Samsung</option>
+<option>Google</option>
+<option>OnePlus</option>
+</select>
+<button class="bg-primary text-on-primary px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:opacity-90 transition-all">
+<span class="material-symbols-outlined text-sm">filter_list</span>
+                            Filter
+                        </button>
+</div>
+</div>
+</div>
+</div>
+<section class="p-4 md:p-8 max-w-7xl mx-auto w-full pb-32">
+<div class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-6">
+<div class="bg-surface-container-lowest rounded-xl group flex flex-col border border-outline-variant/10 shadow-sm transition-all hover:shadow-md overflow-hidden">
+<div class="w-full aspect-square bg-surface-container overflow-hidden relative">
+<img alt="Device Thumbnail" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDDgLl8lTCiKyhshRBBwok6QobiCdcYad1eVPfh-BYbY2W9fKsHjayWm6HffyUhkHky-vdJNYZrMgTtqO3253ghblSQ1mUU3KS3U93Ur7aPAFgzoE2bRPNlwVrf-H9sgH23ThglINULeKOD9HGeSQHlTytqRel-tiHsBJDzImR1um8eJrddAM6N1mw9_nsASI1x6x4pqV9r-eAZA3ZR3QLsd70tS4N3oRmP2RZ8WHyGi-etrW4IHH3GkyT9XrdmMKGdmACOdUNQCp4"/>
+<span class="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-tertiary-fixed text-on-tertiary-fixed text-[9px] font-bold uppercase shadow-sm">Mint</span>
+</div>
+<div class="p-3 flex flex-col flex-1">
+<div class="mb-3 flex-1 flex flex-col">
+<span class="text-[9px] font-semibold text-secondary uppercase tracking-wider">Apple</span>
+<h3 class="text-xs font-bold text-on-surface line-clamp-2 leading-tight">iPhone 15 Pro Max</h3>
+<div class="mt-1 flex flex-col gap-0.5">
+<p class="text-[8px] font-medium text-outline tabular-nums">IMEI: 3591...1045</p>
+<div class="flex flex-wrap items-center gap-1 text-[8px] font-semibold text-on-surface-variant">
+<span class="bg-surface-container px-1 py-0.5 rounded">256GB</span>
+<span class="bg-surface-container px-1 py-0.5 rounded">8GB RAM</span>
+</div>
+</div>
+</div>
+<div class="mt-auto space-y-2">
+<div class="flex items-end justify-between border-t border-outline-variant/10 pt-2">
+<div>
+<p class="text-[8px] text-outline uppercase font-bold leading-none">Price</p>
+<p class="text-[11px] font-bold text-primary tabular-nums">₹1,12,000</p>
+</div>
+<div class="text-right">
+<p class="text-[8px] text-on-tertiary-container font-bold tabular-nums">+₹14k</p>
+</div>
+</div>
+<div class="flex flex-col gap-1.5">
+<button class="w-full bg-secondary text-on-secondary py-2 rounded-lg font-bold text-[11px] flex items-center justify-center gap-1 active:scale-95 transition-all shadow-sm">
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">payments</span>
+                                    Sell
+                                </button>
+<div class="flex gap-1.5 justify-between">
+<button class="flex-1 h-8 flex items-center justify-center rounded-lg bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest transition-colors border border-outline-variant/10">
+<span class="material-symbols-outlined text-[16px]">edit</span>
+</button>
+<button class="flex-1 h-8 flex items-center justify-center rounded-lg bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest transition-colors border border-outline-variant/10">
+<span class="material-symbols-outlined text-[16px]">print</span>
+</button>
+<button class="flex-1 h-8 flex items-center justify-center rounded-lg bg-error-container text-on-error-container hover:bg-error/10 transition-colors border border-error/10">
+<span class="material-symbols-outlined text-[16px]">delete</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="bg-surface-container-lowest rounded-xl group flex flex-col border border-outline-variant/10 shadow-sm transition-all hover:shadow-md overflow-hidden">
+<div class="w-full aspect-square bg-surface-container overflow-hidden relative">
+<img alt="Device Thumbnail" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCOhpgN0Iyv1g9ncm888WCX-ffEyrHaJ0zeuvvIlLojQM6QHZOiKnBHud6ReBrrzTJxTV1WXSg3EUqxI-mwaf2N-riAzlnOyeHk-Z67k3tsUCCbHRPjlcvleAS0U9fq4v6zl-YrF4VpulOiIoDOz9QbWXLpvnn42OiswghJPFkP8u3k124APS-JzMsH1XtOwTq4Q5HcO-YBKi7sU-X94DBVwaB1kp06aWfsjwEhVOk4fdz4Oi50x8iaQwSzDMqMFLmWJibiiXZF-Ms"/>
+<span class="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-secondary-fixed text-on-secondary-fixed text-[9px] font-bold uppercase shadow-sm">Good</span>
+</div>
+<div class="p-3 flex flex-col flex-1">
+<div class="mb-3 flex-1 flex flex-col">
+<span class="text-[9px] font-semibold text-secondary uppercase tracking-wider">Samsung</span>
+<h3 class="text-xs font-bold text-on-surface line-clamp-2 leading-tight">Galaxy S23 Ultra</h3>
+<div class="mt-1 flex flex-col gap-0.5">
+<p class="text-[8px] font-medium text-outline tabular-nums">IMEI: 4402...0984</p>
+<div class="flex flex-wrap items-center gap-1 text-[8px] font-semibold text-on-surface-variant">
+<span class="bg-surface-container px-1 py-0.5 rounded">512GB</span>
+<span class="bg-surface-container px-1 py-0.5 rounded">12GB RAM</span>
+</div>
+</div>
+</div>
+<div class="mt-auto space-y-2">
+<div class="flex items-end justify-between border-t border-outline-variant/10 pt-2">
+<div>
+<p class="text-[8px] text-outline uppercase font-bold leading-none">Price</p>
+<p class="text-[11px] font-bold text-primary tabular-nums">₹78,500</p>
+</div>
+<div class="text-right">
+<p class="text-[8px] text-on-tertiary-container font-bold tabular-nums">+₹9.2k</p>
+</div>
+</div>
+<div class="flex flex-col gap-1.5">
+<button class="w-full bg-secondary text-on-secondary py-2 rounded-lg font-bold text-[11px] flex items-center justify-center gap-1 active:scale-95 transition-all shadow-sm">
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">payments</span>
+                                    Sell
+                                </button>
+<div class="flex gap-1.5 justify-between">
+<button class="flex-1 h-8 flex items-center justify-center rounded-lg bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest transition-colors border border-outline-variant/10">
+<span class="material-symbols-outlined text-[16px]">edit</span>
+</button>
+<button class="flex-1 h-8 flex items-center justify-center rounded-lg bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest transition-colors border border-outline-variant/10">
+<span class="material-symbols-outlined text-[16px]">print</span>
+</button>
+<button class="flex-1 h-8 flex items-center justify-center rounded-lg bg-error-container text-on-error-container hover:bg-error/10 transition-colors border border-error/10">
+<span class="material-symbols-outlined text-[16px]">delete</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="bg-surface-container-lowest rounded-xl group flex flex-col border border-outline-variant/10 shadow-sm transition-all hover:shadow-md overflow-hidden">
+<div class="w-full aspect-square bg-surface-container overflow-hidden relative">
+<img alt="Device Thumbnail" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBCy1zTZgVrayDfcJNpoc-xq-M9Qo9x8PCHzrgIFNYmcNOemvwRvKNjlmc5UcLaKzmtdzO2JxKZv2rQV4FPEDbWU1sIFY4VNv4fBkdHit61w2Qh-hPbXzJ_NcR0v1YTADCX8s18jv7lI6aLbcaKt7CAvcjgKYxC9swPIiF8Zav_o-d_-SFNKYUjrQ8L-vsHW3ApearZujv9LswodoI7nc_d2X4yrRGDA81Ak13iKJ1RenTC6mZCKnBN-SyFiCThgH1mP8WUFHPiWHo"/>
+<span class="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-error-container text-on-error-container text-[9px] font-bold uppercase shadow-sm">Fair</span>
+</div>
+<div class="p-3 flex flex-col flex-1">
+<div class="mb-3 flex-1 flex flex-col">
+<span class="text-[9px] font-semibold text-secondary uppercase tracking-wider">Google</span>
+<h3 class="text-xs font-bold text-on-surface line-clamp-2 leading-tight">Pixel 8 Pro</h3>
+<div class="mt-1 flex flex-col gap-0.5">
+<p class="text-[8px] font-medium text-outline tabular-nums">IMEI: 3511...1776</p>
+<div class="flex flex-wrap items-center gap-1 text-[8px] font-semibold text-on-surface-variant">
+<span class="bg-surface-container px-1 py-0.5 rounded">128GB</span>
+<span class="bg-surface-container px-1 py-0.5 rounded">12GB RAM</span>
+</div>
+</div>
+</div>
+<div class="mt-auto space-y-2">
+<div class="flex items-end justify-between border-t border-outline-variant/10 pt-2">
+<div>
+<p class="text-[8px] text-outline uppercase font-bold leading-none">Price</p>
+<p class="text-[11px] font-bold text-primary tabular-nums">₹54,900</p>
+</div>
+<div class="text-right">
+<p class="text-[8px] text-on-tertiary-container font-bold tabular-nums">+₹4.3k</p>
+</div>
+</div>
+<div class="flex flex-col gap-1.5">
+<button class="w-full bg-secondary text-on-secondary py-2 rounded-lg font-bold text-[11px] flex items-center justify-center gap-1 active:scale-95 transition-all shadow-sm">
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">payments</span>
+                                    Sell
+                                </button>
+<div class="flex gap-1.5 justify-between">
+<button class="flex-1 h-8 flex items-center justify-center rounded-lg bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest transition-colors border border-outline-variant/10">
+<span class="material-symbols-outlined text-[16px]">edit</span>
+</button>
+<button class="flex-1 h-8 flex items-center justify-center rounded-lg bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest transition-colors border border-outline-variant/10">
+<span class="material-symbols-outlined text-[16px]">print</span>
+</button>
+<button class="flex-1 h-8 flex items-center justify-center rounded-lg bg-error-container text-on-error-container hover:bg-error/10 transition-colors border border-error/10">
+<span class="material-symbols-outlined text-[16px]">delete</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<footer class="fixed bottom-0 left-0 w-full z-50">
+<div class="bg-primary-container text-on-primary-container px-6 py-2 flex justify-between items-center lg:ml-72 transition-all">
+<div class="flex items-center gap-4">
+<p class="text-xs font-bold uppercase tracking-widest opacity-80">Inventory Status</p>
+<div class="h-1 w-24 bg-on-primary-container/20 rounded-full overflow-hidden hidden sm:block">
+<div class="h-full bg-secondary w-3/4 rounded-full"></div>
+</div>
+</div>
+<p class="text-xs font-semibold">Showing <span class="font-bold tabular-nums">3</span> of <span class="font-bold tabular-nums">128</span></p>
+</div>
+<nav class="md:hidden bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl fixed bottom-0 left-0 w-full flex justify-around items-center pt-2 pb-6 px-2 shadow-[0_-4px_12px_0_rgba(0,0,0,0.05)] border-t border-slate-200/50">
+<a class="flex flex-col items-center justify-center text-slate-500" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="text-[10px] mt-1">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-slate-200 text-blue-900 rounded-full px-4 py-1" href="#">
+<span class="material-symbols-outlined">inventory_2</span>
+<span class="text-[10px] mt-1 font-bold">Inventory</span>
+</a>
+<div class="relative -top-6">
+<button class="w-14 h-14 bg-secondary text-white rounded-full shadow-lg flex items-center justify-center active:scale-90 transition-transform">
+<span class="material-symbols-outlined text-3xl">barcode_scanner</span>
+</button>
+</div>
+<a class="flex flex-col items-center justify-center text-slate-500" href="#">
+<span class="material-symbols-outlined">payments</span>
+<span class="text-[10px] mt-1">Sales</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="text-[10px] mt-1">Admin</span>
+</a>
+</nav>
+</footer>
+</main>
+</div>
+
+</body></html>

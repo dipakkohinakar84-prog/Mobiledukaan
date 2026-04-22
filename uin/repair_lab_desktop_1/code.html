@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Dashboard - Repair Lab</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "surface-tint": "#4c56af",
+                      "error": "#ba1a1a",
+                      "on-secondary-fixed": "#001550",
+                      "surface-dim": "#d8dadd",
+                      "on-error-container": "#93000a",
+                      "surface-container": "#eceef1",
+                      "on-primary-fixed-variant": "#343d96",
+                      "on-background": "#191c1e",
+                      "primary-container": "#1a237e",
+                      "secondary-container": "#2761fe",
+                      "on-surface": "#191c1e",
+                      "on-error": "#ffffff",
+                      "primary-fixed": "#e0e0ff",
+                      "on-secondary": "#ffffff",
+                      "surface-container-high": "#e6e8eb",
+                      "primary": "#000666",
+                      "surface": "#f7f9fc",
+                      "inverse-on-surface": "#eff1f4",
+                      "background": "#f7f9fc",
+                      "surface-container-lowest": "#ffffff",
+                      "on-primary-container": "#8690ee",
+                      "primary-fixed-dim": "#bdc2ff",
+                      "inverse-surface": "#2d3133",
+                      "on-tertiary": "#ffffff",
+                      "secondary-fixed-dim": "#b6c4ff",
+                      "on-surface-variant": "#454652",
+                      "surface-container-low": "#f2f4f7",
+                      "on-tertiary-fixed": "#002204",
+                      "surface-variant": "#e0e3e6",
+                      "on-secondary-container": "#f4f3ff",
+                      "tertiary-fixed": "#a3f69c",
+                      "inverse-primary": "#bdc2ff",
+                      "surface-container-highest": "#e0e3e6",
+                      "secondary": "#0048d8",
+                      "on-tertiary-container": "#5aa958",
+                      "on-tertiary-fixed-variant": "#005312",
+                      "tertiary-container": "#003909",
+                      "secondary-fixed": "#dce1ff",
+                      "tertiary-fixed-dim": "#88d982",
+                      "on-secondary-fixed-variant": "#003ab3",
+                      "outline-variant": "#c6c5d4",
+                      "on-primary-fixed": "#000767",
+                      "outline": "#767683",
+                      "tertiary": "#002103",
+                      "on-primary": "#ffffff",
+                      "surface-bright": "#f7f9fc",
+                      "error-container": "#ffdad6"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.125rem",
+                      "lg": "0.25rem",
+                      "xl": "0.5rem",
+                      "full": "0.75rem"
+              },
+              "spacing": {},
+              "fontFamily": {
+                      "headline": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "body": [
+                              "Inter"
+                      ],
+                      "label": [
+                              "Inter"
+                      ]
+              }
+      },
+          },
+        }
+      </script>
+<style>
+        .material-symbols-outlined {
+          font-variation-settings:
+          'FILL' 0,
+          'wght' 400,
+          'GRAD' 0,
+          'opsz' 24;
+        }
+        .material-symbols-outlined.fill-icon {
+          font-variation-settings: 'FILL' 1;
+        }
+        body {
+            background-color: theme('colors.surface');
+            color: theme('colors.on-surface');
+            font-family: theme('fontFamily.body');
+        }
+        h1, h2, h3, h4, h5, h6 {
+            font-family: theme('fontFamily.headline');
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface antialiased min-h-screen flex overflow-hidden">
+<!-- SideNavBar -->
+<nav class="h-screen w-64 fixed left-0 top-0 z-40 bg-surface-dim flex flex-col justify-between py-8">
+<div class="px-6 mb-8">
+<h1 class="text-xl font-black tracking-tighter text-primary uppercase">Repair Lab</h1>
+<p class="text-xs text-on-surface-variant mt-1">The Precise Architect</p>
+</div>
+<div class="flex-1 overflow-y-auto px-4 space-y-2">
+<a class="flex items-center bg-surface-container-lowest text-primary font-bold rounded-l-full py-3 px-6 shadow-[0_4px_24px_rgba(25,28,30,0.06)] font-['Plus_Jakarta_Sans'] text-sm tracking-tight scale-[0.98] transition-all" href="#">
+<span class="material-symbols-outlined mr-3 fill-icon text-primary">dashboard</span>
+                    Dashboard
+                </a>
+<a class="flex items-center text-on-surface-variant py-3 px-6 hover:bg-surface-container-lowest/40 transition-colors duration-200 font-['Plus_Jakarta_Sans'] font-medium text-sm tracking-tight rounded-l-full" href="#">
+<span class="material-symbols-outlined mr-3">build</span>
+                    Repair Queue
+                </a>
+<a class="flex items-center text-on-surface-variant py-3 px-6 hover:bg-surface-container-lowest/40 transition-colors duration-200 font-['Plus_Jakarta_Sans'] font-medium text-sm tracking-tight rounded-l-full" href="#">
+<span class="material-symbols-outlined mr-3">inventory_2</span>
+                    Inventory
+                </a>
+<a class="flex items-center text-on-surface-variant py-3 px-6 hover:bg-surface-container-lowest/40 transition-colors duration-200 font-['Plus_Jakarta_Sans'] font-medium text-sm tracking-tight rounded-l-full" href="#">
+<span class="material-symbols-outlined mr-3">group</span>
+                    Customers
+                </a>
+<a class="flex items-center text-on-surface-variant py-3 px-6 hover:bg-surface-container-lowest/40 transition-colors duration-200 font-['Plus_Jakarta_Sans'] font-medium text-sm tracking-tight rounded-l-full" href="#">
+<span class="material-symbols-outlined mr-3">payments</span>
+                    Financials
+                </a>
+<a class="flex items-center text-on-surface-variant py-3 px-6 hover:bg-surface-container-lowest/40 transition-colors duration-200 font-['Plus_Jakarta_Sans'] font-medium text-sm tracking-tight rounded-l-full" href="#">
+<span class="material-symbols-outlined mr-3">settings</span>
+                    Settings
+                </a>
+</div>
+<div class="px-6 mt-auto">
+<button class="w-full bg-gradient-to-r from-secondary to-secondary-container text-on-secondary py-3 px-4 rounded-xl font-bold flex items-center justify-center shadow-[0_4px_24px_rgba(25,28,30,0.06)] hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined mr-2">add</span>
+                New Repair
+            </button>
+</div>
+<div class="px-4 mt-8 space-y-2">
+<a class="flex items-center text-on-surface-variant py-2 px-6 hover:bg-surface-container-lowest/40 transition-colors duration-200 text-sm" href="#">
+<span class="material-symbols-outlined mr-3 text-[20px]">help</span>
+                Support
+            </a>
+<a class="flex items-center text-on-surface-variant py-2 px-6 hover:bg-surface-container-lowest/40 transition-colors duration-200 text-sm" href="#">
+<span class="material-symbols-outlined mr-3 text-[20px]">logout</span>
+                Logout
+            </a>
+</div>
+</nav>
+<!-- Main Content Wrapper -->
+<div class="flex-1 ml-64 flex flex-col h-screen overflow-hidden bg-surface relative">
+<!-- TopNavBar -->
+<header class="fixed top-0 right-0 left-64 h-20 z-30 bg-surface-container-low flex items-center justify-between px-8">
+<div class="flex items-center">
+<div class="relative focus-within:ring-2 focus-within:ring-primary rounded-lg transition-all">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
+<input class="bg-surface-variant/50 border-none rounded-lg pl-10 pr-4 py-2 w-80 text-sm focus:ring-0 text-on-surface placeholder-on-surface-variant focus:bg-primary-fixed focus:border-b-2 focus:border-b-primary" placeholder="Search IMEI, Customer, or ID..." type="text"/>
+</div>
+</div>
+<div class="flex items-center space-x-2">
+<button class="p-2 text-on-surface-variant hover:bg-surface-container-highest/50 rounded-lg transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="p-2 text-on-surface-variant hover:bg-surface-container-highest/50 rounded-lg transition-colors">
+<span class="material-symbols-outlined">history</span>
+</button>
+<button class="p-2 text-on-surface-variant hover:bg-surface-container-highest/50 rounded-lg transition-colors">
+<span class="material-symbols-outlined">account_circle</span>
+</button>
+</div>
+</header>
+<!-- Scrollable Canvas -->
+<main class="flex-1 overflow-y-auto pt-28 pb-12 px-8">
+<!-- Dashboard Header -->
+<div class="mb-8">
+<h2 class="text-[1.5rem] font-headline font-bold text-on-surface">Dashboard Overview</h2>
+<p class="text-on-surface-variant text-sm mt-1">Today's snapshot for PhoneDukaan</p>
+</div>
+<!-- Bento Grid Summary Cards -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
+<!-- Card 1: Total Open Jobs -->
+<div class="bg-surface-container-lowest rounded-xl p-6 relative overflow-hidden flex flex-col justify-between shadow-[0_4px_24px_rgba(25,28,30,0.06)]">
+<div class="flex justify-between items-start mb-4">
+<span class="text-on-surface-variant text-sm font-medium">Total Open Jobs</span>
+<div class="bg-primary-fixed text-on-primary-fixed rounded-full p-2">
+<span class="material-symbols-outlined text-[20px]">build_circle</span>
+</div>
+</div>
+<div class="flex items-end space-x-2">
+<span class="text-[3.5rem] font-headline font-bold text-on-surface leading-none tracking-tighter">42</span>
+<span class="text-on-surface-variant text-sm pb-2">+3 since yesterday</span>
+</div>
+</div>
+<!-- Card 2: Ready for Delivery -->
+<div class="bg-surface-container-lowest rounded-xl p-6 relative overflow-hidden flex flex-col justify-between shadow-[0_4px_24px_rgba(25,28,30,0.06)] border-l-4 border-tertiary-container">
+<div class="flex justify-between items-start mb-4">
+<span class="text-on-surface-variant text-sm font-medium">Ready for Delivery</span>
+<div class="bg-tertiary-fixed text-on-tertiary-fixed rounded-full p-2">
+<span class="material-symbols-outlined text-[20px]">check_circle</span>
+</div>
+</div>
+<div class="flex items-end space-x-2">
+<span class="text-[3.5rem] font-headline font-bold text-on-surface leading-none tracking-tighter">18</span>
+<span class="text-on-tertiary-container text-sm pb-2 font-medium">Awaiting Pickup</span>
+</div>
+</div>
+<!-- Card 3: Pending Parts -->
+<div class="bg-surface-container-lowest rounded-xl p-6 relative overflow-hidden flex flex-col justify-between shadow-[0_4px_24px_rgba(25,28,30,0.06)]">
+<div class="flex justify-between items-start mb-4">
+<span class="text-on-surface-variant text-sm font-medium">Pending Parts</span>
+<div class="bg-error-container text-on-error-container rounded-full p-2">
+<span class="material-symbols-outlined text-[20px]">hourglass_empty</span>
+</div>
+</div>
+<div class="flex items-end space-x-2">
+<span class="text-[3.5rem] font-headline font-bold text-on-surface leading-none tracking-tighter">07</span>
+<span class="text-on-error-container text-sm pb-2 font-medium">Action Required</span>
+</div>
+</div>
+<!-- Card 4: Daily Income (Glass/Gradient Accent) -->
+<div class="bg-gradient-to-br from-primary-container to-primary rounded-xl p-6 relative overflow-hidden flex flex-col justify-between shadow-[0_4px_24px_rgba(25,28,30,0.06)]">
+<span class="material-symbols-outlined absolute -right-4 -bottom-4 text-[120px] text-white opacity-5">account_balance_wallet</span>
+<div class="flex justify-between items-start mb-4 relative z-10">
+<span class="text-on-primary-container text-sm font-medium">Daily Income</span>
+<div class="bg-white/20 text-white rounded-full p-2 backdrop-blur-md">
+<span class="material-symbols-outlined text-[20px]">payments</span>
+</div>
+</div>
+<div class="flex flex-col relative z-10">
+<div class="flex items-baseline space-x-1">
+<span class="text-on-primary-container text-lg font-label font-medium tabular-nums">₹</span>
+<span class="text-[2.5rem] font-headline font-bold text-white leading-none tracking-tighter tabular-nums">45,200</span>
+</div>
+<span class="text-on-primary-container text-xs mt-2">+12% vs last Tuesday</span>
+</div>
+</div>
+</div>
+<!-- Main Layout: Table Area & Right Panel -->
+<div class="flex flex-col lg:flex-row gap-8">
+<!-- Left: Active Repair Queue -->
+<div class="flex-1 bg-surface-container-low rounded-xl p-2">
+<div class="px-4 py-4 flex justify-between items-center mb-2">
+<h3 class="text-[1.125rem] font-headline font-semibold text-on-surface">Active Repair Queue</h3>
+<button class="text-secondary text-sm font-medium hover:underline flex items-center">
+                            View All <span class="material-symbols-outlined text-[16px] ml-1">arrow_forward</span>
+</button>
+</div>
+<div class="space-y-2">
+<!-- Queue Item 1 -->
+<div class="bg-surface-container-lowest rounded-lg p-4 flex items-center justify-between shadow-[0_4px_24px_rgba(25,28,30,0.06)] group hover:bg-surface-bright transition-colors cursor-pointer">
+<div class="flex items-center space-x-4 w-1/3">
+<div class="w-12 h-12 rounded-lg bg-surface-variant flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-on-surface-variant">smartphone</span>
+</div>
+<div>
+<h4 class="text-[1.125rem] font-body font-semibold text-on-surface">iPhone 14 Pro Max</h4>
+<span class="text-xs font-label text-on-surface-variant tabular-nums block mt-0.5">#RD-9821</span>
+</div>
+</div>
+<div class="w-1/4">
+<span class="text-sm text-on-surface block font-medium">Broken Screen</span>
+<span class="text-xs text-on-surface-variant mt-0.5 block">Rahul Sharma</span>
+</div>
+<div class="w-1/6 flex justify-end">
+<div class="flex items-center bg-primary-fixed px-3 py-1 rounded-full border border-outline-variant/15">
+<span class="w-2 h-2 rounded-full bg-primary mr-2"></span>
+<span class="text-xs font-medium text-on-primary-fixed">In Progress</span>
+</div>
+</div>
+<div class="w-1/6 flex justify-end items-center space-x-4">
+<div class="text-right">
+<span class="text-sm font-label font-bold text-on-surface tabular-nums">₹14,500</span>
+</div>
+<button class="text-on-surface-variant hover:text-secondary transition-colors p-1 rounded-md hover:bg-surface-variant/50">
+<span class="material-symbols-outlined">chat</span>
+</button>
+</div>
+</div>
+<!-- Queue Item 2 -->
+<div class="bg-surface-container-lowest rounded-lg p-4 flex items-center justify-between shadow-[0_4px_24px_rgba(25,28,30,0.06)] group hover:bg-surface-bright transition-colors cursor-pointer">
+<div class="flex items-center space-x-4 w-1/3">
+<div class="w-12 h-12 rounded-lg bg-surface-variant flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-on-surface-variant">laptop_mac</span>
+</div>
+<div>
+<h4 class="text-[1.125rem] font-body font-semibold text-on-surface">MacBook Pro 16"</h4>
+<span class="text-xs font-label text-on-surface-variant tabular-nums block mt-0.5">#RD-9820</span>
+</div>
+</div>
+<div class="w-1/4">
+<span class="text-sm text-on-surface block font-medium">Battery Replacement</span>
+<span class="text-xs text-on-surface-variant mt-0.5 block">Priya Singh</span>
+</div>
+<div class="w-1/6 flex justify-end">
+<div class="flex items-center bg-tertiary-fixed px-3 py-1 rounded-full border border-outline-variant/15">
+<span class="w-2 h-2 rounded-full bg-tertiary-container mr-2"></span>
+<span class="text-xs font-medium text-on-tertiary-fixed">Ready</span>
+</div>
+</div>
+<div class="w-1/6 flex justify-end items-center space-x-4">
+<div class="text-right">
+<span class="text-sm font-label font-bold text-on-surface tabular-nums">₹8,000</span>
+</div>
+<button class="text-on-surface-variant hover:text-secondary transition-colors p-1 rounded-md hover:bg-surface-variant/50">
+<span class="material-symbols-outlined">chat</span>
+</button>
+</div>
+</div>
+<!-- Queue Item 3 -->
+<div class="bg-surface-container-lowest rounded-lg p-4 flex items-center justify-between shadow-[0_4px_24px_rgba(25,28,30,0.06)] group hover:bg-surface-bright transition-colors cursor-pointer">
+<div class="flex items-center space-x-4 w-1/3">
+<div class="w-12 h-12 rounded-lg bg-surface-variant flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-on-surface-variant">tablet_mac</span>
+</div>
+<div>
+<h4 class="text-[1.125rem] font-body font-semibold text-on-surface">iPad Air 5</h4>
+<span class="text-xs font-label text-on-surface-variant tabular-nums block mt-0.5">#RD-9819</span>
+</div>
+</div>
+<div class="w-1/4">
+<span class="text-sm text-on-surface block font-medium">Charging Port</span>
+<span class="text-xs text-on-surface-variant mt-0.5 block">Amit Patel</span>
+</div>
+<div class="w-1/6 flex justify-end">
+<div class="flex items-center bg-error-container px-3 py-1 rounded-full border border-outline-variant/15">
+<span class="w-2 h-2 rounded-full bg-error mr-2"></span>
+<span class="text-xs font-medium text-on-error-container">Pending</span>
+</div>
+</div>
+<div class="w-1/6 flex justify-end items-center space-x-4">
+<div class="text-right">
+<span class="text-sm font-label font-bold text-on-surface tabular-nums">₹3,200</span>
+</div>
+<button class="text-on-surface-variant hover:text-secondary transition-colors p-1 rounded-md hover:bg-surface-variant/50">
+<span class="material-symbols-outlined">chat</span>
+</button>
+</div>
+</div>
+<!-- Queue Item 4 -->
+<div class="bg-surface-container-lowest rounded-lg p-4 flex items-center justify-between shadow-[0_4px_24px_rgba(25,28,30,0.06)] group hover:bg-surface-bright transition-colors cursor-pointer">
+<div class="flex items-center space-x-4 w-1/3">
+<div class="w-12 h-12 rounded-lg bg-surface-variant flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-on-surface-variant">smartphone</span>
+</div>
+<div>
+<h4 class="text-[1.125rem] font-body font-semibold text-on-surface">Samsung S23 Ultra</h4>
+<span class="text-xs font-label text-on-surface-variant tabular-nums block mt-0.5">#RD-9818</span>
+</div>
+</div>
+<div class="w-1/4">
+<span class="text-sm text-on-surface block font-medium">Camera Lens Cover</span>
+<span class="text-xs text-on-surface-variant mt-0.5 block">Neha Gupta</span>
+</div>
+<div class="w-1/6 flex justify-end">
+<div class="flex items-center bg-primary-fixed px-3 py-1 rounded-full border border-outline-variant/15">
+<span class="w-2 h-2 rounded-full bg-primary mr-2"></span>
+<span class="text-xs font-medium text-on-primary-fixed">In Progress</span>
+</div>
+</div>
+<div class="w-1/6 flex justify-end items-center space-x-4">
+<div class="text-right">
+<span class="text-sm font-label font-bold text-on-surface tabular-nums">₹2,500</span>
+</div>
+<button class="text-on-surface-variant hover:text-secondary transition-colors p-1 rounded-md hover:bg-surface-variant/50">
+<span class="material-symbols-outlined">chat</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Right: Quick Actions -->
+<div class="w-full lg:w-72 flex flex-col space-y-6">
+<div class="bg-surface-container-low p-6 rounded-xl">
+<h3 class="text-[1.125rem] font-headline font-semibold text-on-surface mb-4">Quick Actions</h3>
+<div class="space-y-3">
+<button class="w-full flex items-center p-3 bg-surface-container-lowest rounded-lg hover:bg-surface-bright transition-colors shadow-sm group">
+<div class="w-8 h-8 rounded-full bg-primary-fixed text-primary flex items-center justify-center mr-3 group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-[18px]">add_circle</span>
+</div>
+<span class="font-medium text-sm text-on-surface">New Repair</span>
+</button>
+<button class="w-full flex items-center p-3 bg-surface-container-lowest rounded-lg hover:bg-surface-bright transition-colors shadow-sm group">
+<div class="w-8 h-8 rounded-full bg-surface-variant text-on-surface-variant flex items-center justify-center mr-3 group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-[18px]">print</span>
+</div>
+<span class="font-medium text-sm text-on-surface">Print Sticker</span>
+</button>
+<button class="w-full flex items-center p-3 bg-surface-container-lowest rounded-lg hover:bg-surface-bright transition-colors shadow-sm group">
+<div class="w-8 h-8 rounded-full bg-surface-variant text-on-surface-variant flex items-center justify-center mr-3 group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-[18px]">summarize</span>
+</div>
+<span class="font-medium text-sm text-on-surface">Daily Repair Report</span>
+</button>
+</div>
+</div>
+<!-- Small aesthetic filler card -->
+<div class="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/15 flex flex-col items-center justify-center text-center">
+<span class="material-symbols-outlined text-secondary text-[32px] mb-2 opacity-80">workspace_premium</span>
+<h4 class="font-headline font-semibold text-sm text-on-surface">PhoneDukaan Pro</h4>
+<p class="text-xs text-on-surface-variant mt-1">System running optimally.</p>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>

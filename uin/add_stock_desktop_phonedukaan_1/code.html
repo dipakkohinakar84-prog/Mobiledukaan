@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-primary": "#ffffff",
+                        "inverse-primary": "#bdc2ff",
+                        "on-tertiary-container": "#5aa958",
+                        "on-primary-fixed": "#000767",
+                        "on-secondary-fixed-variant": "#003ab3",
+                        "surface-container-highest": "#e0e3e6",
+                        "on-primary-fixed-variant": "#343d96",
+                        "primary-fixed-dim": "#bdc2ff",
+                        "error-container": "#ffdad6",
+                        "surface-tint": "#4c56af",
+                        "on-surface": "#191c1e",
+                        "on-secondary-container": "#f4f3ff",
+                        "surface": "#f7f9fc",
+                        "secondary": "#0048d8",
+                        "on-background": "#191c1e",
+                        "background": "#f7f9fc",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-container": "#eceef1",
+                        "surface-dim": "#d8dadd",
+                        "secondary-container": "#2761fe",
+                        "on-surface-variant": "#454652",
+                        "on-primary-container": "#8690ee",
+                        "surface-container-high": "#e6e8eb",
+                        "on-tertiary-fixed": "#002204",
+                        "surface-variant": "#e0e3e6",
+                        "secondary-fixed-dim": "#b6c4ff",
+                        "outline-variant": "#c6c5d4",
+                        "tertiary-fixed-dim": "#88d982",
+                        "on-tertiary": "#ffffff",
+                        "secondary-fixed": "#dce1ff",
+                        "on-error": "#ffffff",
+                        "inverse-surface": "#2d3133",
+                        "surface-bright": "#f7f9fc",
+                        "inverse-on-surface": "#eff1f4",
+                        "on-error-container": "#93000a",
+                        "tertiary-fixed": "#a3f69c",
+                        "outline": "#767683",
+                        "on-tertiary-fixed-variant": "#005312",
+                        "primary-fixed": "#e0e0ff",
+                        "primary": "#000666",
+                        "tertiary": "#002103",
+                        "surface-container-low": "#f2f4f7",
+                        "on-secondary": "#ffffff",
+                        "primary-container": "#1a237e",
+                        "on-secondary-fixed": "#001550",
+                        "error": "#ba1a1a",
+                        "tertiary-container": "#003909"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Plus Jakarta Sans"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .tabular-nums {
+            font-variant-numeric: tabular-nums;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body selection:bg-primary-fixed selection:text-on-primary-fixed">
+<div class="flex min-h-screen">
+<!-- SideNavBar -->
+<aside class="w-64 h-screen sticky top-0 left-0 bg-[#f7f9fc] dark:bg-slate-900 flex flex-col py-6 gap-2 shrink-0 overflow-y-auto">
+<div class="px-6 mb-8">
+<h1 class="text-lg font-bold text-[#000666] dark:text-white tracking-tight">The Retail Editorial</h1>
+<p class="text-[10px] text-slate-500 uppercase tracking-widest font-bold mt-1">Flagship Store #01</p>
+</div>
+<nav class="flex-1 px-4 flex flex-col gap-1">
+<a class="flex items-center gap-3 px-3 py-2 bg-[#000666] text-white rounded-md transition-all duration-150 scale-95 active:scale-100" href="#">
+<span class="material-symbols-outlined" data-icon="inventory_2">inventory_2</span>
+<span class="font-medium text-sm">Inventory</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors transition-all duration-150 scale-95 active:scale-100" href="#">
+<span class="material-symbols-outlined" data-icon="point_of_sale">point_of_sale</span>
+<span class="font-medium text-sm">Sales</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors transition-all duration-150 scale-95 active:scale-100" href="#">
+<span class="material-symbols-outlined" data-icon="shopping_cart">shopping_cart</span>
+<span class="font-medium text-sm">Orders</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors transition-all duration-150 scale-95 active:scale-100" href="#">
+<span class="material-symbols-outlined" data-icon="analytics">analytics</span>
+<span class="font-medium text-sm">Analytics</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors transition-all duration-150 scale-95 active:scale-100" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="font-medium text-sm">Settings</span>
+</a>
+</nav>
+<div class="px-4 mt-auto border-t border-slate-200/50 pt-4 flex flex-col gap-1">
+<a class="flex items-center gap-3 px-3 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="help_outline">help_outline</span>
+<span class="font-medium text-sm">Support</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="logout">logout</span>
+<span class="font-medium text-sm">Logout</span>
+</a>
+</div>
+</aside>
+<!-- Main Canvas -->
+<main class="flex-1 flex flex-col min-w-0">
+<!-- TopNavBar -->
+<header class="sticky top-0 z-40 w-full bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-b border-slate-200/15 dark:border-slate-800/15 shadow-sm dark:shadow-none h-16 px-8 flex justify-between items-center">
+<div class="flex items-center gap-4">
+<h2 class="font-headline font-bold text-primary text-xl tracking-tight">Inventory Management</h2>
+<div class="h-6 w-[1px] bg-outline-variant opacity-20"></div>
+<span class="text-slate-500 font-medium">Add New Stock</span>
+</div>
+<div class="flex items-center gap-6">
+<div class="relative">
+<span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 material-symbols-outlined text-xl" data-icon="search">search</span>
+<input class="bg-surface-container-low border-none rounded-xl pl-10 pr-4 py-2 text-sm w-64 focus:ring-2 focus:ring-primary-container transition-all" placeholder="Search devices..." type="text"/>
+</div>
+<div class="flex items-center gap-3">
+<button class="p-2 text-slate-500 hover:text-primary transition-colors">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="p-2 text-slate-500 hover:text-primary transition-colors">
+<span class="material-symbols-outlined" data-icon="barcode_scanner">barcode_scanner</span>
+</button>
+<button class="bg-primary text-on-primary px-5 py-2 rounded-xl text-sm font-semibold hover:opacity-90 active:scale-95 transition-all">
+                            Add Stock
+                        </button>
+<div class="w-8 h-8 rounded-full overflow-hidden bg-surface-container-high ml-2 border-2 border-primary-container/20">
+<img alt="User profile" data-alt="close-up portrait of a professional male manager in a clean modern retail setting with soft natural lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCzz7FLeDxmsrx9X2Pkc8kzinKp-T1x1uTdFMV33HKgejG61z3A7RI6NBOSmydHqAODJYsD9_Joldyld3pME_ydEYBvrWBG0dCY1244KACAYawNUj_HEdEY6ZMf2MiEA0y1nAaeHIG5BQpI8nn0-KmNGcu0R1yOpGeht7JVfL02XU9vZ7tW-W6IXMQ3S2r4I6SW-fqBE2KOFM7W7guZ4S_mWKH1mVqdixgtUNLODaPWMOvjnpZ8pEyL_sj2DRlEdRDAzPs4hrT6HqE"/>
+</div>
+</div>
+</div>
+</header>
+<div class="p-8 max-w-[1600px] mx-auto w-full">
+<!-- Bento Grid Content -->
+<div class="grid grid-cols-12 gap-6 items-start">
+<!-- Top Section: Photo Grid -->
+<div class="col-span-12 bg-surface-container-low rounded-xl p-6 border-b-0">
+<div class="flex items-center justify-between mb-6">
+<div>
+<h3 class="font-headline font-bold text-lg text-primary tracking-tight">Visual Documentation</h3>
+<p class="text-xs text-on-surface-variant">Upload 360° device assessment photos</p>
+</div>
+<button class="text-secondary text-sm font-semibold flex items-center gap-1 hover:underline">
+<span class="material-symbols-outlined text-base" data-icon="add_a_photo">add_a_photo</span>
+                                Upload All
+                            </button>
+</div>
+<div class="grid grid-cols-5 gap-4">
+<div class="aspect-square bg-surface-container-lowest rounded-xl border-2 border-dashed border-outline-variant flex flex-col items-center justify-center gap-2 text-outline hover:border-primary hover:text-primary transition-all cursor-pointer group">
+<span class="material-symbols-outlined text-3xl group-hover:scale-110 transition-transform" data-icon="front_hand">front_hand</span>
+<span class="text-[10px] font-bold uppercase tracking-wider">Front Panel</span>
+</div>
+<div class="aspect-square bg-surface-container-lowest rounded-xl border-2 border-dashed border-outline-variant flex flex-col items-center justify-center gap-2 text-outline hover:border-primary hover:text-primary transition-all cursor-pointer">
+<span class="material-symbols-outlined text-3xl" data-icon="back_hand">back_hand</span>
+<span class="text-[10px] font-bold uppercase tracking-wider">Back Glass</span>
+</div>
+<div class="aspect-square bg-surface-container-lowest rounded-xl border-2 border-dashed border-outline-variant flex flex-col items-center justify-center gap-2 text-outline hover:border-primary hover:text-primary transition-all cursor-pointer">
+<span class="material-symbols-outlined text-3xl" data-icon="sideshow">view_sidebar</span>
+<span class="text-[10px] font-bold uppercase tracking-wider">Side Rails</span>
+</div>
+<div class="aspect-square bg-surface-container-lowest rounded-xl border-2 border-dashed border-outline-variant flex flex-col items-center justify-center gap-2 text-outline hover:border-primary hover:text-primary transition-all cursor-pointer">
+<span class="material-symbols-outlined text-3xl" data-icon="camera">camera</span>
+<span class="text-[10px] font-bold uppercase tracking-wider">Camera Module</span>
+</div>
+<div class="relative rounded-xl overflow-hidden aspect-square shadow-sm group">
+<img alt="Phone Display" class="w-full h-full object-cover group-hover:scale-105 transition-transform" data-alt="professional product photography of a premium smartphone screen under studio lighting showing crisp glass texture" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDVXADJewXUrocUfddxbssrB1drzRnrWkVcm2vqubAZ3-MzRo48Za7qLZDS6bJOzbPcdkXF3F4ae1T0kdfbcOOIlNAn_KG_qwnuu_MgYBGVyolvALgCAT_1uILyOHL-vu9onJTP5QqT9ZhP64lSnUhAxYaJfUFE8qWLaUzLsewJFONLbwm8KJZvaqbPKiTSTjF8sFf9Dfi4reaeH6N_dcUFerZPhysGLEe-xZNeAPA1IoOyyCN0-DCLYR-Rb5hW2aLWT0Dy_KLoj0Q"/>
+<div class="absolute inset-0 bg-primary/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-white" data-icon="delete">delete</span>
+</div>
+<div class="absolute bottom-2 left-2 px-2 py-1 bg-primary/80 backdrop-blur-md rounded text-[9px] text-white font-bold tracking-wider">SAMPLE_01.JPG</div>
+</div>
+</div>
+</div>
+<!-- Left Column: Device Details -->
+<div class="col-span-12 lg:col-span-7 space-y-6">
+<div class="bg-surface-container-lowest rounded-xl p-8 shadow-sm">
+<div class="flex items-center gap-2 mb-8">
+<div class="w-2 h-6 bg-primary rounded-full"></div>
+<h3 class="font-headline font-bold text-lg text-primary tracking-tight">Hardware Specification</h3>
+</div>
+<div class="grid grid-cols-2 gap-6">
+<div class="space-y-2">
+<label class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest px-1">Brand &amp; Model</label>
+<select class="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary-container font-medium">
+<option>Apple iPhone 15 Pro Max</option>
+<option>Samsung Galaxy S24 Ultra</option>
+<option>Google Pixel 8 Pro</option>
+</select>
+</div>
+<div class="space-y-2">
+<label class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest px-1">Color Variant</label>
+<div class="flex gap-3">
+<div class="flex-1 bg-surface-container-low rounded-xl px-4 py-3 flex items-center justify-between cursor-pointer border-2 border-primary-container">
+<span class="text-sm font-medium">Natural Titanium</span>
+<div class="w-4 h-4 rounded-full bg-[#A7A296] ring-2 ring-offset-2 ring-primary-container"></div>
+</div>
+<div class="flex-1 bg-surface-container-low rounded-xl px-4 py-3 flex items-center justify-between cursor-pointer hover:bg-surface-container-high transition-colors">
+<span class="text-sm font-medium">Blue Titanium</span>
+<div class="w-4 h-4 rounded-full bg-[#3C414A]"></div>
+</div>
+</div>
+</div>
+<div class="space-y-2">
+<label class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest px-1">Storage Capacity</label>
+<div class="grid grid-cols-3 gap-2">
+<button class="bg-surface-container-low py-3 rounded-xl text-xs font-bold hover:bg-primary hover:text-white transition-all">256 GB</button>
+<button class="bg-primary py-3 rounded-xl text-xs font-bold text-white shadow-md shadow-primary/20">512 GB</button>
+<button class="bg-surface-container-low py-3 rounded-xl text-xs font-bold hover:bg-primary hover:text-white transition-all">1 TB</button>
+</div>
+</div>
+<div class="space-y-2">
+<label class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest px-1">RAM Config</label>
+<div class="grid grid-cols-2 gap-2">
+<button class="bg-primary py-3 rounded-xl text-xs font-bold text-white shadow-md shadow-primary/20">8 GB</button>
+<button class="bg-surface-container-low py-3 rounded-xl text-xs font-bold hover:bg-primary hover:text-white transition-all">12 GB</button>
+</div>
+</div>
+</div>
+<div class="mt-10">
+<div class="flex items-center justify-between mb-4">
+<label class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest px-1">IMEI Identification</label>
+<button class="bg-secondary/10 text-secondary text-[10px] font-extrabold uppercase px-3 py-1.5 rounded-full flex items-center gap-1.5 hover:bg-secondary/20 transition-all">
+<span class="material-symbols-outlined text-sm" data-icon="barcode_reader" data-weight="fill">barcode_reader</span>
+                                        Bulk Scan Active
+                                    </button>
+</div>
+<div class="space-y-3">
+<div class="flex items-center gap-4 bg-surface-container-low p-3 rounded-xl border-l-4 border-primary">
+<span class="text-[10px] font-black text-primary w-12 tabular-nums">IMEI 1</span>
+<input class="flex-1 bg-transparent border-none text-sm font-body font-semibold tabular-nums focus:ring-0 p-0" type="text" value="358291048827110"/>
+<span class="material-symbols-outlined text-tertiary-fixed-dim" data-icon="check_circle">check_circle</span>
+</div>
+<div class="flex items-center gap-4 bg-surface-container-low p-3 rounded-xl border-l-4 border-outline-variant">
+<span class="text-[10px] font-black text-outline w-12 tabular-nums">IMEI 2</span>
+<input class="flex-1 bg-transparent border-none text-sm font-body font-semibold tabular-nums focus:ring-0 p-0" placeholder="Scan or enter secondary IMEI..." type="text"/>
+<span class="material-symbols-outlined text-outline-variant" data-icon="qr_code_scanner">qr_code_scanner</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Right Column: Pricing & Condition -->
+<div class="col-span-12 lg:col-span-5 space-y-6">
+<!-- Condition Card -->
+<div class="bg-surface-container-lowest rounded-xl p-8 shadow-sm">
+<div class="flex items-center gap-2 mb-6">
+<div class="w-2 h-6 bg-secondary rounded-full"></div>
+<h3 class="font-headline font-bold text-lg text-primary tracking-tight">Device Health</h3>
+</div>
+<div class="flex flex-col gap-3">
+<label class="flex items-center justify-between p-4 rounded-xl bg-surface-container-low cursor-pointer border-2 border-transparent hover:border-primary-container transition-all group">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-on-tertiary-container" data-icon="new_releases">new_releases</span>
+<div>
+<p class="text-sm font-bold">Brand New (Sealed)</p>
+<p class="text-[10px] text-on-surface-variant">Unopened original box with valid warranty</p>
+</div>
+</div>
+<input class="w-5 h-5 text-primary border-outline-variant focus:ring-primary-container" name="condition" type="radio"/>
+</label>
+<label class="flex items-center justify-between p-4 rounded-xl bg-primary-container/10 cursor-pointer border-2 border-primary-container transition-all group">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-secondary" data-icon="package_2">package_2</span>
+<div>
+<p class="text-sm font-bold text-primary">Open Box</p>
+<p class="text-[10px] text-on-surface-variant">Like new, box opened for demo or check</p>
+</div>
+</div>
+<input checked="" class="w-5 h-5 text-primary border-outline-variant focus:ring-primary-container" name="condition" type="radio"/>
+</label>
+<label class="flex items-center justify-between p-4 rounded-xl bg-surface-container-low cursor-pointer border-2 border-transparent hover:border-primary-container transition-all group">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="history">history</span>
+<div>
+<p class="text-sm font-bold">Pre-owned (Mint)</p>
+<p class="text-[10px] text-on-surface-variant">Used with minimal signs of wear</p>
+</div>
+</div>
+<input class="w-5 h-5 text-primary border-outline-variant focus:ring-primary-container" name="condition" type="radio"/>
+</label>
+</div>
+</div>
+<!-- Pricing Card -->
+<div class="bg-primary-container rounded-xl p-8 shadow-lg relative overflow-hidden">
+<!-- Brand Mark Watermark -->
+<div class="absolute -bottom-10 -right-10 opacity-10 pointer-events-none">
+<span class="material-symbols-outlined text-[180px] text-white" data-icon="storefront">storefront</span>
+</div>
+<div class="flex items-center gap-2 mb-8">
+<div class="w-2 h-6 bg-on-tertiary-container rounded-full"></div>
+<h3 class="font-headline font-bold text-lg text-white tracking-tight">Commercial Valuation</h3>
+</div>
+<div class="space-y-6">
+<div class="flex items-center justify-between">
+<div class="space-y-1">
+<label class="text-[10px] font-bold text-white/60 uppercase tracking-widest">Buy Price</label>
+<div class="flex items-baseline gap-1">
+<span class="text-xs text-white/80 font-bold">INR</span>
+<input class="w-28 bg-white/10 border-none rounded-lg text-xl font-bold text-white tabular-nums p-2 focus:ring-2 focus:ring-on-tertiary-container" type="text" value="84,500"/>
+</div>
+</div>
+<div class="text-right space-y-1">
+<label class="text-[10px] font-bold text-white/60 uppercase tracking-widest">Sell Target</label>
+<div class="flex items-baseline justify-end gap-1">
+<span class="text-xs text-white/80 font-bold">INR</span>
+<input class="w-28 bg-white/10 border-none rounded-lg text-xl font-bold text-white tabular-nums p-2 text-right focus:ring-2 focus:ring-on-tertiary-container" type="text" value="96,999"/>
+</div>
+</div>
+</div>
+<div class="h-[1px] bg-white/10"></div>
+<div class="flex items-center justify-between bg-on-tertiary-container/20 p-4 rounded-xl border border-on-tertiary-container/30">
+<div>
+<p class="text-[10px] font-bold text-on-tertiary-container uppercase tracking-widest">Net Margin (EST.)</p>
+<p class="text-sm font-medium text-white/80">Profit after 2% overheads</p>
+</div>
+<div class="text-right">
+<p class="text-2xl font-black text-on-tertiary-container tabular-nums">₹10,809</p>
+<span class="text-[10px] font-black bg-on-tertiary-container text-primary-container px-2 py-0.5 rounded-full">12.8%</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Final Actions -->
+<div class="flex gap-4">
+<button class="flex-1 bg-surface-container-highest py-4 rounded-xl font-bold text-primary hover:bg-surface-variant transition-all">Save Draft</button>
+<button class="flex-[2] bg-primary text-on-primary py-4 rounded-xl font-bold flex items-center justify-center gap-2 shadow-xl shadow-primary/20 hover:-translate-y-0.5 transition-all active:scale-95">
+<span class="material-symbols-outlined" data-icon="inventory">inventory</span>
+                                Commit to Inventory
+                            </button>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+<!-- Floating Barcode Scanner FAB (Retail Signature) -->
+<button class="fixed bottom-8 right-8 w-16 h-16 rounded-full bg-gradient-to-br from-secondary to-secondary-container text-white shadow-2xl flex items-center justify-center hover:scale-110 active:scale-90 transition-all z-50">
+<span class="material-symbols-outlined text-3xl" data-icon="barcode_scanner" style="font-variation-settings: 'FILL' 1;">barcode_scanner</span>
+</button>
+</body></html>

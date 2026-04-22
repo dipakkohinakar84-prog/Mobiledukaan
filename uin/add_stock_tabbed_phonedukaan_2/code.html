@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Add Stock | The Retail Editorial</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Plus+Jakarta+Sans:wght@600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-primary-container": "#8690ee",
+                        "on-secondary-fixed": "#001550",
+                        "on-background": "#191c1e",
+                        "error-container": "#ffdad6",
+                        "surface": "#f7f9fc",
+                        "primary": "#000666",
+                        "tertiary-fixed": "#a3f69c",
+                        "on-surface-variant": "#454652",
+                        "primary-container": "#1a237e",
+                        "on-surface": "#191c1e",
+                        "on-primary-fixed": "#000767",
+                        "secondary": "#0048d8",
+                        "on-primary-fixed-variant": "#343d96",
+                        "secondary-container": "#2761fe",
+                        "on-tertiary": "#ffffff",
+                        "outline-variant": "#c6c5d4",
+                        "primary-fixed-dim": "#bdc2ff",
+                        "on-error": "#ffffff",
+                        "primary-fixed": "#e0e0ff",
+                        "surface-container-lowest": "#ffffff",
+                        "on-secondary": "#ffffff",
+                        "surface-container-highest": "#e0e3e6",
+                        "on-tertiary-fixed": "#002204",
+                        "surface-dim": "#d8dadd",
+                        "inverse-surface": "#2d3133",
+                        "tertiary-fixed-dim": "#88d982",
+                        "inverse-primary": "#bdc2ff",
+                        "surface-variant": "#e0e3e6",
+                        "outline": "#767683",
+                        "background": "#f7f9fc",
+                        "on-tertiary-fixed-variant": "#005312",
+                        "on-secondary-container": "#f4f3ff",
+                        "surface-container-low": "#f2f4f7",
+                        "secondary-fixed-dim": "#b6c4ff",
+                        "tertiary-container": "#003909",
+                        "on-secondary-fixed-variant": "#003ab3",
+                        "inverse-on-surface": "#eff1f4",
+                        "on-tertiary-container": "#5aa958",
+                        "surface-bright": "#f7f9fc",
+                        "tertiary": "#002103",
+                        "secondary-fixed": "#dce1ff",
+                        "surface-container-high": "#e6e8eb",
+                        "surface-container": "#eceef1",
+                        "surface-tint": "#4c56af",
+                        "on-error-container": "#93000a",
+                        "error": "#ba1a1a",
+                        "on-primary": "#ffffff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Plus Jakarta Sans"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        input::placeholder {
+            color: #767683;
+        }
+        .tabular-nums {
+            font-variant-numeric: tabular-nums;
+        }
+        body {
+          min-height: max(884px, 100dvh);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface font-body text-on-surface">
+<div class="relative flex h-screen w-full flex-col overflow-hidden">
+<header class="flex items-center bg-surface p-4 pb-2 justify-between shrink-0">
+<button class="text-on-surface flex size-10 items-center justify-center hover:bg-surface-container rounded-full transition-colors">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<h1 class="text-on-surface text-lg font-headline font-bold leading-tight tracking-tight flex-1 ml-2">Add Stock</h1>
+<div class="size-10"></div> 
+</header>
+<div class="flex w-full flex-row items-center justify-center gap-3 py-3 shrink-0">
+<div class="h-1.5 w-6 rounded-full bg-primary"></div>
+<div class="h-1.5 w-1.5 rounded-full bg-outline-variant"></div>
+<div class="h-1.5 w-1.5 rounded-full bg-outline-variant"></div>
+</div>
+<nav class="shrink-0">
+<div class="flex border-b border-outline-variant px-4 justify-between bg-surface">
+<button class="flex flex-col items-center justify-center border-b-[3px] border-b-transparent text-on-surface-variant pb-2 pt-3 flex-1">
+<span class="text-xs font-bold font-label uppercase tracking-widest">Photos</span>
+</button>
+<button class="flex flex-col items-center justify-center border-b-[3px] border-primary text-primary pb-2 pt-3 flex-1">
+<span class="text-xs font-bold font-label uppercase tracking-widest">Device Info</span>
+</button>
+<button class="flex flex-col items-center justify-center border-b-[3px] border-transparent text-on-surface-variant pb-2 pt-3 flex-1">
+<span class="text-xs font-bold font-label uppercase tracking-widest">Pricing</span>
+</button>
+</div>
+</nav>
+<main class="flex-1 overflow-y-auto px-4 pt-6 pb-24">
+<div class="max-w-md mx-auto space-y-6">
+<div class="space-y-1">
+<h2 class="text-on-surface font-headline text-xl font-bold">Device Details</h2>
+<p class="text-on-surface-variant text-sm">Enter technical specifications and identifiers.</p>
+</div>
+<div class="grid grid-cols-1 gap-4">
+<div class="bg-surface-container-low p-3 rounded-xl">
+<label class="block text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">Brand &amp; Model</label>
+<input class="w-full bg-surface-container-lowest border-0 rounded-md p-2.5 text-on-surface font-medium focus:ring-2 focus:ring-primary h-11" placeholder="e.g. iPhone 15 Pro" type="text"/>
+</div>
+<div class="grid grid-cols-2 gap-3">
+<div class="bg-surface-container-low p-3 rounded-xl">
+<label class="block text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">Storage</label>
+<select class="w-full bg-surface-container-lowest border-0 rounded-md p-2.5 text-on-surface font-medium focus:ring-2 focus:ring-primary h-11">
+<option>128 GB</option>
+<option>256 GB</option>
+<option>512 GB</option>
+<option>1 TB</option>
+</select>
+</div>
+<div class="bg-surface-container-low p-3 rounded-xl">
+<label class="block text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">RAM</label>
+<select class="w-full bg-surface-container-lowest border-0 rounded-md p-2.5 text-on-surface font-medium focus:ring-2 focus:ring-primary h-11">
+<option>4 GB</option>
+<option>6 GB</option>
+<option>8 GB</option>
+<option>12 GB</option>
+<option>16 GB</option>
+</select>
+</div>
+</div>
+<div class="space-y-3">
+<div class="flex items-center justify-between">
+<h3 class="text-on-surface font-headline font-bold text-sm uppercase tracking-wider">Identifiers</h3>
+<button class="text-secondary text-xs font-bold flex items-center gap-1">
+<span class="material-symbols-outlined text-base">barcode_scanner</span>
+                                SCAN ALL
+                            </button>
+</div>
+<div class="grid grid-cols-2 gap-3">
+<div class="bg-surface-container-low p-3 rounded-xl relative">
+<label class="block text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">IMEI 1</label>
+<input class="tabular-nums w-full bg-surface-container-lowest border-0 rounded-md p-2.5 pr-8 text-on-surface font-medium focus:ring-2 focus:ring-primary h-11" placeholder="00000..." type="text"/>
+<span class="material-symbols-outlined absolute right-5 bottom-5 text-outline text-lg" data-icon="qr_code_scanner">qr_code_scanner</span>
+</div>
+<div class="bg-surface-container-low p-3 rounded-xl relative">
+<label class="block text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">IMEI 2</label>
+<input class="tabular-nums w-full bg-surface-container-lowest border-0 rounded-md p-2.5 pr-8 text-on-surface font-medium focus:ring-2 focus:ring-primary h-11" placeholder="00000..." type="text"/>
+<span class="material-symbols-outlined absolute right-5 bottom-5 text-outline text-lg" data-icon="qr_code_scanner">qr_code_scanner</span>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-3">
+<div class="bg-surface-container-low p-3 rounded-xl">
+<label class="block text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">Serial Number</label>
+<input class="w-full bg-surface-container-lowest border-0 rounded-md p-2.5 text-on-surface font-medium focus:ring-2 focus:ring-primary h-11" placeholder="SN123456789" type="text"/>
+</div>
+<div class="bg-surface-container-low p-3 rounded-xl">
+<label class="block text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">Color</label>
+<input class="w-full bg-surface-container-lowest border-0 rounded-md p-2.5 text-on-surface font-medium focus:ring-2 focus:ring-primary h-11" placeholder="Titanium" type="text"/>
+</div>
+</div>
+</div>
+<div class="space-y-2">
+<label class="block text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Device Condition</label>
+<div class="flex flex-wrap gap-2">
+<button class="px-4 py-2 rounded-full bg-primary text-on-primary text-xs font-bold">Brand New</button>
+<button class="px-4 py-2 rounded-full bg-surface-container-high text-on-surface-variant text-xs font-bold">Open Box</button>
+<button class="px-4 py-2 rounded-full bg-surface-container-high text-on-surface-variant text-xs font-bold">Pre-owned</button>
+</div>
+</div>
+</div>
+</div>
+</main>
+<footer class="fixed bottom-0 left-0 right-0 p-4 bg-surface-container-lowest border-t border-outline-variant/20 backdrop-blur-md flex gap-3 items-center">
+<button class="flex-1 h-12 rounded-xl bg-surface-container-high text-on-surface font-bold text-sm tracking-tight transition-all active:scale-95">
+                Save Draft
+            </button>
+<button class="flex-[2] h-12 rounded-xl bg-gradient-to-r from-secondary to-primary text-on-primary font-bold text-sm tracking-tight shadow-lg shadow-primary/20 flex items-center justify-center gap-2 transition-all active:scale-95">
+                Continue to Pricing
+                <span class="material-symbols-outlined text-lg" data-icon="arrow_forward">arrow_forward</span>
+</button>
+</footer>
+</div>
+
+</body></html>
