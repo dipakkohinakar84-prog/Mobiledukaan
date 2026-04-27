@@ -9,5 +9,6 @@ dev-dist/
 *.key
 *service-account*.json
 credentials.json
+bill-pro-license-private.jwk
 **/bin/
 **/obj/

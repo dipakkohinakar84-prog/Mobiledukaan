@@ -50,7 +50,7 @@ const CONDITIONS = ["New", "Refurbished", "Used"];
 const STATUSES = ["In Stock", "Sold", "Deleted"];
 const PAYMENT_MODES = ["Cash", "UPI", "Card", "Bank Transfer", "EMI"];
 const BRANDS = ["Samsung", "Apple", "OnePlus", "Xiaomi", "Vivo", "Oppo", "Realme", "Motorola", "Nothing", "Google", "iQOO", "Poco", "Other"];
-const REPORT_TYPES = ["All", "Buy", "Sell", "Add", "Repair"];
+const REPORT_TYPES = ["All", "Buy", "Sell", "Return", "Add", "Repair"];
 const REPORT_RANGE_PRESETS = ["Today", "Yesterday", "This Week", "This Month", "Custom"];
 const REPORT_BILL_FILTERS = ["All Bills", "GST", "Regular"];
 const REPORT_VIEWS = ["Transactions", "Customer Ledger", "Supplier Summary"];
@@ -61,8 +61,12 @@ const STOCK_PRICE_FILTERS = ["Price Range", "Under 20k", "20k-50k", "50k-100k", 
 const REPORT_PAGE_SIZE = 24;
 const CUSTOM_RAM = "__custom_ram__";
 const RAM_PRESETS = ["2GB", "4GB", "6GB", "8GB", "12GB", "16GB", "20GB", "24GB"];
-const BUSINESS_MODES = ["general", "repair-pro"];
+const BUSINESS_MODES = ["general", "repair-pro", "bill-pro"];
 const GENERAL_MODULES = ["buy", "sell", "repair"];
+const BILL_PRO_MODULES = ["sell"];
+const BILL_PRO_CATEGORIES = ["Mobile Device", "Accessories"];
+const BILL_PRO_MOBILE_CATEGORY = "Mobile Device";
+const BILL_PRO_ACCESSORY_CATEGORY = "Accessories";
 const REPAIR_STATUSES = ["Received", "Ready", "Delivered", "Cancelled"];
 const REPAIR_PAYMENT_STATUSES = ["Unpaid", "Advance", "Paid"];
 const SHOP_PARTS_SUPPLIERS_META_RE = /\n?\[\[partsSuppliers:([^\]]*)\]\]/i;
@@ -110,6 +114,14 @@ const LEGACY_APP_NAME_2 = "Phone Dukaan";
 const APP_WORDMARK_SRC = "/phonedukaan-wordmark.svg";
 const APP_WORDMARK_FALLBACK = "/pd-icon.png";
 const DEFAULT_TRIAL_DAYS = 7;
+const BILL_PRO_DEVICE_LS = "phonedukaan_billpro_device_v1";
+const BILL_PRO_ACTIVATION_LS = "phonedukaan_billpro_activation_v1";
+const BILL_PRO_LICENSE_PUBLIC_JWK = {
+    kty: "EC",
+    x: "EgJiKU8k5OdbJcCLi3-DEf80gPbXJz0mt7gX9cPDojQ",
+    y: "H6Ji7fp1_UI9PKzG49pQ5AvjrUukVs-3yyI99edfxAg",
+    crv: "P-256",
+};
 
 // ── LICENSE ACTIVATION ──────────────────────────────────────────────────────
 const LICENSE_KEY_LS = "phonedukaan_license_v1";
@@ -125,6 +137,83 @@ const loadLicenseHashes = async () => {
         if (res.ok) { const arr = await res.json(); LICENSE_HASHES = new Set(arr); }
     } catch { /* no hashes file yet */ }
 };
+const base64UrlFromBytes = (bytes) => btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+const base64UrlToBytes = (value = "") => {
+    const normalized = String(value || "").replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized + "=".repeat((4 - (normalized.length % 4 || 4)) % 4);
+    return Uint8Array.from(atob(padded), char => char.charCodeAt(0));
+};
+const base64UrlFromText = (value = "") => base64UrlFromBytes(new TextEncoder().encode(String(value || "")));
+const textFromBase64Url = (value = "") => new TextDecoder().decode(base64UrlToBytes(value));
+const billProLicensePayloadText = (payload = {}) => JSON.stringify({
+    edition: "bill-pro",
+    deviceId: String(payload.deviceId || "").trim().toUpperCase(),
+    shopName: String(payload.shopName || "").trim(),
+    issuedAt: String(payload.issuedAt || "").trim(),
+});
+const generateBillProDeviceId = () => {
+    const chunk = () => Math.random().toString(36).slice(2, 6).toUpperCase().padEnd(4, "X");
+    return `BP-${chunk()}-${chunk()}-${chunk()}`;
+};
+const ensureBillProDeviceId = () => {
+    if (typeof window === "undefined" || !window.localStorage) return generateBillProDeviceId();
+    const existing = String(window.localStorage.getItem(BILL_PRO_DEVICE_LS) || "").trim().toUpperCase();
+    if (existing) return existing;
+    const next = generateBillProDeviceId();
+    window.localStorage.setItem(BILL_PRO_DEVICE_LS, next);
+    return next;
+};
+const importBillProPublicKey = async () => window.crypto.subtle.importKey("jwk", BILL_PRO_LICENSE_PUBLIC_JWK, { name: "ECDSA", namedCurve: "P-256" }, false, ["verify"]);
+const loadBillProActivationRecord = () => {
+    if (typeof window === "undefined" || !window.localStorage) return null;
+    try {
+        const parsed = JSON.parse(window.localStorage.getItem(BILL_PRO_ACTIVATION_LS) || "null");
+        if (!parsed?.payload?.deviceId || parsed?.payload?.edition !== "bill-pro") return null;
+        return parsed;
+    } catch {
+        return null;
+    }
+};
+const verifyBillProActivationToken = async (token, deviceId) => {
+    const rawToken = String(token || "").trim();
+    const normalizedDeviceId = String(deviceId || "").trim().toUpperCase();
+    if (!rawToken) throw new Error("Paste the Bill Pro activation code.");
+    if (!normalizedDeviceId) throw new Error("Device ID is unavailable on this device.");
+    const [payloadPart, signaturePart] = rawToken.split(".");
+    if (!payloadPart || !signaturePart) throw new Error("Activation code format is invalid.");
+    const payloadText = textFromBase64Url(payloadPart);
+    const payload = JSON.parse(payloadText || "{}");
+    if (payload.edition !== "bill-pro") throw new Error("This activation code is not for Bill Pro.");
+    if (String(payload.deviceId || "").trim().toUpperCase() !== normalizedDeviceId) throw new Error("This activation code was issued for another device ID.");
+    if (!String(payload.issuedAt || "").trim()) throw new Error("Activation code is missing issue metadata.");
+    const canonicalPayload = billProLicensePayloadText(payload);
+    if (canonicalPayload !== payloadText) throw new Error("Activation code payload was modified.");
+    const signature = base64UrlToBytes(signaturePart);
+    const publicKey = await importBillProPublicKey();
+    const verified = await window.crypto.subtle.verify({ name: "ECDSA", hash: "SHA-256" }, publicKey, signature, new TextEncoder().encode(payloadText));
+    if (!verified) throw new Error("Activation code verification failed.");
+    return {
+        token: `${payloadPart}.${signaturePart}`,
+        payload,
+        deviceId: normalizedDeviceId,
+        activatedAt: new Date().toISOString(),
+    };
+};
+const buildBillProSession = (activation = {}, shop = DEFAULT_SHOP_PROFILE) => ({
+    loginId: "bill-pro",
+    shopId: "bill-pro-local",
+    shopName: activation?.payload?.shopName || shop.shopName || APP_NAME,
+    scriptUrl: "",
+    syncKey: "",
+    trialEndsAt: "",
+    pbAuth: null,
+    isBillPro: true,
+    activation: {
+        deviceId: String(activation?.deviceId || activation?.payload?.deviceId || "").trim().toUpperCase(),
+        issuedAt: String(activation?.payload?.issuedAt || "").trim(),
+        shopName: String(activation?.payload?.shopName || "").trim(),
+    },
+});
 // ────────────────────────────────────────────────────────────────────────────
 const DEFAULT_SHOP_PROFILE = {
     shopName: APP_NAME,
@@ -374,6 +463,54 @@ const amountInWords = (num) => {
     if (paise > 0) result += " and " + twoDigit(paise) + " Paise";
     return result + " Only";
 };
+const getTxQty = (item = {}) => Math.max(1, Number(item.qty || 1) || 1);
+const isBillProMobileCategory = (value = "") => String(value || "").trim() === BILL_PRO_MOBILE_CATEGORY;
+const getTxItemLabel = (item = {}) => {
+    const explicit = String(item.itemLabel || "").trim();
+    if (explicit) return explicit;
+    const deviceLabel = [item.brand, item.model].filter(Boolean).join(" ").trim();
+    if (deviceLabel) return deviceLabel;
+    const category = String(item.category || "").trim();
+    return category || "Item";
+};
+const getTxItemContext = (item = {}) => {
+    if (String(item.itemLabel || "").trim() && !isBillProMobileCategory(item.category)) {
+        return [
+            item.category ? `Category: ${item.category}` : "",
+            getTxQty(item) > 1 ? `Qty ${getTxQty(item)}` : "",
+            item.serialNo ? `Code ${item.serialNo}` : "",
+        ].filter(Boolean).join(" · ") || "Manual invoice item";
+    }
+    const deviceDetails = [
+        item.color || "",
+        fmtSpecs(item.ram, item.storage) !== "-" ? fmtSpecs(item.ram, item.storage) : "",
+        item.condition ? `Condition: ${item.condition}` : "",
+    ].filter(Boolean).join(" · ");
+    return deviceDetails || (item.customerName || "Walk-in Customer");
+};
+const getTxReportExtra = (item = {}) => {
+    if (String(item.itemLabel || "").trim() && !isBillProMobileCategory(item.category)) {
+        return [
+            item.category ? `Category: ${item.category}` : "",
+            getTxQty(item) > 1 ? `Qty ${getTxQty(item)}` : "",
+            item.serialNo ? `Code ${item.serialNo}` : "",
+        ].filter(Boolean).join(" · ");
+    }
+    return [
+        item.color ? `Color: ${item.color}` : "",
+        fmtSpecs(item.ram, item.storage) !== "-" ? `Specs: ${fmtSpecs(item.ram, item.storage)}` : "",
+        item.condition ? `Condition: ${item.condition}` : "",
+    ].filter(Boolean).join(" · ");
+};
+const getTxIdentityLines = (item = {}) => {
+    const lines = [];
+    if (item.imei) lines.push(`IMEI 1: ${item.imei}`);
+    if (item.imei2) lines.push(`IMEI 2: ${item.imei2}`);
+    if (!item.imei && item.serialNo) lines.push(`Code: ${item.serialNo}`);
+    if (getTxQty(item) > 1) lines.push(`Quantity: ${getTxQty(item)}`);
+    return lines;
+};
+const getSaleProfitAmount = (sale = {}) => Number((sale.billType === "GST" ? sale.taxableAmount : sale.amount) || sale.amount || 0) - Number(sale.costPrice || 0);
 const pickText = (value, fallback = "") => value === undefined || value === null ? fallback : String(value);
 const migrateLegacyName = (value, fallback = APP_NAME) => {
     const text = pickText(value, fallback);
@@ -408,14 +545,54 @@ const resolveSignupProfile = (value = "general") => {
     if (value === "sell") return { businessMode: "general", enabledModules: ["sell"] };
     if (value === "repair") return { businessMode: "general", enabledModules: ["repair"] };
     if (value === "repair-pro") return { businessMode: "repair-pro", enabledModules: ["repair"] };
+    if (value === "bill-pro") return { businessMode: "bill-pro", enabledModules: BILL_PRO_MODULES };
     return { businessMode: "general", enabledModules: GENERAL_MODULES };
 };
 const getEnabledModules = (shop = DEFAULT_SHOP_PROFILE) => {
     const normalized = normalizeShopProfile(shop);
     if (normalized.businessMode === "repair-pro") return ["repair"];
+    if (normalized.businessMode === "bill-pro") return BILL_PRO_MODULES;
     return normalized.enabledModules;
 };
 const createEmptyForm = (shop = DEFAULT_SHOP_PROFILE) => ({ imei: "", imei2: "", brand: "Samsung", model: "", color: "", ram: "", storage: "128GB", batteryHealth: "", condition: "New", buyPrice: "", sellPrice: "", status: "In Stock", qty: "1", supplier: "", customerName: "", phone: "", amount: "", paidAmount: "", dueAmount: "0", paymentMode: "Cash", notes: "", photos: [], sellerName: "", sellerPhone: "", sellerAadhaarNumber: "", purchaseDate: isoDate(), sellerAgreementAccepted: false, sellerIdPhotoData: "", sellerPhotoData: "", sellerSignatureData: "", warrantyType: "1 Year Warranty", warrantyMonths: "", billType: shop.defaultBillType || "NON GST", gstRate: String(shop.defaultGstRate || 18) });
+const createEmptyBillProForm = (shop = DEFAULT_SHOP_PROFILE) => ({
+    customerName: "",
+    phone: "",
+    itemLabel: "",
+    category: BILL_PRO_MOBILE_CATEGORY,
+    brand: "",
+    model: "",
+    color: "",
+    ram: "",
+    storage: "",
+    condition: "New",
+    imei: "",
+    imei2: "",
+    serialNo: "",
+    qty: "1",
+    amount: "",
+    paidAmount: "",
+    dueAmount: "0",
+    paymentMode: "Cash",
+    billType: shop.defaultBillType || "NON GST",
+    gstRate: String(shop.defaultGstRate || 18),
+    notes: "",
+});
+const createEmptyBillProStickerForm = () => ({
+    itemLabel: "",
+    category: BILL_PRO_MOBILE_CATEGORY,
+    brand: "",
+    model: "",
+    color: "",
+    ram: "",
+    storage: "",
+    condition: "New",
+    imei: "",
+    imei2: "",
+    code: "",
+    price: "",
+    copies: "1",
+});
 const calcInvoiceTotals = (amount, billType = "NON GST", gstRate = 18) => {
     const total = roundMoney(amount);
     const rate = Number(gstRate || 0);
@@ -537,6 +714,10 @@ const normalizeTx = (it = {}) => ({
     condition: it.condition || "",
     customerName: it.customerName || "",
     phone: it.phone || "",
+    itemLabel: String(it.itemLabel || "").trim(),
+    category: String(it.category || "").trim(),
+    serialNo: String(it.serialNo || "").trim(),
+    qty: getTxQty(it),
     amount: Number(it.amount || 0),
     paidAmount: Number(it.paidAmount ?? it.amount ?? 0),
     dueAmount: Number(it.dueAmount || 0),
@@ -557,6 +738,12 @@ const normalizeTx = (it = {}) => ({
     sellerPhone: it.sellerPhone || "",
     sellerAadhaarNumber: it.sellerAadhaarNumber || "",
     purchaseDate: it.purchaseDate || "",
+    returnOfTxId: String(it.returnOfTxId || "").trim(),
+    returnOfInvoiceNo: String(it.returnOfInvoiceNo || "").trim(),
+    refundAmount: Number(it.refundAmount || 0),
+    refundMode: it.refundMode || it.paymentMode || "Cash",
+    returnReason: String(it.returnReason || "").trim(),
+    returnedAt: it.returnedAt || "",
     whatsAppMessageAt: it.whatsAppMessageAt || "",
     whatsAppPdfAt: it.whatsAppPdfAt || "",
     shopSnapshot: it.shopSnapshot ? normalizeShopProfile(it.shopSnapshot) : null,
@@ -671,7 +858,12 @@ const makeRepairWhatsAppText = (repair, shop) => {
                 : "Your repair request has been cancelled. Please contact us for help.";
     return `${shop.shopName}\nRepair ID: ${repair.repairNo || "Repair Job"}\n${statusLine}\nDevice: ${[repair.brand, repair.model].filter(Boolean).join(" ") || "Device"}${repair.problem ? `\nIssue: ${repair.problem}` : ""}${repair.imei ? `\nIMEI: ${repair.imei}` : ""}${repair.receivedDate ? `\nReceived: ${fmtDate(repair.receivedDate)}` : ""}${amount ? `\nAmount: ${fmtMoney(amount)}` : ""}${repair.advance ? `\nAdvance: ${fmtMoney(repair.advance)}` : ""}${due ? `\nDue: ${fmtMoney(due)}` : ""}`;
 };
-const makeInvoiceText = (sale, shop) => `${shop.shopName} ${sale.invoiceNo || "Invoice"}\n${sale.billType === "GST" ? "GST Invoice" : "Invoice"}\n${sale.brand} ${sale.model}\nSpecs: ${fmtSpecs(sale.ram, sale.storage)}\nIMEI 1: ${sale.imei}${sale.imei2 ? `\nIMEI 2: ${sale.imei2}` : ""}\nTotal: ${fmtMoney(sale.totalAmount || sale.amount)}${sale.billType === "GST" ? `\nTaxable: ${fmtMoney(sale.taxableAmount)}\nGST: ${fmtMoney(sale.gstAmount)}` : ""}${sale.dueAmount ? `\nDue: ${fmtMoney(sale.dueAmount)}` : ""}`;
+const makeInvoiceText = (sale, shop) => {
+    const itemLabel = getTxItemLabel(sale);
+    const itemContext = getTxReportExtra(sale);
+    const identityLines = getTxIdentityLines(sale);
+    return `${shop.shopName} ${sale.invoiceNo || "Invoice"}\n${sale.billType === "GST" ? "GST Invoice" : "Invoice"}\n${itemLabel}${itemContext ? `\n${itemContext}` : ""}${identityLines.length ? `\n${identityLines.join("\n")}` : ""}\nTotal: ${fmtMoney(sale.totalAmount || sale.amount)}${sale.billType === "GST" ? `\nTaxable: ${fmtMoney(sale.taxableAmount)}\nGST: ${fmtMoney(sale.gstAmount)}` : ""}${sale.dueAmount ? `\nDue: ${fmtMoney(sale.dueAmount)}` : ""}`;
+};
 const buildInvoiceDoc = async (sale, shop) => {
     const { jsPDF } = await import("jspdf");
     const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
@@ -692,8 +884,12 @@ const buildInvoiceDoc = async (sale, shop) => {
     const billLabel = isGST ? "TAX INVOICE" : "INVOICE";
     const sp = getSaleShop(sale, shop);
     const hsn = sp.hsnCode || "";
-    const unitRate = isGST ? sale.taxableAmount : (sale.totalAmount || sale.amount);
     const totalAmt = sale.totalAmount || sale.amount;
+    const qty = getTxQty(sale);
+    const itemLabel = getTxItemLabel(sale);
+    const itemContext = getTxReportExtra(sale);
+    const identityLines = getTxIdentityLines(sale);
+    const unitRate = isGST ? roundMoney((sale.taxableAmount || totalAmt) / qty) : roundMoney(totalAmt / qty);
     const rX = pw - mr; // right edge
 
     // ═══════ OUTER BORDER ═══════
@@ -873,12 +1069,7 @@ const buildInvoiceDoc = async (sale, shop) => {
 
     // Table row
     const descMaxW = (hsn ? cHsn : c3) - c2 - 4;
-    const descText = [
-        `${sale.brand} ${sale.model}`,
-        [sale.color ? `Color: ${sale.color}` : "", fmtSpecs(sale.ram, sale.storage) !== "-" ? `Specs: ${fmtSpecs(sale.ram, sale.storage)}` : "", sale.condition ? `Condition: ${sale.condition}` : ""].filter(Boolean).join("  |  "),
-        `IMEI 1: ${sale.imei || "-"}`,
-        sale.imei2 ? `IMEI 2: ${sale.imei2}` : "",
-    ].filter(Boolean).join("\n");
+    const descText = [itemLabel, itemContext, ...identityLines].filter(Boolean).join("\n");
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
     const descLines = doc.splitTextToSize(descText, descMaxW);
@@ -906,7 +1097,7 @@ const buildInvoiceDoc = async (sale, shop) => {
     // Description - first line bold
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
-    doc.text(`${sale.brand} ${sale.model}`, c2 + 2, rowY + 6);
+    doc.text(itemLabel, c2 + 2, rowY + 6);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7.8);
     doc.setTextColor(...mid);
@@ -920,7 +1111,7 @@ const buildInvoiceDoc = async (sale, shop) => {
     }
     doc.setTextColor(...dark);
     doc.setFontSize(8.5);
-    doc.text("1", (c3 + c4) / 2, rowY + 6, { align: "center" });
+    doc.text(String(qty), (c3 + c4) / 2, rowY + 6, { align: "center" });
     doc.text(fmtMoney(unitRate), c4r, rowY + 6, { align: "right" });
     doc.setFont("helvetica", "bold");
     doc.text(fmtMoney(totalAmt), c5r, rowY + 6, { align: "right" });
@@ -1484,6 +1675,90 @@ const makeRepairStickerFile = async (repair, shop) => {
     const doc = await buildRepairStickerDoc(repair, shop);
     const blob = doc.output("blob");
     const fileName = `repair-${(repair.repairNo || repair.id || "ticket").toLowerCase().replace(/[^a-z0-9]+/g, "-")}.pdf`;
+    return { blob, fileName, file: new File([blob], fileName, { type: "application/pdf" }) };
+};
+const buildBillProStickerDoc = async (item, shop) => {
+    const { jsPDF } = await import("jspdf");
+    const copies = Math.max(1, Number(item.copies || 1) || 1);
+    const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: [30, 50] });
+    const shopProfile = normalizeShopProfile(shop || DEFAULT_SHOP_PROFILE);
+    const stickerName = String(item.itemLabel || "Item").trim() || "Item";
+    const stickerCategory = String(item.category || "Accessory").trim();
+    const stickerCode = String(item.code || "").trim();
+    const stickerPrice = Number(item.price || 0);
+    const barcodeDataUrl = stickerCode ? await buildStickerBarcodeDataUrl(stickerCode) : null;
+    const logoDataUrl = await loadStickerLogoDataUrl();
+    const drawStickerPage = () => {
+        const ink = [28, 36, 44];
+        const muted = [95, 103, 112];
+        const line = [210, 217, 224];
+        const fitText = (text, maxWidth, preferredSize, minSize = preferredSize) => {
+            const originalSize = doc.getFontSize();
+            let size = preferredSize;
+            while (size >= minSize) {
+                doc.setFontSize(size);
+                if (doc.getTextWidth(text) <= maxWidth) {
+                    doc.setFontSize(originalSize);
+                    return { text, size };
+                }
+                size = Math.round((size - 0.2) * 10) / 10;
+            }
+            doc.setFontSize(minSize);
+            let next = text;
+            while (next.length > 4 && doc.getTextWidth(`${next}...`) > maxWidth) next = next.slice(0, -1);
+            doc.setFontSize(originalSize);
+            return { text: `${next.trimEnd()}...`, size: minSize };
+        };
+        const titleLine = fitText(stickerName, 46, 7.8, 5.4);
+        const categoryLine = fitText(stickerCategory || "Bill Pro", 28, 4.8, 4.1);
+        const priceLine = fitText(stickerPrice > 0 ? `${formatMoney(stickerPrice)} RS` : "PRICE ON ASK", 26, 6.4, 4.6);
+        doc.setFillColor(255, 255, 255);
+        doc.rect(0, 0, 50, 30, "F");
+        doc.setDrawColor(...line);
+        doc.roundedRect(0.8, 0.8, 48.4, 28.4, 1.4, 1.4);
+        doc.setTextColor(...ink);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(titleLine.size);
+        doc.text(titleLine.text, 1.6, 4.9, { maxWidth: 46 });
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(...muted);
+        doc.setFontSize(categoryLine.size);
+        doc.text(categoryLine.text, 1.6, 8.2);
+        if (barcodeDataUrl) {
+            doc.addImage(barcodeDataUrl, "PNG", 1.4, 10.1, 47.2, 9.5);
+        } else {
+            doc.setFont("helvetica", "italic");
+            doc.setFontSize(4);
+            doc.text("No barcode / code", 25, 15.6, { align: "center" });
+        }
+        doc.setTextColor(...ink);
+        doc.setFont("courier", "bold");
+        doc.setFontSize(3.2);
+        doc.text(stickerCode || "MANUAL ITEM", 25, 21.5, { align: "center", maxWidth: 42 });
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(priceLine.size);
+        doc.text(priceLine.text, 25, 27.2, { align: "center", maxWidth: 26 });
+        if (logoDataUrl) {
+            doc.setDrawColor(...line);
+            doc.roundedRect(43.2, 1.5, 5.2, 5.2, 0.6, 0.6);
+            doc.addImage(logoDataUrl, "PNG", 43.7, 2.0, 4.2, 4.2);
+        }
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(3.3);
+        doc.setTextColor(...muted);
+        doc.text((shopProfile.shopName || APP_NAME).slice(0, 24), 1.8, 28.6);
+    };
+    drawStickerPage();
+    for (let copyIndex = 1; copyIndex < copies; copyIndex += 1) {
+        doc.addPage([30, 50], "landscape");
+        drawStickerPage();
+    }
+    return doc;
+};
+const makeBillProStickerFile = async (item, shop) => {
+    const doc = await buildBillProStickerDoc(item, shop);
+    const blob = doc.output("blob");
+    const fileName = `bill-pro-sticker-${String(item.itemLabel || "item").toLowerCase().replace(/[^a-z0-9]+/g, "-") || "item"}.pdf`;
     return { blob, fileName, file: new File([blob], fileName, { type: "application/pdf" }) };
 };
 
@@ -2693,6 +2968,11 @@ export default function App() {
     const [signupForm, setSignupForm] = useState({ shopName: "", mobileNumber: "", email: "", password: "", confirmPassword: "", profile: "general" });
     const [signupError, setSignupError] = useState("");
     const [signupBusy, setSignupBusy] = useState(false);
+    const [billProDeviceId] = useState(() => typeof window === "undefined" ? generateBillProDeviceId() : ensureBillProDeviceId());
+    const [billProActivationCode, setBillProActivationCode] = useState("");
+    const [billProError, setBillProError] = useState("");
+    const [billProBusy, setBillProBusy] = useState(false);
+    const [billProClosedThisSession, setBillProClosedThisSession] = useState(false);
     const [trialDays, setTrialDays] = useState(DEFAULT_TRIAL_DAYS);
     const [resetEmail, setResetEmail] = useState("");
     const [resetError, setResetError] = useState("");
@@ -2756,6 +3036,11 @@ export default function App() {
     const [di, sDi] = useState(null);
     const [repairDetail, setRepairDetail] = useState(null);
     const [repairForm, setRepairForm] = useState(createEmptyRepairForm());
+    const [billProForm, setBillProForm] = useState(() => createEmptyBillProForm(seed.current.shop || DEFAULT_SHOP_PROFILE));
+    const [billProStickerForm, setBillProStickerForm] = useState(() => createEmptyBillProStickerForm());
+    const [returnTarget, setReturnTarget] = useState(null);
+    const [returnForm, setReturnForm] = useState({ refundAmount: "", refundMode: "Cash", reason: "" });
+    const [returnBusy, setReturnBusy] = useState(false);
     const [confirmDel, setConfirmDel] = useState(null);
     const [canPersist] = useState(typeof window !== "undefined" && !!window.localStorage);
     const [ol, setOl] = useState(typeof navigator === "undefined" ? true : navigator.onLine);
@@ -2784,6 +3069,8 @@ export default function App() {
     const scannerTimeoutRef = useRef(null);
     const pgRef = useRef(null);
     const fmRef = useRef(null);
+    const billProFormRef = useRef(null);
+    const billProStickerFormRef = useRef(null);
     const invRef = useRef(null);
     const scsRef = useRef(false);
     const camStream = useRef(null);
@@ -2819,12 +3106,18 @@ export default function App() {
 
     const ef = useMemo(() => createEmptyForm(shopCfg), [shopCfg]);
     const [fm, sFm] = useState(ef);
-    const enabledModules = useMemo(() => getEnabledModules(shopCfg), [shopCfg]);
+    const appMode = shopSession?.isBillPro ? "bill-pro" : shopCfg.businessMode;
+    const effectiveShopCfg = useMemo(() => appMode === "bill-pro" ? normalizeShopProfile({ ...shopCfg, businessMode: "bill-pro", enabledModules: BILL_PRO_MODULES }) : normalizeShopProfile(shopCfg), [appMode, shopCfg]);
+    const enabledModules = useMemo(() => appMode === "bill-pro" ? BILL_PRO_MODULES : getEnabledModules(shopCfg), [appMode, shopCfg]);
+    const billProFormTemplate = useMemo(() => createEmptyBillProForm(effectiveShopCfg), [effectiveShopCfg]);
+    const billProSalePreview = useMemo(() => calcInvoiceTotals(billProForm.amount || 0, billProForm.billType, billProForm.gstRate), [billProForm.amount, billProForm.billType, billProForm.gstRate]);
     const liveDeviceByImei = (imei) => inv.find(i => matchImei(i, imei) && i.status === "In Stock" && i.qty > 0);
     const activeSyncUrl = getPocketBaseUrl();
     const syncReady = !!(shopSession?.pbAuth?.token && (syncCfg.shopId || shopSession?.shopId));
-    const syncSetupMessage = shopSession ? "Cloud data is not configured yet." : "Login required before saving data.";
-    const syncStateLabel = syncMeta.syncState === "syncing"
+    const syncSetupMessage = appMode === "bill-pro" ? "Bill Pro keeps data only on this device." : (shopSession ? "Cloud data is not configured yet." : "Login required before saving data.");
+    const syncStateLabel = appMode === "bill-pro"
+        ? (ol ? "Saved locally" : "Offline")
+        : syncMeta.syncState === "syncing"
         ? "Syncing"
         : syncMeta.syncState === "uploading-photos"
             ? "Uploading photos"
@@ -2853,6 +3146,7 @@ export default function App() {
         setLoginError("");
         setSignupError("");
         setResetError("");
+        setBillProError("");
     }, []);
     const adminAuth = useMemo(() => {
         try { return adminToken ? JSON.parse(adminToken) : null; } catch { return null; }
@@ -2891,6 +3185,56 @@ export default function App() {
             lastStatus: session.shopId ? `Connected to ${syncTargetLabel}` : current.lastStatus,
         }));
     }, [activeSyncUrl, syncTargetLabel]);
+    const applyBillProSession = useCallback((activation) => {
+        setBillProClosedThisSession(false);
+        const nextProfile = normalizeShopProfile({
+            ...shopCfg,
+            shopName: activation?.payload?.shopName || shopCfg.shopName,
+            businessMode: "bill-pro",
+            enabledModules: BILL_PRO_MODULES,
+        });
+        lastSavedShopProfileSignatureRef.current = JSON.stringify(nextProfile);
+        setShopProfileDirty(false);
+        shopProfileDirtyRef.current = false;
+        sShopCfg(nextProfile);
+        setShopSession(buildBillProSession(activation, nextProfile));
+        setSyncCfg(current => normalizeSyncCfg({ ...current, connected: false, scriptUrl: "", syncKey: "", lastStatus: "Bill Pro active on this device" }));
+    }, [shopCfg]);
+    const copyBillProDeviceId = async () => {
+        try {
+            await navigator.clipboard.writeText(billProDeviceId);
+            notify("Bill Pro device ID copied.", "success");
+        } catch {
+            notify("Unable to copy the device ID on this browser.", "warning");
+        }
+    };
+    const handleBillProActivation = async () => {
+        setBillProBusy(true);
+        setBillProError("");
+        try {
+            const activation = await verifyBillProActivationToken(billProActivationCode, billProDeviceId);
+            window.localStorage.setItem(BILL_PRO_ACTIVATION_LS, JSON.stringify(activation));
+            applyBillProSession(activation);
+            setAuthReady(true);
+            setBillProActivationCode("");
+            notify("Bill Pro activated on this device.", "success");
+        } catch (error) {
+            setBillProError(error?.message || "Unable to activate Bill Pro.");
+        } finally {
+            setBillProBusy(false);
+        }
+    };
+    const openStoredBillPro = () => {
+        const activation = loadBillProActivationRecord();
+        const deviceId = ensureBillProDeviceId();
+        if (!activation?.payload?.deviceId || String(activation.payload.deviceId).trim().toUpperCase() !== deviceId) {
+            setBillProError("No valid Bill Pro activation is stored for this device.");
+            return;
+        }
+        applyBillProSession(activation);
+        setAuthReady(true);
+        notify("Bill Pro opened on this device.", "success");
+    };
     const fetchAdminShops = useCallback(async (token) => {
         const data = await pocketbaseAdminLoadDashboard(token);
         setAdminUsers((data?.users || []).map((user) => ({
@@ -3093,6 +3437,14 @@ export default function App() {
         closeAdminPanel();
     };
     const logoutShop = () => {
+        if (shopSession?.isBillPro) {
+            setBillProClosedThisSession(true);
+            setShopSession(null);
+            setAuthReady(true);
+            setAuthMode("bill-pro");
+            notify("Bill Pro closed on this device.", "success");
+            return;
+        }
         unsubscribeFromShopData();
         window.localStorage.removeItem(AUTH_SESSION_KEY);
         setShopSession(null);
@@ -3129,6 +3481,7 @@ export default function App() {
         sShopCfg(p => {
             const next = { ...p, [k]: v };
             if (k === "businessMode" && v === "repair-pro") next.enabledModules = ["repair"];
+            if (k === "businessMode" && v === "bill-pro") next.enabledModules = BILL_PRO_MODULES;
             if (k === "enabledModules" && !Array.isArray(v)) next.enabledModules = p.enabledModules;
             return normalizeShopProfile(next);
         });
@@ -3196,6 +3549,72 @@ export default function App() {
         if (k === "gstRate") next.gstRate = String(v).replace(/[^\d.]/g, "");
         return next;
     });
+    const resetBillProForm = useCallback(() => {
+        setBillProForm(billProFormTemplate);
+    }, [billProFormTemplate]);
+    const setBillProField = useCallback((key, value) => {
+        setBillProForm(current => {
+            const next = { ...current, [key]: value };
+            if (key === "phone") next.phone = cleanMobileNumber(value);
+            if (key === "imei" || key === "imei2") next[key] = cleanImei(value);
+            if (key === "qty") next.qty = String(value).replace(/\D/g, "") || "1";
+            if (key === "gstRate") next.gstRate = String(value).replace(/[^\d.]/g, "");
+            if (key === "category") {
+                if (isBillProMobileCategory(value)) {
+                    next.itemLabel = "";
+                    next.serialNo = "";
+                    next.qty = "1";
+                } else {
+                    next.brand = "";
+                    next.model = "";
+                    next.color = "";
+                    next.ram = "";
+                    next.storage = "";
+                    next.condition = "New";
+                    next.imei = "";
+                    next.imei2 = "";
+                }
+            }
+            if (key === "amount" || key === "paidAmount") {
+                const total = Number(key === "amount" ? value : next.amount) || 0;
+                let paid = Number(key === "paidAmount" ? value : next.paidAmount) || 0;
+                if (paid > total && total > 0) {
+                    paid = total;
+                    next.paidAmount = String(total);
+                }
+                next.dueAmount = String(Math.max(total - paid, 0));
+            }
+            return next;
+        });
+    }, []);
+    const resetBillProStickerForm = useCallback(() => {
+        setBillProStickerForm(createEmptyBillProStickerForm());
+    }, []);
+    const setBillProStickerField = useCallback((key, value) => {
+        setBillProStickerForm(current => {
+            const next = {
+                ...current,
+                [key]: key === "copies" ? (String(value).replace(/\D/g, "") || "1") : value,
+            };
+            if (key === "imei" || key === "imei2") next[key] = cleanImei(value);
+            if (key === "category") {
+                if (isBillProMobileCategory(value)) {
+                    next.itemLabel = "";
+                    next.code = "";
+                } else {
+                    next.brand = "";
+                    next.model = "";
+                    next.color = "";
+                    next.ram = "";
+                    next.storage = "";
+                    next.condition = "New";
+                    next.imei = "";
+                    next.imei2 = "";
+                }
+            }
+            return next;
+        });
+    }, []);
     const addBulkImei = useCallback((rawImei) => {
         const imei = cleanImei(rawImei);
         if (!hasImei(imei)) {
@@ -3290,10 +3709,16 @@ export default function App() {
                 } else {
                     applyShopSession(parsed);
                 }
+            } else {
+                const activation = loadBillProActivationRecord();
+                const deviceId = ensureBillProDeviceId();
+                if (!billProClosedThisSession && activation?.payload?.deviceId && String(activation.payload.deviceId).trim().toUpperCase() === deviceId) {
+                    applyBillProSession(activation);
+                }
             }
         } catch { }
         setAuthReady(true);
-    }, [activeSyncUrl, applyShopSession]);
+    }, [activeSyncUrl, applyBillProSession, applyShopSession, billProClosedThisSession]);
     useEffect(() => {
         if (showAdminPanel) return;
         let cancelled = false;
@@ -3385,11 +3810,14 @@ export default function App() {
     // ── sync refs for hardware barcode scanner ──
     useEffect(() => { pgRef.current = pg; }, [pg]);
     useEffect(() => {
-        if ((pg === "add" && !enabledModules.some(module => module === "buy" || module === "sell")) || (pg === "buy" && !enabledModules.includes("buy")) || (pg === "sell" && !enabledModules.includes("sell")) || (pg === "repair" && !enabledModules.includes("repair")) || (pg === "repair-form" && !enabledModules.includes("repair")) || (shopCfg.businessMode === "repair-pro" && pg === "inventory") || (shopCfg.businessMode !== "repair-pro" && pg === "parts")) {
+        const billProAllowedPages = ["dashboard", "billing", "transactions", "bill-stickers", "reports", "settings"];
+        if ((pg === "add" && !enabledModules.some(module => module === "buy" || module === "sell")) || (pg === "buy" && !enabledModules.includes("buy")) || (pg === "sell" && !enabledModules.includes("sell")) || (pg === "repair" && !enabledModules.includes("repair")) || (pg === "repair-form" && !enabledModules.includes("repair")) || (appMode === "repair-pro" && pg === "inventory") || (appMode !== "repair-pro" && pg === "parts") || (appMode === "bill-pro" && !billProAllowedPages.includes(pg))) {
             sPg("dashboard");
         }
-    }, [enabledModules, pg, shopCfg.businessMode]);
+    }, [appMode, enabledModules, pg]);
     useEffect(() => { fmRef.current = fm; }, [fm]);
+    useEffect(() => { billProFormRef.current = billProForm; }, [billProForm]);
+    useEffect(() => { billProStickerFormRef.current = billProStickerForm; }, [billProStickerForm]);
     useEffect(() => { invRef.current = inv; }, [inv]);
     useEffect(() => { scsRef.current = scs; }, [scs]);
     // ── hardware barcode scanner (USB / Bluetooth) ──
@@ -3456,8 +3884,8 @@ export default function App() {
     }, []);
     useEffect(() => {
         if (!storageReady) return;
-        void saveAppState({ inv, tx, repairs, shop: normalizeShopProfile(shopCfg) });
-    }, [storageReady, inv, tx, repairs, shopCfg]);
+        void saveAppState({ inv, tx, repairs, shop: effectiveShopCfg });
+    }, [effectiveShopCfg, storageReady, inv, tx, repairs]);
     useEffect(() => {
         if (!storageReady) return;
         void saveSyncState(syncMeta);
@@ -3468,11 +3896,11 @@ export default function App() {
     }, [canPersist, syncCfg]);
     useEffect(() => { syncBusyRef.current = syncBusy; }, [syncBusy]);
     useEffect(() => {
-        const signature = JSON.stringify(normalizeShopProfile(shopCfg));
+        const signature = JSON.stringify(effectiveShopCfg);
         const dirty = signature !== lastSavedShopProfileSignatureRef.current;
         if (shopProfileDirty !== dirty) setShopProfileDirty(dirty);
         shopProfileDirtyRef.current = dirty;
-    }, [shopCfg, shopProfileDirty]);
+    }, [effectiveShopCfg, shopProfileDirty]);
     useEffect(() => {
         if (!storageReady) return;
         if (skipNextDirtyMark.current) {
@@ -3481,12 +3909,12 @@ export default function App() {
         }
         updateSyncMeta(current => ({
             ...current,
-            pendingSync: true,
+            pendingSync: appMode === "bill-pro" ? false : true,
             syncState: ol ? "saved-local" : "offline",
             lastLocalChangeAt: new Date().toISOString(),
             syncError: "",
         }));
-    }, [storageReady, inv, tx, repairs, shopCfg, ol, updateSyncMeta]);
+    }, [appMode, storageReady, inv, tx, repairs, shopCfg, ol, updateSyncMeta]);
     useEffect(() => {
         if (typeof window === "undefined") return;
         const onOn = () => setOl(true), onOff = () => setOl(false);
@@ -3504,9 +3932,9 @@ export default function App() {
         if (!storageReady) return;
         updateSyncMeta(current => ({
             ...current,
-            syncState: !ol ? "offline" : current.pendingSync ? "saved-local" : current.syncState === "error" ? "error" : "synced",
+            syncState: appMode === "bill-pro" ? (!ol ? "offline" : "saved-local") : (!ol ? "offline" : current.pendingSync ? "saved-local" : current.syncState === "error" ? "error" : "synced"),
         }));
-    }, [storageReady, ol, updateSyncMeta]);
+    }, [appMode, storageReady, ol, updateSyncMeta]);
     useEffect(() => {
         if (typeof window === "undefined") return;
         const mq = window.matchMedia ? window.matchMedia("(display-mode: standalone)") : null;
@@ -3649,12 +4077,19 @@ export default function App() {
         return profile;
     }, [markSyncConnected, notify, ol, shopSession?.pbAuth, updateSyncMeta]);
     const saveShopProfile = async () => {
+        const profile = effectiveShopCfg;
+        const signature = JSON.stringify(profile);
+        if (appMode === "bill-pro") {
+            lastSavedShopProfileSignatureRef.current = signature;
+            setShopProfileDirty(false);
+            shopProfileDirtyRef.current = false;
+            notify('Bill Pro profile saved on this device.', 'success');
+            return;
+        }
         if (!shopSession?.pbAuth?.token || !shopSession?.pbAuth?.record?.shop) {
             notify('Login required before saving shop profile.', 'error');
             return;
         }
-        const profile = normalizeShopProfile(shopCfg);
-        const signature = JSON.stringify(profile);
         if (signature === lastSavedShopProfileSignatureRef.current) {
             setShopProfileDirty(false);
             shopProfileDirtyRef.current = false;
@@ -3675,6 +4110,40 @@ export default function App() {
 
     const handleScan = (imei, imei2) => {
         setScs(false); const ex = findDeviceByImei(inv, imei);
+        if (st === "bill-pro-imei" || st === "bill-pro-imei2") {
+            const targetKey = st === "bill-pro-imei2" ? "imei2" : "imei";
+            setBillProField(targetKey, imei);
+            if (ex) {
+                setBillProForm(current => ({
+                    ...current,
+                    brand: current.brand || ex.brand || "",
+                    model: current.model || ex.model || "",
+                    color: current.color || ex.color || "",
+                    ram: current.ram || ex.ram || "",
+                    storage: current.storage || ex.storage || "",
+                    condition: current.condition || ex.condition || "New",
+                }));
+            }
+            notify(targetKey === "imei2" ? "Bill Pro IMEI 2 scanned" : "Bill Pro IMEI scanned", ex ? "success" : "success");
+            return;
+        }
+        if (st === "bill-pro-sticker-imei" || st === "bill-pro-sticker-imei2") {
+            const targetKey = st === "bill-pro-sticker-imei2" ? "imei2" : "imei";
+            setBillProStickerField(targetKey, imei);
+            if (ex) {
+                setBillProStickerForm(current => ({
+                    ...current,
+                    brand: current.brand || ex.brand || "",
+                    model: current.model || ex.model || "",
+                    color: current.color || ex.color || "",
+                    ram: current.ram || ex.ram || "",
+                    storage: current.storage || ex.storage || "",
+                    condition: current.condition || ex.condition || "New",
+                }));
+            }
+            notify(targetKey === "imei2" ? "Sticker IMEI 2 scanned" : "Sticker IMEI scanned", "success");
+            return;
+        }
         if (st === "repair") {
             setRepairField("imei", imei);
             notify("Repair IMEI scanned", "success");
@@ -3705,7 +4174,53 @@ export default function App() {
         playScanBeep();
         const curPg = pgRef.current;
         const curFm = fmRef.current;
+        const curBillProForm = billProFormRef.current;
+        const curBillProStickerForm = billProStickerFormRef.current;
         const curInv = invRef.current;
+        if (curPg === "billing" && isBillProMobileCategory(curBillProForm?.category)) {
+            if (hasImei(cleanImei(curBillProForm?.imei)) && cleanImei(curBillProForm?.imei) !== imei) {
+                setBillProField("imei2", imei);
+                notify("Bill Pro IMEI 2 scanned", "success");
+            } else {
+                setBillProField("imei", imei);
+                const ex = curInv.find(i => matchImei(i, imei));
+                if (ex) {
+                    setBillProForm(current => ({
+                        ...current,
+                        brand: current.brand || ex.brand || "",
+                        model: current.model || ex.model || "",
+                        color: current.color || ex.color || "",
+                        ram: current.ram || ex.ram || "",
+                        storage: current.storage || ex.storage || "",
+                        condition: current.condition || ex.condition || "New",
+                    }));
+                }
+                notify("Bill Pro IMEI scanned", "success");
+            }
+            return;
+        }
+        if (curPg === "bill-stickers" && isBillProMobileCategory(curBillProStickerForm?.category)) {
+            if (hasImei(cleanImei(curBillProStickerForm?.imei)) && cleanImei(curBillProStickerForm?.imei) !== imei) {
+                setBillProStickerField("imei2", imei);
+                notify("Sticker IMEI 2 scanned", "success");
+            } else {
+                setBillProStickerField("imei", imei);
+                const ex = curInv.find(i => matchImei(i, imei));
+                if (ex) {
+                    setBillProStickerForm(current => ({
+                        ...current,
+                        brand: current.brand || ex.brand || "",
+                        model: current.model || ex.model || "",
+                        color: current.color || ex.color || "",
+                        ram: current.ram || ex.ram || "",
+                        storage: current.storage || ex.storage || "",
+                        condition: current.condition || ex.condition || "New",
+                    }));
+                }
+                notify("Sticker IMEI scanned", "success");
+            }
+            return;
+        }
         if (curPg === "sell") {
             const live = curInv.find(i => matchImei(i, imei) && i.status === "In Stock" && i.qty > 0);
             if (live) {
@@ -4104,14 +4619,205 @@ export default function App() {
             notify(e?.message || "Unable to record sale.", "error");
         }
     };
+    const doBillProSale = () => {
+        const isMobileDevice = isBillProMobileCategory(billProForm.category);
+        if (isMobileDevice) {
+            if (!billProForm.brand.trim() || !billProForm.model.trim()) { notify("Brand and model are required for mobile device billing.", "error"); return; }
+            if (!hasImei(billProForm.imei)) { notify("IMEI 1 must be 15 digits for mobile device billing.", "error"); return; }
+            if (billProForm.imei2 && !hasImei(billProForm.imei2)) { notify("IMEI 2 must be 15 digits or empty.", "error"); return; }
+            if (billProForm.imei2 && billProForm.imei === billProForm.imei2) { notify("IMEI 1 and IMEI 2 cannot be the same.", "error"); return; }
+        } else if (!billProForm.itemLabel.trim()) { notify("Item name is required.", "error"); return; }
+        if (!(+billProForm.amount > 0)) { notify("Enter the invoice amount.", "error"); return; }
+        if (+billProForm.paidAmount > +billProForm.amount) { notify("Paid amount cannot be higher than bill amount.", "error"); return; }
+        if (billProForm.billType === "GST" && !effectiveShopCfg.gstin.trim()) { notify("Add your GSTIN in Settings before creating a GST invoice.", "error"); return; }
+        const amount = +billProForm.amount || 0;
+        const paidAmount = +billProForm.paidAmount || amount;
+        const dueAmount = Math.max(amount - paidAmount, 0);
+        const now = new Date();
+        const tax = calcInvoiceTotals(amount, billProForm.billType, billProForm.gstRate);
+        const sale = normalizeTx({
+            id: genId(),
+            type: "Sell",
+            invoiceNo: makeInvoiceNo(tx, effectiveShopCfg.invoicePrefix),
+            customerName: billProForm.customerName,
+            phone: billProForm.phone,
+            itemLabel: isMobileDevice ? "" : billProForm.itemLabel,
+            category: billProForm.category,
+            brand: isMobileDevice ? billProForm.brand : "",
+            model: isMobileDevice ? billProForm.model : "",
+            color: isMobileDevice ? billProForm.color : "",
+            ram: isMobileDevice ? billProForm.ram : "",
+            storage: isMobileDevice ? billProForm.storage : "",
+            condition: isMobileDevice ? billProForm.condition : "",
+            imei: isMobileDevice ? billProForm.imei : "",
+            imei2: isMobileDevice ? billProForm.imei2 : "",
+            serialNo: isMobileDevice ? "" : billProForm.serialNo,
+            qty: isMobileDevice ? 1 : billProForm.qty,
+            amount,
+            paidAmount,
+            dueAmount,
+            paymentMode: billProForm.paymentMode,
+            date: now.toISOString().slice(0, 10),
+            dateTime: now.toISOString(),
+            notes: billProForm.notes,
+            billType: billProForm.billType,
+            gstRate: tax.gstRate,
+            taxableAmount: tax.taxableAmount,
+            gstAmount: tax.gstAmount,
+            cgstAmount: tax.cgstAmount,
+            sgstAmount: tax.sgstAmount,
+            totalAmount: tax.totalAmount,
+            shopSnapshot: effectiveShopCfg,
+        });
+        sTx(current => [sale, ...current]);
+        updateSyncMeta(current => ({ ...current, pendingSync: false, syncState: "saved-local", lastLocalChangeAt: new Date().toISOString(), syncError: "" }));
+        resetBillProForm();
+        goPage("transactions");
+        notify("Bill Pro invoice saved on this device.", "success");
+    };
+
+    const returnTransactions = useMemo(() => tx.filter(item => item.type === "Return"), [tx]);
+    const isSaleReturned = useCallback((sale) => {
+        if (!sale) return false;
+        return returnTransactions.some(item =>
+            (sale.id && item.returnOfTxId === sale.id) ||
+            (sale.invoiceNo && item.returnOfInvoiceNo === sale.invoiceNo) ||
+            (sale.invoiceNo && item.invoiceNo === `RET-${sale.invoiceNo}`) ||
+            (sale.stockItemId && item.stockItemId === sale.stockItemId && item.type === "Return")
+        );
+    }, [returnTransactions]);
+    const getReturnForSale = useCallback((sale) => {
+        if (!sale) return null;
+        return returnTransactions.find(item =>
+            (sale.id && item.returnOfTxId === sale.id) ||
+            (sale.invoiceNo && item.returnOfInvoiceNo === sale.invoiceNo) ||
+            (sale.invoiceNo && item.invoiceNo === `RET-${sale.invoiceNo}`) ||
+            (sale.stockItemId && item.stockItemId === sale.stockItemId && item.type === "Return")
+        ) || null;
+    }, [returnTransactions]);
+    const openReturnModal = (sale) => {
+        if (appMode !== "general") { notify("Returns are available in Business Pro only.", "warning"); return; }
+        if (!sale || sale.type !== "Sell") return;
+        if (isSaleReturned(sale)) { notify("This invoice is already returned.", "warning"); return; }
+        setReturnTarget(sale);
+        setReturnForm({ refundAmount: String(Number(sale.paidAmount || sale.totalAmount || sale.amount || 0)), refundMode: sale.paymentMode || "Cash", reason: "" });
+    };
+    const closeReturnModal = () => {
+        if (returnBusy) return;
+        setReturnTarget(null);
+        setReturnForm({ refundAmount: "", refundMode: "Cash", reason: "" });
+    };
+    const confirmReturn = async () => {
+        const sale = returnTarget;
+        if (!sale) return;
+        if (isSaleReturned(sale)) { notify("This invoice is already returned.", "warning"); closeReturnModal(); return; }
+        const refundAmount = Number(returnForm.refundAmount || 0);
+        if (refundAmount < 0) { notify("Refund amount cannot be negative.", "error"); return; }
+        const stockItem = inv.find(item => item.id === sale.stockItemId) || inv.find(item => matchImei(item, sale.imei));
+        const restoredItem = normalizeInv({
+            ...(stockItem || {}),
+            id: stockItem?.id || sale.stockItemId || genId(),
+            imei: sale.imei,
+            imei2: sale.imei2,
+            brand: sale.brand,
+            model: sale.model,
+            color: sale.color,
+            ram: sale.ram,
+            storage: sale.storage,
+            batteryHealth: sale.batteryHealth,
+            condition: sale.condition || stockItem?.condition || "Used",
+            buyPrice: sale.costPrice || stockItem?.buyPrice || 0,
+            sellPrice: sale.amount || stockItem?.sellPrice || 0,
+            status: "In Stock",
+            qty: 1,
+            addedDate: stockItem?.addedDate || sale.date || isoDate(),
+            supplier: stockItem?.supplier || "Returned item",
+            customerName: "",
+            customerPhone: "",
+            soldDate: "",
+            lastInvoiceNo: sale.invoiceNo || stockItem?.lastInvoiceNo || "",
+            photos: stockItem?.photos || [],
+            warrantyType: stockItem?.warrantyType || "No Warranty",
+            warrantyMonths: stockItem?.warrantyMonths || 0,
+            purchaseDate: stockItem?.purchaseDate || "",
+        });
+        const now = new Date();
+        const returnTx = normalizeTx({
+            id: genId(),
+            type: "Return",
+            stockItemId: restoredItem.id,
+            invoiceNo: sale.invoiceNo ? `RET-${sale.invoiceNo}` : `RET-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}-${String(returnTransactions.length + 1).padStart(4, "0")}`,
+            imei: sale.imei,
+            imei2: sale.imei2,
+            brand: sale.brand,
+            model: sale.model,
+            color: sale.color,
+            ram: sale.ram,
+            storage: sale.storage,
+            batteryHealth: sale.batteryHealth,
+            condition: sale.condition,
+            customerName: sale.customerName,
+            phone: sale.phone,
+            amount: refundAmount,
+            paidAmount: refundAmount,
+            dueAmount: 0,
+            costPrice: sale.costPrice,
+            paymentMode: returnForm.refundMode || sale.paymentMode || "Cash",
+            invoiceNoOriginal: sale.invoiceNo,
+            returnOfTxId: sale.id,
+            returnOfInvoiceNo: sale.invoiceNo,
+            refundAmount,
+            refundMode: returnForm.refundMode || sale.paymentMode || "Cash",
+            returnReason: returnForm.reason,
+            returnedAt: now.toISOString(),
+            date: now.toISOString().slice(0, 10),
+            dateTime: now.toISOString(),
+            notes: [`Return of ${sale.invoiceNo || sale.id}`, returnForm.reason ? `Reason: ${returnForm.reason}` : ""].filter(Boolean).join("\n"),
+            billType: sale.billType,
+            gstRate: sale.gstRate,
+            taxableAmount: sale.taxableAmount || calcInvoiceTotals(refundAmount, sale.billType, sale.gstRate).taxableAmount,
+            gstAmount: sale.gstAmount || calcInvoiceTotals(refundAmount, sale.billType, sale.gstRate).gstAmount,
+            cgstAmount: sale.cgstAmount || calcInvoiceTotals(refundAmount, sale.billType, sale.gstRate).cgstAmount,
+            sgstAmount: sale.sgstAmount || calcInvoiceTotals(refundAmount, sale.billType, sale.gstRate).sgstAmount,
+            totalAmount: refundAmount,
+            shopSnapshot: sale.shopSnapshot || shopCfg,
+        });
+        setReturnBusy(true);
+        try {
+            const savedInventory = await pocketbaseUpsertInventory(shopSession?.pbAuth, restoredItem);
+            const cloudInventory = normalizeInv({ ...restoredItem, id: savedInventory?.id || restoredItem.id });
+            const txForCloud = { ...returnTx, stockItemId: cloudInventory.id };
+            const savedTx = await pocketbaseCreateTransaction(shopSession?.pbAuth, txForCloud);
+            sInv(current => {
+                const exists = current.some(item => item.id === cloudInventory.id || item.id === restoredItem.id);
+                return exists
+                    ? current.map(item => (item.id === restoredItem.id || item.id === cloudInventory.id) ? cloudInventory : item)
+                    : [cloudInventory, ...current];
+            });
+            sTx(current => [normalizeTx({ ...txForCloud, id: savedTx?.id || returnTx.id }), ...current]);
+            markSyncConnected({ lastStatus: "Return saved", lastPushAt: new Date().toISOString() });
+            updateSyncMeta(current => ({ ...current, pendingSync: false, syncState: ol ? "synced" : "offline", syncError: "" }));
+            closeReturnModal();
+            notify("Item returned and added back to stock.", "success");
+        } catch (error) {
+            notify(error?.message || "Unable to record return.", "error");
+        } finally {
+            setReturnBusy(false);
+        }
+    };
 
     const stats = useMemo(() => {
         const is = inv.filter(i => i.status === "In Stock"); const ts = is.reduce((s, i) => s + (i.qty || 0), 0); const sv = is.reduce((s, i) => s + i.sellPrice * (i.qty || 0), 0);
-        const tb = tx.filter(t => t.type === "Buy").reduce((s, t) => s + t.amount, 0); const tsl = tx.filter(t => t.type === "Sell").reduce((s, t) => s + t.amount, 0);
-        const pr = tx.filter(t => t.type === "Sell").reduce((s, t) => s + (((t.billType === "GST" ? t.taxableAmount : t.amount) || 0) - (t.costPrice || 0)), 0);
+        const saleRows = tx.filter(t => t.type === "Sell");
+        const returnRows = tx.filter(t => t.type === "Return");
+        const tb = tx.filter(t => t.type === "Buy").reduce((s, t) => s + t.amount, 0); const tsl = saleRows.reduce((s, t) => s + t.amount, 0) - returnRows.reduce((s, t) => s + Number(t.refundAmount || t.amount || 0), 0);
+        const pr = saleRows.reduce((s, t) => s + (t.stockItemId ? getSaleProfitAmount(t) : 0), 0) - returnRows.reduce((s, t) => {
+            const originalSale = saleRows.find(sale => (t.returnOfTxId && sale.id === t.returnOfTxId) || (t.returnOfInvoiceNo && sale.invoiceNo === t.returnOfInvoiceNo));
+            return s + Math.abs(getSaleProfitAmount(originalSale || t));
+        }, 0);
         const bc = {}; is.forEach(i => { bc[i.brand] = (bc[i.brand] || 0) + (i.qty || 0); }); const cc = { New: 0, Refurbished: 0, Used: 0 }; is.forEach(i => { cc[i.condition] = (cc[i.condition] || 0) + (i.qty || 0); });
         return { ts, sv, tb, tsl, pr, bc, cc };
-    }, [inv, tx]);
+    }, [inv, isSaleReturned, tx]);
     const partSuppliers = useMemo(() => (shopCfg.partsSuppliers || []).map(normalizePartSupplier).filter(item => item.name), [shopCfg.partsSuppliers]);
     const partSuppliersById = useMemo(() => new Map(partSuppliers.map(item => [item.id, item])), [partSuppliers]);
     const getRepairPartSupplierLabel = useCallback((repair) => {
@@ -4159,12 +4865,12 @@ export default function App() {
     const retailMonthlySales = useMemo(() => {
         const now = new Date();
         return tx.filter(item => {
-            if (item.type !== "Sell") return false;
+            if (item.type !== "Sell" && item.type !== "Return") return false;
             const saleDate = new Date(item.date);
             return saleDate.getMonth() === now.getMonth() && saleDate.getFullYear() === now.getFullYear();
-        }).reduce((sum, item) => sum + Number(item.totalAmount || item.amount || 0), 0);
-    }, [tx]);
-    const retailDueTotal = useMemo(() => tx.filter(item => item.type === "Sell").reduce((sum, item) => sum + Number(item.dueAmount || 0), 0), [tx]);
+        }).reduce((sum, item) => sum + (item.type === "Return" ? -Number(item.refundAmount || item.amount || 0) : Number(item.totalAmount || item.amount || 0)), 0);
+    }, [isSaleReturned, tx]);
+    const retailDueTotal = useMemo(() => tx.filter(item => item.type === "Sell" && !isSaleReturned(item)).reduce((sum, item) => sum + Number(item.dueAmount || 0), 0), [isSaleReturned, tx]);
     const trackedStockUnits = useMemo(() => inv.filter(item => item.status !== "Deleted").reduce((sum, item) => sum + Number(item.qty || 0), 0), [inv]);
     const retailStockFill = useMemo(() => Math.max(0, Math.min(100, Math.round((stats.ts / Math.max(trackedStockUnits, 1)) * 100))), [stats.ts, trackedStockUnits]);
     const repairRecords = useMemo(() => [...repairs].sort((a, b) => String(b.updatedAt || b.createdAt || "").localeCompare(String(a.updatedAt || a.createdAt || ""))), [repairs]);
@@ -4216,18 +4922,22 @@ export default function App() {
         const q = iq.trim().toLowerCase();
         return tx.filter(t => t.type === "Sell").filter(t => {
             if (!q) return true;
-            return [t.invoiceNo, t.customerName, t.phone, t.brand, t.model, t.imei, t.imei2].some(v => String(v || "").toLowerCase().includes(q));
+            return [t.invoiceNo, t.customerName, t.phone, t.itemLabel, t.category, t.serialNo, t.brand, t.model, t.imei, t.imei2].some(v => String(v || "").toLowerCase().includes(q));
         }).filter(t => {
+            if (invoiceStatusFilter === "Returned") return isSaleReturned(t);
+            if (isSaleReturned(t) && invoiceStatusFilter !== "All") return false;
             if (invoiceStatusFilter === "Paid") return Number(t.dueAmount || 0) <= 0;
             if (invoiceStatusFilter === "Due") return Number(t.dueAmount || 0) > 0;
             return true;
         }).sort((a, b) => String(b.dateTime || b.date || "").localeCompare(String(a.dateTime || a.date || "")));
-    }, [invoiceStatusFilter, iq, tx]);
+    }, [invoiceStatusFilter, iq, isSaleReturned, tx]);
     const invoiceSummary = useMemo(() => ({
-        totalAmount: invoiceRecords.reduce((sum, record) => sum + Number(record.totalAmount || record.amount || 0), 0),
-        dueAmount: invoiceRecords.reduce((sum, record) => sum + Number(record.dueAmount || 0), 0),
-        gstAmount: invoiceRecords.reduce((sum, record) => sum + Number(record.gstAmount || 0), 0),
-    }), [invoiceRecords]);
+        totalAmount: invoiceRecords.reduce((sum, record) => sum + Number(record.totalAmount || record.amount || 0), 0) - returnTransactions.reduce((sum, record) => sum + Number(record.refundAmount || record.amount || 0), 0),
+        dueAmount: invoiceRecords.reduce((sum, record) => sum + (isSaleReturned(record) ? 0 : Number(record.dueAmount || 0)), 0),
+        gstAmount: invoiceRecords.reduce((sum, record) => sum + (isSaleReturned(record) ? 0 : Number(record.gstAmount || 0)), 0),
+        returnedCount: invoiceRecords.filter(record => isSaleReturned(record)).length,
+        refundAmount: returnTransactions.reduce((sum, record) => sum + Number(record.refundAmount || record.amount || 0), 0),
+    }), [invoiceRecords, isSaleReturned, returnTransactions]);
     const salePreview = useMemo(() => calcInvoiceTotals(fm.amount || 0, fm.billType, fm.gstRate), [fm.amount, fm.billType, fm.gstRate]);
     const reportRange = useMemo(() => getReportRange(reportPreset, reportFrom, reportTo), [reportPreset, reportFrom, reportTo]);
     const reportPartyQueryLower = reportPartyQuery.trim().toLowerCase();
@@ -4235,6 +4945,7 @@ export default function App() {
     const reportEntries = useMemo(() => {
         const trackedAddIds = new Set(tx.filter(t => t.type === "Add" && t.stockItemId).map(t => t.stockItemId));
         const trackedAddImeis = new Set(tx.filter(t => t.type === "Add" || t.type === "Buy").flatMap(t => [t.imei, t.imei2]).filter(Boolean));
+        const salesByReturnKey = new Map(tx.filter(t => t.type === "Sell").flatMap(sale => [[sale.id, sale], [sale.invoiceNo, sale]].filter(([key]) => key)));
         const txEntries = tx.map(t => ({
             id: t.id,
             type: t.type,
@@ -4242,13 +4953,13 @@ export default function App() {
             dateTime: t.dateTime || `${t.date || isoDate()}T12:00:00`,
             party: t.customerName || (t.type === "Add" ? "Manual stock entry" : "-"),
             phone: t.phone || "",
-            item: `${t.brand} ${t.model}`.trim(),
-            extra: fmtSpecs(t.ram, t.storage),
+            item: getTxItemLabel(t),
+            extra: getTxReportExtra(t),
             imei: t.imei,
             imei2: t.imei2,
-            amount: t.type === "Sell" ? (t.totalAmount || t.amount || 0) : (t.amount || 0),
-            dueAmount: t.dueAmount || 0,
-            profit: t.type === "Sell" ? ((t.amount || 0) - (t.costPrice || 0)) : 0,
+            amount: t.type === "Return" ? -Number(t.refundAmount || t.amount || 0) : t.type === "Sell" ? (t.totalAmount || t.amount || 0) : (t.amount || 0),
+            dueAmount: t.type === "Return" ? 0 : (t.dueAmount || 0),
+            profit: t.type === "Return" ? 0 : t.type === "Sell" && t.stockItemId && !isSaleReturned(t) ? getSaleProfitAmount(t) : 0,
             invoiceNo: t.invoiceNo || "",
             billType: t.billType || "",
             paymentMode: t.paymentMode || "",
@@ -4297,7 +5008,7 @@ export default function App() {
             };
         });
         return [...txEntries, ...legacyAdds, ...repairEntries].sort((a, b) => String(b.dateTime).localeCompare(String(a.dateTime)));
-    }, [getRepairPartSupplierLabel, inv, repairAmount, repairDueAmount, repairProfitAmount, repairs, tx]);
+    }, [getRepairPartSupplierLabel, inv, isSaleReturned, repairAmount, repairDueAmount, repairProfitAmount, repairs, tx]);
     const reportBrands = useMemo(() => ["All Brands", ...Array.from(new Set(reportEntries.map(row => row.item.split(" ")[0]).filter(Boolean)))], [reportEntries]);
     const reportRows = useMemo(() => reportEntries.filter(row => {
         if (reportType !== "All" && row.type !== reportType) return false;
@@ -4305,7 +5016,7 @@ export default function App() {
         if (!(rowDate >= reportRange.from && rowDate <= reportRange.to)) return false;
         const effectiveBillFilter = reportType === "Buy" || reportType === "Add" || reportType === "Repair" ? "All Bills" : reportBillFilter;
         if (effectiveBillFilter !== "All Bills") {
-            if (row.type !== "Sell") return false;
+            if (row.type !== "Sell" && row.type !== "Return") return false;
             if (effectiveBillFilter === "GST" && row.billType !== "GST") return false;
             if (effectiveBillFilter === "Regular" && row.billType === "GST") return false;
         }
@@ -4324,7 +5035,7 @@ export default function App() {
     }), [reportEntries, reportRange.from, reportRange.to, reportType, reportView, reportBillFilter, reportPaymentFilter, reportBrandFilter, reportRepairStatusFilter, reportDueFilter, reportPartyQueryLower, reportItemQueryLower]);
     const reportSummary = useMemo(() => {
         const buyAddRows = reportRows.filter(row => row.type === "Buy" || row.type === "Add");
-        const sellRows = reportRows.filter(row => row.type === "Sell");
+        const sellRows = reportRows.filter(row => row.type === "Sell" || row.type === "Return");
         const repairRows = reportRows.filter(row => row.type === "Repair");
         return {
             records: reportRows.length,
@@ -4337,7 +5048,7 @@ export default function App() {
     }, [reportRows]);
     const customerLedgerRows = useMemo(() => {
         const groups = new Map();
-        reportRows.filter(row => row.type === "Sell" || row.type === "Repair").forEach((row) => {
+        reportRows.filter(row => row.type === "Sell" || row.type === "Return" || row.type === "Repair").forEach((row) => {
             const key = (row.phone || row.party || `walkin-${row.id}`).toLowerCase();
             if (!groups.has(key)) {
                 groups.set(key, {
@@ -4439,7 +5150,7 @@ export default function App() {
     const r7 = useMemo(() => {
         const d = []; for (let i = 6; i >= 0; i--) {
             const dt = new Date(); dt.setDate(dt.getDate() - i); const ds = dt.toISOString().slice(0, 10);
-            d.push({ day: dt.toLocaleDateString("en-IN", { weekday: "short" }), Buy: tx.filter(t => t.type === "Buy" && t.date === ds).reduce((s, t) => s + t.amount, 0), Sell: tx.filter(t => t.type === "Sell" && t.date === ds).reduce((s, t) => s + t.amount, 0) });
+            d.push({ day: dt.toLocaleDateString("en-IN", { weekday: "short" }), Buy: tx.filter(t => t.type === "Buy" && t.date === ds).reduce((s, t) => s + t.amount, 0), Sell: tx.filter(t => (t.type === "Sell" || t.type === "Return") && t.date === ds).reduce((s, t) => s + (t.type === "Return" ? -Number(t.refundAmount || t.amount || 0) : t.amount), 0) });
         } return d;
     }, [tx]);
     const updateSaleMeta = (saleId, patch) => {
@@ -4459,11 +5170,11 @@ export default function App() {
     const exportDashboardCsv = () => {
         downloadCsv(
             `dashboard-${isoDate()}.csv`,
-            ["Invoice", "Customer", "Device", "Bill Type", "Total", "Due", "Updated"],
+            ["Invoice", "Customer", "Item", "Bill Type", "Total", "Due", "Updated"],
             retailDashboardInvoices.map(invoice => [
                 invoice.invoiceNo || "INV",
                 invoice.customerName || "Walk-in Customer",
-                [invoice.brand, invoice.model].filter(Boolean).join(" ") || "Device",
+                getTxItemLabel(invoice),
                 invoice.billType || "Regular",
                 Number(invoice.totalAmount || invoice.amount || 0),
                 Number(invoice.dueAmount || 0),
@@ -4474,30 +5185,32 @@ export default function App() {
     const exportTransactionsCsv = () => {
         downloadCsv(
             `sales-history-${isoDate()}.csv`,
-            ["Invoice", "Date", "Customer", "Phone", "Brand", "Model", "Total", "Due", "Payment Mode", "Bill Type"],
+            ["Invoice", "Date", "Customer", "Phone", "Item", "Category", "Total", "Due", "Payment Mode", "Bill Type", "Status", "Refund"],
             invoiceRecords.map(invoice => [
                 invoice.invoiceNo || "INV",
                 fmtDateTime(invoice.dateTime || `${invoice.date || isoDate()}T12:00:00`),
                 invoice.customerName || "Walk-in Customer",
                 invoice.phone || "",
-                invoice.brand || "",
-                invoice.model || "",
+                getTxItemLabel(invoice),
+                invoice.category || "",
                 Number(invoice.totalAmount || invoice.amount || 0),
                 Number(invoice.dueAmount || 0),
                 invoice.paymentMode || "Cash",
                 invoice.billType || "Regular",
+                isSaleReturned(invoice) ? "Returned" : Number(invoice.dueAmount || 0) > 0 ? "Due" : "Paid",
+                Number(getReturnForSale(invoice)?.refundAmount || getReturnForSale(invoice)?.amount || 0),
             ])
         );
     };
     const downloadInvoice = async (sale) => {
         if (!sale) return;
-        const { blob, fileName } = await makeInvoiceFile(sale, shopCfg);
+        const { blob, fileName } = await makeInvoiceFile(sale, effectiveShopCfg);
         dlBlob(blob, fileName);
         notify("Invoice PDF downloaded");
     };
     const shareInvoice = async (sale) => {
         if (!sale) return;
-        const shop = getSaleShop(sale, shopCfg);
+        const shop = getSaleShop(sale, effectiveShopCfg);
         const { blob, file, fileName } = await makeInvoiceFile(sale, shop);
         const text = makeInvoiceText(sale, shop);
         try {
@@ -4516,18 +5229,18 @@ export default function App() {
     const whatsappMessage = (sale) => {
         if (!sale) return;
         if (!sale.phone) { notify("Add customer phone number before opening WhatsApp message.", "error"); return; }
-        window.open(makeWhatsAppUrl(sale.phone, makeWhatsAppIntroText(sale, getSaleShop(sale, shopCfg))), "_blank");
+        window.open(makeWhatsAppUrl(sale.phone, makeWhatsAppIntroText(sale, getSaleShop(sale, effectiveShopCfg))), "_blank");
         updateSaleMeta(sale.id, { whatsAppMessageAt: new Date().toISOString() });
         notify("WhatsApp message opened. Send it so the customer appears in recent chats, then share the PDF.", "success");
     };
     const whatsappRepairMessage = (repair) => {
         if (!repair) return;
         if (!repair.phone) { notify("Add customer phone number before opening WhatsApp message.", "error"); return; }
-        window.open(makeWhatsAppUrl(repair.phone, makeRepairWhatsAppText(repair, shopCfg)), "_blank");
+        window.open(makeWhatsAppUrl(repair.phone, makeRepairWhatsAppText(repair, effectiveShopCfg)), "_blank");
         notify(`WhatsApp message opened for ${repair.status.toLowerCase()} update.`, "success");
     };
     const downloadReport = async () => {
-        const { blob, fileName } = await makeReportFile({ rows: activeReportRows, summary: activeReportSummary, reportType: reportView === "Transactions" ? reportType : reportView, rangeLabel: reportRange.label, shop: shopCfg, filtersLabel: reportFiltersLabel });
+        const { blob, fileName } = await makeReportFile({ rows: activeReportRows, summary: activeReportSummary, reportType: reportView === "Transactions" ? reportType : reportView, rangeLabel: reportRange.label, shop: effectiveShopCfg, filtersLabel: reportFiltersLabel });
         dlBlob(blob, fileName);
         notify("Report PDF downloaded");
     };
@@ -4551,23 +5264,65 @@ export default function App() {
     };
     const previewReportPdf = async (autoPrint = false) => {
         const targetWindow = window.open("", "_blank");
-        const { blob } = await makeReportFile({ rows: activeReportRows, summary: activeReportSummary, reportType: reportView === "Transactions" ? reportType : reportView, rangeLabel: reportRange.label, shop: shopCfg, filtersLabel: reportFiltersLabel });
+        const { blob } = await makeReportFile({ rows: activeReportRows, summary: activeReportSummary, reportType: reportView === "Transactions" ? reportType : reportView, rangeLabel: reportRange.label, shop: effectiveShopCfg, filtersLabel: reportFiltersLabel });
         openBlobInTab(blob, autoPrint, targetWindow);
         notify(autoPrint ? "Report PDF opened for printing." : "Report PDF preview opened.", "success");
     };
     const printSticker = async (item) => {
         if (!item) return;
         const targetWindow = window.open("", "_blank");
-        const { blob } = await makeStickerFile(item, shopCfg);
+        const { blob } = await makeStickerFile(item, effectiveShopCfg);
         openBlobInTab(blob, true, targetWindow);
         notify("Sticker PDF opened for printing.", "success");
     };
     const printRepairSticker = async (repair) => {
         if (!repair) return;
         const targetWindow = window.open("", "_blank");
-        const { blob } = await makeRepairStickerFile(repair, shopCfg);
+        const { blob } = await makeRepairStickerFile(repair, effectiveShopCfg);
         openBlobInTab(blob, true, targetWindow);
         notify("Repair sticker opened for printing.", "success");
+    };
+    const printBillProSticker = async () => {
+        const isMobileDevice = isBillProMobileCategory(billProStickerForm.category);
+        let blob;
+        if (isMobileDevice) {
+            if (!billProStickerForm.brand.trim() || !billProStickerForm.model.trim()) {
+                notify("Brand and model are required for the mobile device sticker.", "error");
+                return;
+            }
+            if (!hasImei(billProStickerForm.imei)) {
+                notify("IMEI 1 must be 15 digits for the mobile device sticker.", "error");
+                return;
+            }
+            if (billProStickerForm.imei2 && !hasImei(billProStickerForm.imei2)) {
+                notify("IMEI 2 must be 15 digits or empty.", "error");
+                return;
+            }
+            const { blob: deviceStickerBlob } = await makeStickerFile({
+                brand: billProStickerForm.brand,
+                model: billProStickerForm.model,
+                color: billProStickerForm.color,
+                ram: billProStickerForm.ram,
+                storage: billProStickerForm.storage,
+                imei: billProStickerForm.imei,
+                imei2: billProStickerForm.imei2,
+                condition: billProStickerForm.condition,
+                sellPrice: Number(billProStickerForm.price || 0),
+                buyPrice: 0,
+                warrantyType: "No Warranty",
+            }, effectiveShopCfg);
+            blob = deviceStickerBlob;
+        } else {
+            if (!billProStickerForm.itemLabel.trim()) {
+                notify("Enter an accessory item name before printing a sticker.", "error");
+                return;
+            }
+            const { blob: accessoryStickerBlob } = await makeBillProStickerFile(billProStickerForm, effectiveShopCfg);
+            blob = accessoryStickerBlob;
+        }
+        const targetWindow = window.open("", "_blank");
+        openBlobInTab(blob, true, targetWindow);
+        notify("Bill Pro sticker opened for printing.", "success");
     };
 
     const nav = useMemo(() => {
@@ -4580,7 +5335,17 @@ export default function App() {
             { id: "recycle", ic: Trash, l: "Bin" },
             { id: "settings", ic: Settings, l: "Settings" },
         ];
-        if (shopCfg.businessMode !== "repair-pro") return generalNav;
+        if (appMode === "bill-pro") {
+            return [
+                { id: "dashboard", ic: Home, l: "Dashboard" },
+                { id: "billing", ic: FileText, l: "Billing" },
+                { id: "transactions", ic: ClipboardList, l: "Invoices" },
+                { id: "bill-stickers", ic: Printer, l: "Stickers" },
+                { id: "reports", ic: BarChart3, l: "Reports" },
+                { id: "settings", ic: Settings, l: "Settings" },
+            ];
+        }
+        if (appMode !== "repair-pro") return generalNav;
         return [
             { id: "dashboard", ic: Home, l: "Dashboard" },
             { id: "repair", ic: Wrench, l: "Repair" },
@@ -4588,37 +5353,40 @@ export default function App() {
             { id: "reports", ic: BarChart3, l: "Reports" },
             { id: "settings", ic: Settings, l: "Settings" },
         ];
-    }, [enabledModules, shopCfg.businessMode]);
+    }, [appMode, enabledModules, effectiveShopCfg]);
     const desktopSidebarNav = useMemo(() => nav.filter(item => item.id !== "settings"), [nav]);
     const adminTabs = [{ id: "overview", label: "Overview" }, { id: "users", label: "Users" }, { id: "trials", label: "Trials" }, { id: "shops", label: "Shops" }, { id: "settings", label: "Settings" }];
     const currentPageKey = pg === "repair-form" ? "repair" : pg;
     const currentNav = nav.find(item => item.id === currentPageKey) || nav[0];
     const currentPageLabel = {
-        dashboard: shopCfg.businessMode === "repair-pro" ? "Repair Dashboard" : "Retail Dashboard",
+        dashboard: appMode === "repair-pro" ? "Repair Dashboard" : appMode === "bill-pro" ? "Bill Pro Dashboard" : "Retail Dashboard",
         add: ei ? "Edit Stock" : bulkAdd ? "Bulk Add Stock" : "Add Stock",
         inventory: "Inventory",
         recycle: "Recycle Bin",
         buy: "Purchase Entry",
         sell: "New Sale",
+        billing: "New Bill",
+        "bill-stickers": "Sticker Printing",
         repair: repairDetail ? "Repair Detail" : "Repair Queue",
         "repair-form": repairForm.id ? "Edit Repair" : "New Repair",
         parts: "Parts Hub",
-        transactions: "Sales History",
+        transactions: appMode === "bill-pro" ? "Invoices" : "Sales History",
         reports: "Reports",
         settings: "Settings Hub",
     }[pg] || currentNav?.l || "Dashboard";
-    const workspaceLabel = shopCfg.businessMode === "repair-pro" ? "Repair Pro terminal" : "Retail editorial workspace";
+    const workspaceLabel = appMode === "repair-pro" ? "Repair Pro terminal" : appMode === "bill-pro" ? "Bill Pro offline terminal" : "Retail editorial workspace";
     const isDesktopViewport = typeof window !== "undefined" && window.innerWidth >= 1025;
     const activeSettingsSection = settingsOpenSection || (isDesktopViewport ? "shop-profile" : "");
     const showSettingsHub = !isDesktopViewport && settingsOpenSection === "";
-    const isRetailDashboard = pg === "dashboard" && shopCfg.businessMode !== "repair-pro";
+    const isRetailDashboard = pg === "dashboard" && (appMode === "general" || appMode === "bill-pro");
     const isInventoryShowcase = pg === "inventory" && !di;
-    const hideMobileTopHeader = isInventoryShowcase || pg === "repair" || pg === "transactions" || pg === "reports" || pg === "settings";
+    const hideMobileTopHeader = isInventoryShowcase || pg === "repair" || pg === "transactions" || pg === "reports" || pg === "settings" || pg === "billing" || pg === "bill-stickers";
     const isAddPage = pg === "add";
     const isBuyPage = pg === "buy";
     const isSellPage = pg === "sell";
+    const isBillingPage = pg === "billing";
     const isRepairFormPage = pg === "repair-form";
-    const isCompactEntryPage = isAddPage || isBuyPage || isSellPage || isRepairFormPage;
+    const isCompactEntryPage = isAddPage || isBuyPage || isSellPage || isBillingPage || isRepairFormPage;
     const buyRequiresSellerVerification = fm.condition === "Used" || fm.condition === "Refurbished";
     const isNavActive = (id) => id === currentPageKey || (id === "repair" && pg === "repair-form");
     const repairPanelStyle = { background: "#23272d", border: "1px solid rgba(255,255,255,.05)" };
@@ -4627,8 +5395,8 @@ export default function App() {
     const settingsScreenMeta = {
         "shop-profile": { title: "Shop Profile", subtitle: "Name, GST, address, logo" },
         "invoice-preferences": { title: "Invoicing", subtitle: "Prefix, footer, invoice rules" },
-        "system-mode": { title: "System Mode", subtitle: "Retail or Repair behavior" },
-        "app-status": { title: "App Status", subtitle: syncReady ? "Connected and healthy" : "Connection and install diagnostics" },
+        "system-mode": { title: "System Mode", subtitle: appMode === "bill-pro" ? "Bill Pro is fixed to billing and stickers" : "Retail or Repair behavior" },
+        "app-status": { title: "App Status", subtitle: appMode === "bill-pro" ? "Offline activation and device status" : (syncReady ? "Connected and healthy" : "Connection and install diagnostics") },
     }[activeSettingsSection] || { title: "Settings", subtitle: "Quick access to all configurations" };
     const currentAddStep = ADD_FLOW_STEPS[Math.min(addFlowStep, ADD_FLOW_STEPS.length - 1)] || ADD_FLOW_STEPS[0];
     const nextAddStep = addFlowStep < ADD_FLOW_STEPS.length - 1 ? ADD_FLOW_STEPS[addFlowStep + 1] : null;
@@ -4664,7 +5432,7 @@ export default function App() {
         { id: "app-status", title: "App Status", subtitle: "Sync, install, offline health" },
     ];
     const currentMonthLabel = new Date().toLocaleDateString("en-IN", { month: "short", year: "numeric" });
-    const brandShopName = String(shopSession?.shopName || APP_NAME).replace(/([a-z])([A-Z])/g, "$1 $2");
+    const brandShopName = String(effectiveShopCfg.shopName || shopSession?.shopName || APP_NAME).replace(/([a-z])([A-Z])/g, "$1 $2");
     const retailMixRows = [
         { label: "New Devices", value: stats.cc.New || 0, tone: "#4f46e5" },
         { label: "Refurbished", value: stats.cc.Refurbished || 0, tone: "#7c8cf8" },
@@ -4742,7 +5510,7 @@ export default function App() {
                             <span>PhoneDukaan</span>
                         </div>
                         <div className="auth-header">
-                            <h2>{showAdminPanel ? (adminToken ? "Admin Dashboard" : "Admin Access") : authMode === "sign-up" ? "Create your terminal" : authMode === "reset" ? "Reset terminal access" : "Shop Login"}</h2>
+                            <h2>{showAdminPanel ? (adminToken ? "Admin Dashboard" : "Admin Access") : authMode === "sign-up" ? "Create your terminal" : authMode === "reset" ? "Reset terminal access" : authMode === "bill-pro" ? "Activate Bill Pro" : "Shop Login"}</h2>
                             <p>
                                 {showAdminPanel
                                     ? "Create shop logins, manage users, extend trials, and configure the default signup window."
@@ -4750,6 +5518,8 @@ export default function App() {
                                         ? `New accounts get ${trialDays} days of access. Use your mobile number later to sign into the terminal.`
                                         : authMode === "reset"
                                             ? "Enter the email used during signup and we will send a password reset link."
+                                            : authMode === "bill-pro"
+                                                ? "Bill Pro runs fully offline on this device with billing and sticker printing only. Use a signed activation code for the device ID below."
                                             : "Sign in with your registered mobile number and password to open the terminal workspace."}
                             </p>
                         </div>
@@ -4758,6 +5528,7 @@ export default function App() {
                                 {[
                                     { id: "sign-in", label: "Sign in" },
                                     { id: "sign-up", label: "Sign up" },
+                                    { id: "bill-pro", label: "Bill Pro" },
                                     { id: "reset", label: "Reset" },
                                 ].map(item => <button key={item.id} className={authMode === item.id ? "active" : ""} onClick={() => switchAuthMode(item.id)}>{item.label}</button>)}
                             </div>
@@ -4829,6 +5600,33 @@ export default function App() {
                                 <button className="bp auth-submit" onClick={handleShopSignup} disabled={signupBusy} style={{ opacity: signupBusy ? 0.72 : 1 }}>
                                     <Plus size={16} /> {signupBusy ? "Creating account..." : "Create account"}
                                 </button>
+                            </div> : authMode === "bill-pro" ? <div className="auth-card">
+                                <div className="gc" style={{ padding: 14, background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.08)", marginBottom: 16 }}>
+                                    <div style={{ color: "var(--t1)", fontWeight: 700, marginBottom: 6 }}>Bill Pro includes</div>
+                                    <div style={{ color: "var(--t3)", fontSize: 13, lineHeight: 1.7 }}>Offline GST and non-GST invoices, accessory billing, invoice PDF sharing, and sticker printing with no cloud login.</div>
+                                </div>
+                                <div className="auth-field">
+                                    <label>Device ID</label>
+                                    <div className="gi auth-input" style={{ gap: 10 }}>
+                                        <span className="auth-input-icon"><Shield size={16} /></span>
+                                        <input className="gi" value={billProDeviceId} readOnly style={{ fontFamily: "'Space Mono',monospace" }} />
+                                        <button className="bg" type="button" onClick={() => void copyBillProDeviceId()} style={{ minHeight: 36, padding: "8px 12px", justifyContent: "center" }}>Copy</button>
+                                    </div>
+                                </div>
+                                <div className="auth-field">
+                                    <label>Activation Code</label>
+                                    <div className="gi auth-input" style={{ alignItems: "stretch" }}>
+                                        <span className="auth-input-icon" style={{ paddingTop: 12 }}><Lock size={16} /></span>
+                                        <textarea className="gi" placeholder="Paste the signed Bill Pro activation code for this device" value={billProActivationCode} onChange={e => { setBillProActivationCode(e.target.value); setBillProError(""); }} style={{ minHeight: 110, resize: "vertical" }} />
+                                    </div>
+                                </div>
+                                {billProError ? <div className="auth-error"><AlertCircle size={14} /> {billProError}</div> : null}
+                                {loadBillProActivationRecord()?.payload?.deviceId === billProDeviceId ? <button className="bg auth-submit" onClick={openStoredBillPro} style={{ marginBottom: 10 }}>
+                                    <ArrowUpCircle size={16} /> Open Activated Bill Pro
+                                </button> : null}
+                                <button className="bp auth-submit" onClick={() => void handleBillProActivation()} disabled={billProBusy} style={{ opacity: billProBusy ? 0.72 : 1 }}>
+                                    <Shield size={16} /> {billProBusy ? "Verifying activation..." : "Activate Bill Pro"}
+                                </button>
                             </div> : <div className="auth-card">
                                 <div className="auth-field">
                                     <label>Registered Email</label>
@@ -4843,9 +5641,9 @@ export default function App() {
                                 </button>
                             </div>}
                             <div className="auth-meta">
-                                <span>{authMode === "sign-up" ? `${trialDays}-day access window` : "Secure access for registered shops"}</span>
+                                <span>{authMode === "sign-up" ? `${trialDays}-day access window` : authMode === "bill-pro" ? "Lifetime offline activation on this device" : "Secure access for registered shops"}</span>
                                 <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
-                                    {authMode !== "reset" ? <button className="auth-link" onClick={() => switchAuthMode("reset")}>Forgot password?</button> : null}
+                                    {authMode !== "reset" && authMode !== "bill-pro" ? <button className="auth-link" onClick={() => switchAuthMode("reset")}>Forgot password?</button> : null}
                                     <button className="auth-link" onClick={openAdminPanel}>Admin panel</button>
                                 </div>
                             </div>
@@ -5019,8 +5817,8 @@ export default function App() {
                         <div className="shell-footer">
                             <button className="shell-footer-link" onClick={() => goPage("settings")}><Settings size={18} /> Settings</button>
                             <div className="shell-footer-bottom">
-                                <button className="shell-footer-link" onClick={logoutShop}><LogOut size={18} /> Sign out</button>
-                                <div className="shell-status">{ol ? <Wifi size={14} color="var(--ok)" /> : <WifiOff size={14} color="var(--warn)" />}<span>{shopSession?.shopName || shopSession?.shopId || "No shop"} · {syncStateLabel}</span></div>
+                                <button className="shell-footer-link" onClick={logoutShop}><LogOut size={18} /> {shopSession?.isBillPro ? "Close Bill Pro" : "Sign out"}</button>
+                                <div className="shell-status">{ol ? <Wifi size={14} color="var(--ok)" /> : <WifiOff size={14} color="var(--warn)" />}<span>{shopSession?.isBillPro ? `${brandShopName} · ${syncStateLabel}` : `${shopSession?.shopName || shopSession?.shopId || "No shop"} · ${syncStateLabel}`}</span></div>
                             </div>
                         </div>
                     </aside>
@@ -5036,7 +5834,7 @@ export default function App() {
                             </div>
                             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                 <div className={`dashboard-retail-status ${ol ? "" : "offline"}`}>{ol ? <Wifi size={13} /> : <WifiOff size={13} />}{ol ? "Online" : "Offline"}</div>
-                                <button className="dashboard-retail-icon-btn" onClick={() => goPage("inventory")} aria-label="Search inventory"><Search size={19} /></button>
+                                <button className="dashboard-retail-icon-btn" onClick={() => goPage(appMode === "bill-pro" ? "transactions" : "inventory")} aria-label={appMode === "bill-pro" ? "Search invoices" : "Search inventory"}><Search size={19} /></button>
                                 <button className="dashboard-retail-icon-btn" onClick={() => goPage("settings")} aria-label="Open settings"><Bell size={19} /></button>
                             </div>
                         </> : <>
@@ -5063,7 +5861,7 @@ export default function App() {
 
                     {/* ═══ DASHBOARD ═══ */}
                     {pg === "dashboard" && <div className="fi">
-                        {shopCfg.businessMode === "repair-pro" ? <>
+                        {appMode === "repair-pro" ? <>
                             {repairOpenCount === 0 ? <div className="gl" style={{ padding: "12px 16px", borderColor: "rgba(0,72,216,.18)", background: "rgba(0,72,216,.06)", display: "flex", alignItems: "center", gap: 10, borderRadius: "var(--rs)", marginBottom: 16 }}><AlertCircle size={16} color="var(--a)" /><span style={{ color: "var(--a)", fontWeight: 700, fontSize: 13 }}>No active repair jobs right now. Add a new repair to start tracking devices.</span></div> : null}
                             <div className="dashboard-actions">
                                 <button className="bg" onClick={() => openRepairForm()}><Plus size={16} /> New Repair</button>
@@ -5141,7 +5939,90 @@ export default function App() {
                                     </div>
                                 </div>
                             </div>
-                        </> : <div className="dashboard-retail">
+                        </> : appMode === "bill-pro" ? <div className="dashboard-retail">
+                            <div className="dashboard-retail-desktop desktop-enhanced-only">
+                                <div className="dashboard-executive-head">
+                                    <div className="dashboard-executive-copy"><h1>Bill Pro Dashboard</h1><p>Offline billing, GST invoices, accessory bills, and sticker printing.</p></div>
+                                    <div className="dashboard-executive-actions"><button className="dashboard-action-ghost" onClick={() => goPage("bill-stickers")}><Printer size={16} /> Stickers</button><button className="dashboard-action-primary" onClick={() => goPage("billing")}><FileText size={16} /> New Bill</button></div>
+                                </div>
+                                <div className="dashboard-kpi-grid">
+                                    <div className="dashboard-kpi-card"><div className="dashboard-kpi-label">Invoices</div><div className="dashboard-kpi-value">{invoiceRecords.length}</div></div>
+                                    <div className="dashboard-kpi-card"><div className="dashboard-kpi-label">Monthly Sales</div><div className="dashboard-kpi-value">{fmtCompactCurrency(retailMonthlySales)}</div></div>
+                                    <div className="dashboard-kpi-card"><div className="dashboard-kpi-label">Pending Due</div><div className="dashboard-kpi-value">{fmtCompactCurrency(invoiceSummary.dueAmount)}</div></div>
+                                </div>
+                            </div>
+                            <div className="dashboard-retail-mobile-stack">
+                                <div className="dashboard-retail-hero">
+                                    <div className="dashboard-retail-top">
+                                        <div className="dashboard-retail-brand">
+                                            <div className="dashboard-retail-brand-mark"><img src="/pd-icon.png" alt={APP_NAME} /></div>
+                                            <div>
+                                                <h1>Bill Pro</h1>
+                                                <p>Offline billing · stickers · {syncStateLabel}</p>
+                                            </div>
+                                        </div>
+                                        <div className="dashboard-retail-top-actions">
+                                            <div className={`dashboard-retail-status ${ol ? "" : "offline"}`}>{ol ? <Wifi size={14} /> : <WifiOff size={14} />}{ol ? "Local" : "Offline"}</div>
+                                            <button className="dashboard-retail-icon-btn" onClick={() => goPage("settings")} aria-label="Open settings"><Settings size={20} /></button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <button className="dashboard-retail-search" onClick={() => goPage("transactions")}>
+                                    <Search size={22} />
+                                    <span>Search invoices, customers, IMEI or accessories...</span>
+                                </button>
+
+                                <div className="dashboard-retail-metrics sh">
+                                    <div className="dashboard-retail-metric">
+                                        <div className="dashboard-retail-metric-head"><div className="dashboard-retail-metric-icon"><FileText size={24} /></div><span className="dashboard-retail-metric-tag">Local</span></div>
+                                        <div><div className="dashboard-retail-metric-label">Invoices</div><div className="dashboard-retail-metric-value">{invoiceRecords.length}</div><div className="dashboard-retail-metric-sub">Saved on this device</div></div>
+                                    </div>
+                                    <div className="dashboard-retail-metric">
+                                        <div className="dashboard-retail-metric-head"><div className="dashboard-retail-metric-icon"><Banknote size={24} /></div><span className="dashboard-retail-metric-tag">Month</span></div>
+                                        <div><div className="dashboard-retail-metric-label">Monthly Sales</div><div className="dashboard-retail-metric-value">{fmtCompactCurrency(retailMonthlySales)}</div><div className="dashboard-retail-metric-sub">GST and non-GST bills</div></div>
+                                    </div>
+                                    <div className="dashboard-retail-metric">
+                                        <div className="dashboard-retail-metric-head"><div className="dashboard-retail-metric-icon"><IndianRupee size={24} /></div><span className="dashboard-retail-metric-tag">Due</span></div>
+                                        <div><div className="dashboard-retail-metric-label">Pending</div><div className="dashboard-retail-metric-value">{fmtCompactCurrency(invoiceSummary.dueAmount)}</div><div className="dashboard-retail-metric-sub">Outstanding balance</div></div>
+                                    </div>
+                                </div>
+
+                                <div className="dashboard-retail-actions">
+                                    <button className="dashboard-retail-action" onClick={() => goPage("billing")}><span><FileText size={24} /></span><strong>New Bill</strong></button>
+                                    <button className="dashboard-retail-action" onClick={() => goPage("bill-stickers")}><span><Printer size={24} /></span><strong>Stickers</strong></button>
+                                    <button className="dashboard-retail-action" onClick={() => goPage("transactions")}><span><ClipboardList size={24} /></span><strong>Invoices</strong></button>
+                                    <button className="dashboard-retail-action" onClick={() => goPage("reports")}><span><BarChart3 size={24} /></span><strong>Reports</strong></button>
+                                </div>
+
+                                <div className="dashboard-retail-panels">
+                                    <div className="dashboard-retail-panel">
+                                        <div className="dashboard-retail-panel-head"><h3>Bill Pro Status</h3><div className="dashboard-retail-fill">Offline</div></div>
+                                        <div className="dashboard-retail-mix">
+                                            {[
+                                                { label: "GST Collected", value: fmtCompactCurrency(invoiceSummary.gstAmount), tone: "#4f46e5" },
+                                                { label: "Lifetime Key", value: "Active", tone: "#34d399" },
+                                                { label: "Device", value: billProDeviceId.slice(-4), tone: "#fbbf24" },
+                                            ].map(item => <div key={item.label} className="dashboard-retail-mix-row"><div className="dashboard-retail-mix-tone" style={{ background: item.tone }} /><div className="dashboard-retail-mix-copy"><div className="dashboard-retail-mix-title"><span>{item.label}</span></div><div className="dashboard-retail-mix-bar"><div style={{ width: "72%", background: item.tone }} /></div></div><strong>{item.value}</strong></div>)}
+                                        </div>
+                                    </div>
+
+                                    <div className="dashboard-retail-panel">
+                                        <div className="dashboard-retail-panel-head"><h3>Recent Activity</h3><button onClick={() => goPage("transactions")}>View All</button></div>
+                                        <div className="dashboard-retail-activity">
+                                            {invoiceRecords.length === 0 ? <div style={{ color: "var(--t2)", fontSize: 14 }}>No invoices yet. Create your first bill.</div> : null}
+                                            {invoiceRecords.slice(0, 5).map(invoice => {
+                                                const due = Number(invoice.dueAmount || 0);
+                                                return <div key={invoice.id} className={`dashboard-retail-activity-item ${invoice.billType === "GST" ? "" : "nongst"}`}>
+                                                    <div className="dashboard-retail-activity-main"><div className="dashboard-retail-activity-icon"><FileText size={18} /></div><div className="dashboard-retail-activity-copy"><div className="dashboard-retail-activity-title">{getTxItemLabel(invoice)}</div><div className="dashboard-retail-activity-meta">{invoice.invoiceNo || "INV"} · {fmtRelativeTime(invoice.dateTime || invoice.date)}</div></div></div>
+                                                    <div className="dashboard-retail-activity-side"><div className="dashboard-retail-activity-amount">{fmtCurrency(invoice.totalAmount || invoice.amount)}</div><div className={`dashboard-retail-bill ${due > 0 ? "nongst" : "gst"}`}>{due > 0 ? "DUE" : invoice.billType === "GST" ? "GST" : "NO-GST"}</div></div>
+                                                </div>;
+                                            })}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div> : <div className="dashboard-retail">
                             <div className="dashboard-retail-desktop desktop-enhanced-only">
                                 <div className="dashboard-executive-head">
                                     <div className="dashboard-executive-copy">
@@ -5211,8 +6092,8 @@ export default function App() {
                                                     <div className="dashboard-transactions-item">
                                                         <div className="dashboard-transactions-icon"><Smartphone size={18} /></div>
                                                         <div>
-                                                            <strong>{[t.brand, t.model].filter(Boolean).join(" ") || "Device"}</strong>
-                                                            <span>{(t.invoiceNo || "INV") + " · " + ([t.storage, t.color].filter(Boolean).join(", ") || (t.customerName || "Walk-in Customer"))}</span>
+                                                            <strong>{getTxItemLabel(t)}</strong>
+                                                            <span>{(t.invoiceNo || "INV") + " · " + (getTxItemContext(t) || (t.customerName || "Walk-in Customer"))}</span>
                                                         </div>
                                                     </div>
                                                     <div className="dashboard-transactions-amount">
@@ -5327,7 +6208,7 @@ export default function App() {
                                                 <div className="dashboard-retail-activity-main">
                                                     <div className="dashboard-retail-activity-icon"><FileText size={18} /></div>
                                                     <div className="dashboard-retail-activity-copy">
-                                                        <div className="dashboard-retail-activity-title">{t.brand} {t.model}</div>
+                                                        <div className="dashboard-retail-activity-title">{getTxItemLabel(t)}</div>
                                                         <div className="dashboard-retail-activity-meta">{fmtRelativeTime(t.updatedAt || t.createdAt || t.date)}</div>
                                                     </div>
                                                 </div>
@@ -6052,6 +6933,242 @@ export default function App() {
                         </div>
                     </div>}
 
+                    {/* ═══ BILL PRO BILLING ═══ */}
+                    {pg === "billing" && <div className="fi add-compact">
+                        <div className="desktop-workspace">
+                            <div className="desktop-workspace-main">
+                                <div className="add-compact-top add-desktop-only">
+                                    <div className="add-mobile-top">
+                                        <button className="add-mobile-back" onClick={() => goPage("dashboard")} aria-label="Go back"><ChevronLeft size={28} /></button>
+                                        <div>
+                                            <div className="add-mobile-header-title">Bill Pro Invoice</div>
+                                        </div>
+                                    </div>
+                                    <div className="add-pos-chip"><FileText size={14} /> Offline billing only</div>
+                                </div>
+
+                                <div className="add-mobile-hero add-mobile-only">
+                                    <div className="add-mobile-top">
+                                        <button className="add-mobile-back" onClick={() => goPage("dashboard")} aria-label="Go back"><ChevronLeft size={28} /></button>
+                                        <div>
+                                            <div className="add-mobile-header-title">Bill Pro Invoice</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="add-compact-card">
+                                    <div className="add-compact-head">
+                                        <div>
+                                            <h2>Billing Details</h2>
+                                        </div>
+                                        <button className="add-link-btn" onClick={resetBillProForm}><RotateCcw size={14} /> Reset</button>
+                                    </div>
+
+                                    <div className="add-compact-form">
+                                        <div className="add-compact-field span-2">
+                                            <div className="add-compact-label">Category</div>
+                                            <div className="add-input-shell"><select className="gs" value={billProForm.category} onChange={e => setBillProField("category", e.target.value)}>{BILL_PRO_CATEGORIES.map(option => <option key={option} value={option}>{option}</option>)}</select></div>
+                                        </div>
+
+                                        {isBillProMobileCategory(billProForm.category) ? <>
+                                            <div className="add-compact-field">
+                                                <div className="add-compact-label">Brand *</div>
+                                                <div className="add-input-shell"><input className="gi" value={billProForm.brand} onChange={e => setBillProField("brand", e.target.value)} placeholder="Apple / Samsung / Vivo" /></div>
+                                            </div>
+
+                                            <div className="add-compact-field">
+                                                <div className="add-compact-label">Model *</div>
+                                                <div className="add-input-shell"><input className="gi" value={billProForm.model} onChange={e => setBillProField("model", e.target.value)} placeholder="iPhone 13 / Galaxy S24" /></div>
+                                            </div>
+
+                                            <div className="add-compact-field">
+                                                <div className="add-compact-label">IMEI 1 *</div>
+                                                <div className="add-input-shell"><input className="gi" value={billProForm.imei} onChange={e => setBillProField("imei", e.target.value)} placeholder="15-digit IMEI" style={{ fontFamily: "'Space Mono',monospace" }} /><button className="add-scan-btn" onClick={() => openSc("bill-pro-imei")}><Camera size={16} /></button></div>
+                                            </div>
+
+                                            <div className="add-compact-field">
+                                                <div className="add-compact-label">IMEI 2</div>
+                                                <div className="add-input-shell"><input className="gi" value={billProForm.imei2} onChange={e => setBillProField("imei2", e.target.value)} placeholder="Optional second IMEI" style={{ fontFamily: "'Space Mono',monospace" }} /><button className="add-scan-btn" onClick={() => openSc("bill-pro-imei2")}><Camera size={16} /></button></div>
+                                            </div>
+
+                                            <div className="add-compact-field">
+                                                <div className="add-compact-label">Color</div>
+                                                <div className="add-input-shell"><input className="gi" value={billProForm.color} onChange={e => setBillProField("color", e.target.value)} placeholder="Blue / Black / White" /></div>
+                                            </div>
+
+                                            <div className="add-compact-field">
+                                                <div className="add-compact-label">Condition</div>
+                                                <div className="add-input-shell"><select className="gs" value={billProForm.condition} onChange={e => setBillProField("condition", e.target.value)}>{CONDITIONS.map(option => <option key={option} value={option}>{option}</option>)}</select></div>
+                                            </div>
+
+                                            <div className="add-compact-field">
+                                                <div className="add-compact-label">RAM</div>
+                                                <div className="add-input-shell"><input className="gi" value={billProForm.ram} onChange={e => setBillProField("ram", e.target.value)} placeholder="8GB" /></div>
+                                            </div>
+
+                                            <div className="add-compact-field">
+                                                <div className="add-compact-label">Storage</div>
+                                                <div className="add-input-shell"><input className="gi" value={billProForm.storage} onChange={e => setBillProField("storage", e.target.value)} placeholder="128GB" /></div>
+                                            </div>
+                                        </> : <>
+                                            <div className="add-compact-field span-2">
+                                                <div className="add-compact-label">Item Name *</div>
+                                                <div className="add-input-shell"><input className="gi" value={billProForm.itemLabel} onChange={e => setBillProField("itemLabel", e.target.value)} placeholder="Charger / Headphones / Cable" /></div>
+                                            </div>
+
+                                            <div className="add-compact-field">
+                                                <div className="add-compact-label">Serial / Code</div>
+                                                <div className="add-input-shell"><input className="gi" value={billProForm.serialNo} onChange={e => setBillProField("serialNo", e.target.value)} placeholder="Optional code or serial" /></div>
+                                            </div>
+
+                                            <div className="add-compact-field">
+                                                <div className="add-compact-label">Qty</div>
+                                                <div className="add-input-shell"><input className="gi" type="number" min="1" value={billProForm.qty} onChange={e => setBillProField("qty", e.target.value)} placeholder="1" /></div>
+                                            </div>
+                                        </>}
+
+                                        <div className="add-compact-field">
+                                            <div className="add-compact-label">Customer</div>
+                                            <div className="add-input-shell"><input className="gi" value={billProForm.customerName} onChange={e => setBillProField("customerName", e.target.value)} placeholder="Buyer name" /></div>
+                                        </div>
+
+                                        <div className="add-compact-field">
+                                            <div className="add-compact-label">Phone</div>
+                                            <div className="add-input-shell"><input className="gi" type="tel" value={billProForm.phone} onChange={e => setBillProField("phone", e.target.value)} placeholder="Customer phone" /></div>
+                                        </div>
+
+                                        <div className="add-compact-mini-grid">
+                                            <div className="add-compact-field mini">
+                                                <div className="add-compact-label">Bill Type</div>
+                                                <div className="add-input-shell"><select className="gs" value={billProForm.billType} onChange={e => setBillProField("billType", e.target.value)}>{BILL_TYPES.map(type => <option key={type}>{type}</option>)}</select></div>
+                                            </div>
+
+                                            <div className="add-compact-field mini">
+                                                <div className="add-compact-label">GST Rate %</div>
+                                                <div className="add-input-shell"><input className="gi" type="number" step="0.01" value={billProForm.gstRate} onChange={e => setBillProField("gstRate", e.target.value)} placeholder="18" disabled={billProForm.billType !== "GST"} /></div>
+                                            </div>
+
+                                            <div className="add-compact-field mini">
+                                                <div className="add-compact-label">Amount</div>
+                                                <div className="add-input-shell"><input className="gi" type="number" value={billProForm.amount} onChange={e => setBillProField("amount", e.target.value)} placeholder="₹0" /></div>
+                                            </div>
+
+                                            <div className="add-compact-field mini">
+                                                <div className="add-compact-label">Paid Now</div>
+                                                <div className="add-input-shell"><input className="gi" type="number" value={billProForm.paidAmount} onChange={e => setBillProField("paidAmount", e.target.value)} placeholder="₹0" /></div>
+                                            </div>
+
+                                            <div className="add-compact-field mini">
+                                                <div className="add-compact-label">Payment</div>
+                                                <div className="add-input-shell"><select className="gs" value={billProForm.paymentMode} onChange={e => setBillProField("paymentMode", e.target.value)}>{PAYMENT_MODES.map(mode => <option key={mode}>{mode}</option>)}</select></div>
+                                            </div>
+                                        </div>
+
+                                        <div className="add-compact-field">
+                                            <div className="add-compact-label">Due Amount</div>
+                                            <div className="add-input-shell"><div className="gi" style={{ display: "flex", alignItems: "center", minHeight: 34, paddingLeft: 0, paddingRight: 0, color: +billProForm.dueAmount > 0 ? "var(--warn)" : "var(--ok)" }}>{fmtCurrency(billProForm.dueAmount || 0)}</div></div>
+                                        </div>
+
+                                        <div className="add-compact-field span-2">
+                                            <div className="add-compact-label">Notes</div>
+                                            <div className="add-input-shell"><input className="gi" value={billProForm.notes} onChange={e => setBillProField("notes", e.target.value)} placeholder="Optional notes for the invoice" /></div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="add-compact-actions add-desktop-only desktop-inline-actions">
+                                    <button className="bg" onClick={resetBillProForm}>Clear</button>
+                                    <button className="bs" onClick={doBillProSale}><ArrowUpCircle size={16} /> Save Invoice</button>
+                                </div>
+
+                                <div className="add-mobile-actions add-mobile-only">
+                                    <button className="bg" onClick={resetBillProForm}>Clear</button>
+                                    <button className="bs" onClick={doBillProSale}>Save Invoice</button>
+                                </div>
+                            </div>
+                            <aside className="desktop-workspace-side desktop-enhanced-only">
+                                <div className="desktop-side-card">
+                                    <div className="desktop-side-eyebrow">Bill Pro</div>
+                                    <div className="desktop-side-title">Invoice Summary</div>
+                                    <div className="desktop-side-grid">
+                                        {[
+                                            { label: "Item", value: getTxItemLabel(billProForm) || "Awaiting item name" },
+                                            { label: "Qty", value: String(getTxQty(billProForm)) },
+                                            { label: "Total", value: fmtCurrency(billProForm.amount || 0) },
+                                            { label: "Due", value: fmtCurrency(billProForm.dueAmount || 0) },
+                                        ].map(item => <div key={item.label} className="desktop-side-stat"><span>{item.label}</span><strong>{item.value}</strong></div>)}
+                                    </div>
+                                </div>
+                                <div className="desktop-side-card">
+                                    <div className="desktop-side-eyebrow">Tax Preview</div>
+                                    <div className="desktop-side-title">Billing Breakdown</div>
+                                    <ul className="desktop-side-list">
+                                        <li><strong>Bill type</strong><span>{billProForm.billType || "NON GST"}</span></li>
+                                        <li><strong>Taxable</strong><span>{fmtCurrency(billProSalePreview.taxableAmount || 0)}</span></li>
+                                        <li><strong>GST</strong><span>{fmtCurrency(billProSalePreview.gstAmount || 0)}</span></li>
+                                        <li><strong>Payment mode</strong><span>{billProForm.paymentMode || "Cash"}</span></li>
+                                    </ul>
+                                    <div className="add-desktop-actions">
+                                        <button className="bg" onClick={resetBillProForm}>Clear</button>
+                                        <button className="bs" onClick={doBillProSale}><ArrowUpCircle size={16} /> Save Invoice</button>
+                                    </div>
+                                </div>
+                            </aside>
+                        </div>
+                    </div>}
+
+                    {/* ═══ BILL PRO STICKERS ═══ */}
+                    {pg === "bill-stickers" && <div className="fi add-compact">
+                        <div className="add-mobile-hero add-mobile-only">
+                            <div className="add-mobile-top">
+                                <button className="add-mobile-back" onClick={() => goPage("dashboard")} aria-label="Go back"><ChevronLeft size={28} /></button>
+                                <div><div className="add-mobile-header-title">Sticker Printing</div></div>
+                            </div>
+                        </div>
+                        <div className="add-compact-card">
+                            <div className="add-compact-head">
+                                <div>
+                                    <h2 style={{ color: "var(--t1)", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 20, fontWeight: 800, letterSpacing: "-.02em" }}>Sticker Printing</h2>
+                                    <div style={{ color: "var(--t2)", fontSize: 13, marginTop: 4 }}>Create price stickers for chargers, headphones, accessories, and quick offline billing items.</div>
+                                </div>
+                                <div className="action-row add-desktop-only" style={{ marginTop: 0 }}>
+                                    <button className="bg" onClick={resetBillProStickerForm}><RotateCcw size={16} /> Reset</button>
+                                    <button className="bp" onClick={() => void printBillProSticker()}><Printer size={16} /> Print Sticker</button>
+                                </div>
+                            </div>
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 12 }}>
+                                <F l="Category" ic={Package}><select className="gs" value={billProStickerForm.category} onChange={e => setBillProStickerField("category", e.target.value)}>{BILL_PRO_CATEGORIES.map(option => <option key={option} value={option}>{option}</option>)}</select></F>
+                                {isBillProMobileCategory(billProStickerForm.category) ? <>
+                                    <F l="Brand" ic={Tag}><input className="gi" value={billProStickerForm.brand} onChange={e => setBillProStickerField("brand", e.target.value)} placeholder="Apple / Samsung / Vivo" /></F>
+                                    <F l="Model" ic={Smartphone}><input className="gi" value={billProStickerForm.model} onChange={e => setBillProStickerField("model", e.target.value)} placeholder="iPhone 13 / Galaxy S24" /></F>
+                                    <F l="IMEI 1" ic={Hash}><div className="add-input-shell"><input className="gi" value={billProStickerForm.imei} onChange={e => setBillProStickerField("imei", e.target.value)} placeholder="15-digit IMEI" style={{ fontFamily: "'Space Mono',monospace" }} /><button className="add-scan-btn" onClick={() => openSc("bill-pro-sticker-imei")}><Camera size={16} /></button></div></F>
+                                    <F l="IMEI 2" ic={Hash}><div className="add-input-shell"><input className="gi" value={billProStickerForm.imei2} onChange={e => setBillProStickerField("imei2", e.target.value)} placeholder="Optional second IMEI" style={{ fontFamily: "'Space Mono',monospace" }} /><button className="add-scan-btn" onClick={() => openSc("bill-pro-sticker-imei2")}><Camera size={16} /></button></div></F>
+                                    <F l="Color" ic={Palette}><input className="gi" value={billProStickerForm.color} onChange={e => setBillProStickerField("color", e.target.value)} placeholder="Blue / Black / White" /></F>
+                                    <F l="Condition" ic={Package}><select className="gs" value={billProStickerForm.condition} onChange={e => setBillProStickerField("condition", e.target.value)}>{CONDITIONS.map(option => <option key={option} value={option}>{option}</option>)}</select></F>
+                                    <F l="RAM" ic={Zap}><input className="gi" value={billProStickerForm.ram} onChange={e => setBillProStickerField("ram", e.target.value)} placeholder="8GB" /></F>
+                                    <F l="Storage" ic={HardDrive}><input className="gi" value={billProStickerForm.storage} onChange={e => setBillProStickerField("storage", e.target.value)} placeholder="128GB" /></F>
+                                    <F l="Price" ic={IndianRupee}><input className="gi" type="number" value={billProStickerForm.price} onChange={e => setBillProStickerField("price", e.target.value)} placeholder="59999" /></F>
+                                </> : <>
+                                    <F l="Item Name" ic={Tag}><input className="gi" value={billProStickerForm.itemLabel} onChange={e => setBillProStickerField("itemLabel", e.target.value)} placeholder="Charger / Earbuds / Adapter" /></F>
+                                    <F l="Code / Barcode Text" ic={QrCode}><input className="gi" value={billProStickerForm.code} onChange={e => setBillProStickerField("code", e.target.value)} placeholder="Optional sticker code" /></F>
+                                    <F l="Price" ic={IndianRupee}><input className="gi" type="number" value={billProStickerForm.price} onChange={e => setBillProStickerField("price", e.target.value)} placeholder="599" /></F>
+                                </>}
+                                <F l="Copies" ic={Layers}><input className="gi" type="number" min="1" value={billProStickerForm.copies} onChange={e => setBillProStickerField("copies", e.target.value)} placeholder="1" /></F>
+                            </div>
+                        </div>
+                        <div className="add-compact-card">
+                            <div style={{ color: "var(--t1)", fontSize: 15, fontWeight: 700 }}>Sticker Preview Summary</div>
+                            <div className="list-row" style={{ padding: "12px 0" }}><div className="list-row-title">Item</div><div className="list-row-value">{getTxItemLabel(billProStickerForm) || "Awaiting item name"}</div></div>
+                            <div className="list-row" style={{ padding: "12px 0" }}><div className="list-row-title">Category</div><div className="list-row-value">{billProStickerForm.category || BILL_PRO_MOBILE_CATEGORY}</div></div>
+                            <div className="list-row" style={{ padding: "12px 0" }}><div className="list-row-title">Identity</div><div className="list-row-value">{isBillProMobileCategory(billProStickerForm.category) ? (billProStickerForm.imei || "IMEI required") : (billProStickerForm.code || "No code")}</div></div>
+                            <div className="list-row" style={{ padding: "12px 0" }}><div className="list-row-title">Copies</div><div className="list-row-value">{billProStickerForm.copies || "1"}</div></div>
+                        </div>
+                        <div className="add-mobile-actions add-mobile-only">
+                            <button className="bg" onClick={resetBillProStickerForm}>Reset</button>
+                            <button className="bp" onClick={() => void printBillProSticker()}>Print Sticker</button>
+                        </div>
+                    </div>}
+
                     {/* ═══ REPAIR ═══ */}
                     {pg === "repair" && !repairDetail && <div className="fi repair-lab">
                         <div className="repair-lab-hero">
@@ -6365,6 +7482,7 @@ export default function App() {
                             <div className="transactions-summary-card"><span>Total Sales</span><strong>{fmtCompactCurrency(invoiceSummary.totalAmount)}</strong><em>{invoiceRecords.length} invoice{invoiceRecords.length === 1 ? "" : "s"}</em></div>
                             <div className="transactions-summary-card"><span>Outstanding</span><strong>{fmtCompactCurrency(invoiceSummary.dueAmount)}</strong><em>{invoiceSummary.dueAmount > 0 ? "Requires collection" : "All dues cleared"}</em></div>
                             <div className="transactions-summary-card"><span>GST Collected</span><strong>{fmtCompactCurrency(invoiceSummary.gstAmount)}</strong><em>Calculated from GST invoices only</em></div>
+                            <div className="transactions-summary-card"><span>Returns</span><strong>{invoiceSummary.returnedCount}</strong><em>{fmtCompactCurrency(invoiceSummary.refundAmount)} refunded</em></div>
                         </div>
 
                         <div className="transactions-desktop-table desktop-enhanced-only">
@@ -6372,13 +7490,15 @@ export default function App() {
                             {invoiceRecords.length === 0 ? <div className="reports-modern-empty">No invoices found.</div> : null}
                             {invoiceRecords.map(t => {
                                 const dueOpen = Number(t.dueAmount || 0) > 0;
+                                const returned = isSaleReturned(t);
                                 return <div key={`desktop-sale-${t.id}`} className="transactions-table-row">
                                     <div className="transactions-table-cell"><strong>{t.invoiceNo || "INV"}</strong><span>{fmtDashboardTime(t.dateTime || `${t.date || isoDate()}T12:00:00`)}</span></div>
-                                    <div className="transactions-table-cell"><strong>{t.customerName || "Walk-in Customer"}</strong><span>{[t.brand, t.model].filter(Boolean).join(" ") || "Device"}{t.phone ? ` · ${t.phone}` : ""}</span></div>
+                                    <div className="transactions-table-cell"><strong>{t.customerName || "Walk-in Customer"}</strong><span>{getTxItemLabel(t)}{t.phone ? ` · ${t.phone}` : ""}</span></div>
                                     <div className="transactions-table-amount">{fmtCurrency(t.totalAmount || t.amount)}</div>
-                                    <div><span className={`dashboard-status-pill ${dueOpen ? "pending" : ""}`}>{dueOpen ? "Pending" : "Paid"}</span></div>
+                                    <div><span className={`dashboard-status-pill ${returned || dueOpen ? "pending" : ""}`}>{returned ? "Returned" : dueOpen ? "Pending" : "Paid"}</span></div>
                                     <div className="transactions-table-cell"><strong>{t.paymentMode || "Cash"}</strong><span>{t.billType === "GST" ? "GST Invoice" : "Regular Invoice"}</span></div>
                                     <div className="transactions-table-actions">
+                                        {appMode === "general" ? <button className="table-action-btn" onClick={() => openReturnModal(t)} disabled={returned} aria-label="Return item"><ArchiveRestore size={15} /></button> : null}
                                         <button className="table-action-btn" onClick={() => void shareInvoice(t)} aria-label="Share PDF"><Share2 size={15} /></button>
                                         <button className="table-action-btn" onClick={() => whatsappMessage(t)} aria-label="WhatsApp Message"><MessageCircle size={15} /></button>
                                         <button className="table-action-btn primary" onClick={() => void downloadInvoice(t)} aria-label="Download PDF"><Download size={15} /></button>
@@ -6395,7 +7515,7 @@ export default function App() {
                                 </label>
                                 <button
                                     className="invoices-filter-btn"
-                                    onClick={() => setInvoiceStatusFilter(current => current === "All" ? "Paid" : current === "Paid" ? "Due" : "All")}
+                                    onClick={() => setInvoiceStatusFilter(current => current === "All" ? "Paid" : current === "Paid" ? "Due" : current === "Due" ? "Returned" : "All")}
                                     aria-label={`Invoice filter ${invoiceStatusFilter}`}
                                     title={`Filter: ${invoiceStatusFilter}`}
                                 >
@@ -6409,6 +7529,7 @@ export default function App() {
                                 {invoiceRecords.map(t => {
                                     const shortDate = new Date(t.dateTime || `${t.date || isoDate()}T12:00:00`).toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
                                     const dueOpen = Number(t.dueAmount || 0) > 0;
+                                    const returned = isSaleReturned(t);
                                     return <div key={t.id} className="invoice-row">
                                         <div className="invoice-row-id">
                                             <strong>{t.invoiceNo || "INV"}</strong>
@@ -6416,8 +7537,9 @@ export default function App() {
                                         </div>
                                         <div className="invoice-row-main">
                                             <strong>{t.customerName || "Walk-in Customer"}</strong>
-                                            <div className="invoice-row-item"><Smartphone size={13} /> {[t.brand, t.model].filter(Boolean).join(" ") || "Device"}</div>
+                                            <div className="invoice-row-item"><Smartphone size={13} /> {getTxItemLabel(t)}</div>
                                             <div className="invoice-row-actions">
+                                                {appMode === "general" ? <button className="invoice-row-icon" onClick={() => openReturnModal(t)} disabled={returned} aria-label="Return item" title="Return item"><ArchiveRestore size={14} /></button> : null}
                                                 <button className="invoice-row-icon icon-share" onClick={() => void shareInvoice(t)} aria-label="Share PDF" title="Share PDF"><Share2 size={14} /></button>
                                                 <button className="invoice-row-icon icon-msg" onClick={() => whatsappMessage(t)} aria-label="WhatsApp Message" title="WhatsApp Message"><MessageCircle size={14} /></button>
                                                 <button className="invoice-row-icon icon-download" onClick={() => void downloadInvoice(t)} aria-label="Download PDF" title="Download PDF"><Download size={14} /></button>
@@ -6425,7 +7547,7 @@ export default function App() {
                                         </div>
                                         <div className="invoice-row-finance">
                                             <strong>{fmtCurrency(t.totalAmount || t.amount)}</strong>
-                                            <span className={`invoice-row-status ${dueOpen ? "due" : "paid"}`}>{dueOpen ? "DUE" : "PAID"}</span>
+                                            <span className={`invoice-row-status ${returned || dueOpen ? "due" : "paid"}`}>{returned ? "RETURNED" : dueOpen ? "DUE" : "PAID"}</span>
                                         </div>
                                     </div>;
                                 })}
@@ -6536,14 +7658,14 @@ export default function App() {
                                     <span className="settings-terminal-icon"><CheckCircle size={20} /></span>
                                     <div>
                                         <h3>App Status</h3>
-                                        <p>{syncReady ? `Synced ${fmtRelativeTime(syncMeta.lastRemoteSavedAt || syncCfg.lastSyncAt || syncCfg.lastStatusAt || "")}` : "Waiting for sync"}</p>
+                                        <p>{appMode === "bill-pro" ? "Offline activation active" : (syncReady ? `Synced ${fmtRelativeTime(syncMeta.lastRemoteSavedAt || syncCfg.lastSyncAt || syncCfg.lastStatusAt || "")}` : "Waiting for sync")}</p>
                                     </div>
                                 </button>
                                 <button className={`settings-terminal-card mode ${settingsOpenSection === "system-mode" ? "active" : ""}`} onClick={() => setSettingsOpenSection(current => current === "system-mode" ? "" : "system-mode")}>
                                     <span className="settings-terminal-icon"><Settings size={20} /></span>
                                     <div>
                                         <h3>System Mode</h3>
-                                        <p>{shopCfg.businessMode === "repair-pro" ? "Repair Lab" : "Retail"} / {shopCfg.businessMode === "repair-pro" ? "Focused" : "General"}</p>
+                                        <p>{appMode === "repair-pro" ? "Repair Lab / Focused" : appMode === "bill-pro" ? "Bill Pro / Offline" : "Retail / General"}</p>
                                     </div>
                                 </button>
                                 </div>
@@ -6551,7 +7673,7 @@ export default function App() {
                                 {shopProfileDirty ? <span className="page-chip"><AlertCircle size={14} /> Unsaved changes</span> : <span style={{ color: "var(--t3)", fontSize: 12, fontWeight: 700 }}>All settings saved</span>}
                                 <div className="settings-terminal-cta">
                                     <button className="bp settings-terminal-btn save" onClick={() => void saveShopProfile()} disabled={profileSaveBusy}>{profileSaveBusy ? "Saving..." : "Save"}</button>
-                                    <button className="bg settings-terminal-btn signout" onClick={logoutShop}><LogOut size={15} /> Sign out</button>
+                                    <button className="bg settings-terminal-btn signout" onClick={logoutShop}><LogOut size={15} /> {shopSession?.isBillPro ? "Close Bill Pro" : "Sign out"}</button>
                                 </div>
                             </div>
                             </div>
@@ -6587,7 +7709,7 @@ export default function App() {
                                         <input ref={logoInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleLogoPick} />
                                     </div>
                                     <div style={{ color: "var(--t3)", fontSize: 12, lineHeight: 1.6 }}>This uploaded shop logo is used on invoice PDFs only. The app itself uses the separate {APP_NAME} brand logo.</div>
-                                    <div className="action-row"><button className="bp" onClick={() => void saveShopProfile()} disabled={profileSaveBusy}>{profileSaveBusy ? "Saving..." : "Save Shop Profile"}</button><button className="bg" onClick={logoutShop}><LogOut size={16} /> Sign out</button>{shopProfileDirty ? <span style={{ color: "var(--warn)", fontSize: 12, alignSelf: "center" }}>Unsaved changes</span> : null}</div>
+                                    <div className="action-row"><button className="bp" onClick={() => void saveShopProfile()} disabled={profileSaveBusy}>{profileSaveBusy ? "Saving..." : "Save Shop Profile"}</button><button className="bg" onClick={logoutShop}><LogOut size={16} /> {shopSession?.isBillPro ? "Close Bill Pro" : "Sign out"}</button>{shopProfileDirty ? <span style={{ color: "var(--warn)", fontSize: 12, alignSelf: "center" }}>Unsaved changes</span> : null}</div>
                                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12 }}>
                                         <F l="Shop Name" ic={Smartphone}><input className="gi" value={shopCfg.shopName} onChange={e => setShopField("shopName", e.target.value)} placeholder="PhoneDukaan" /></F>
                                         <F l="Legal Name" ic={FileText}><input className="gi" value={shopCfg.legalName} onChange={e => setShopField("legalName", e.target.value)} placeholder="Business legal name" /></F>
@@ -6617,27 +7739,27 @@ export default function App() {
                                 </div>
                                 <div className="gc" style={{ marginTop: 12, ...settingsSoftPanelStyle }}>
                                     <div style={{ color: "var(--t1)", fontSize: 14, fontWeight: 600, marginBottom: 6 }}>Invoice Output</div>
-                                    <div style={{ color: "var(--t2)", fontSize: 13, lineHeight: 1.7 }}>PDFs are generated in professional A4 portrait format with your uploaded shop logo, shop address, customer details, handset specs, IMEIs, payment summary, and GST or regular invoice totals. On supported phones, the PDF can be shared directly to WhatsApp from the native share sheet.</div>
+                                    <div style={{ color: "var(--t2)", fontSize: 13, lineHeight: 1.7 }}>PDFs are generated in professional A4 portrait format with your uploaded shop logo, shop address, customer details, handset or accessory labels, optional IMEI or serial references, payment summary, and GST or regular invoice totals. On supported phones, the PDF can be shared directly to WhatsApp from the native share sheet.</div>
                                 </div>
                             </SettingsSection> : null}
 
                             {activeSettingsSection === "system-mode" ? <SettingsSection
                                 title="System Mode"
-                                summary={`${shopCfg.businessMode === "repair-pro" ? "Repair Lab" : "Retail"} · ${getEnabledModules(shopCfg).map(module => module.charAt(0).toUpperCase() + module.slice(1)).join(", ")}`}
+                                summary={`${appMode === "repair-pro" ? "Repair Lab" : appMode === "bill-pro" ? "Bill Pro" : "Retail"} · ${enabledModules.map(module => module.charAt(0).toUpperCase() + module.slice(1)).join(", ")}`}
                                 open={activeSettingsSection === "system-mode"}
                                 onToggle={() => setSettingsOpenSection(current => current === "system-mode" ? "" : "system-mode")}
                             >
                                 <div className="gc" style={{ ...settingsSoftPanelStyle }}>
                                     <div style={{ display: "grid", gap: 12 }}>
-                                        <F l="App Focus" ic={Wrench}><select className="gs" value={shopCfg.businessMode} onChange={e => setShopField("businessMode", e.target.value)}>{[{ value: "general", label: "General" }, { value: "repair-pro", label: "Repair Pro" }].map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></F>
+                                        <F l="App Focus" ic={Wrench}><select className="gs" value={appMode} onChange={e => setShopField("businessMode", e.target.value)} disabled={shopSession?.isBillPro}>{(shopSession?.isBillPro ? [{ value: "bill-pro", label: "Bill Pro" }] : [{ value: "general", label: "General" }, { value: "repair-pro", label: "Repair Pro" }]).map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></F>
                                         <F l="Enabled Modules" ic={ClipboardList}><div className="gi" style={{ display: "grid", gap: 8 }}>
-                                            {GENERAL_MODULES.map(module => <label key={module} style={{ display: "flex", alignItems: "center", gap: 10, cursor: shopCfg.businessMode === "repair-pro" && module !== "repair" ? "not-allowed" : "pointer", opacity: shopCfg.businessMode === "repair-pro" && module !== "repair" ? 0.45 : 1 }}>
+                                            {GENERAL_MODULES.map(module => <label key={module} style={{ display: "flex", alignItems: "center", gap: 10, cursor: (appMode === "repair-pro" && module !== "repair") || appMode === "bill-pro" ? "not-allowed" : "pointer", opacity: (appMode === "repair-pro" && module !== "repair") || appMode === "bill-pro" ? 0.45 : 1 }}>
                                                 <input
                                                     type="checkbox"
-                                                    checked={getEnabledModules(shopCfg).includes(module)}
-                                                    disabled={shopCfg.businessMode === "repair-pro" && module !== "repair"}
+                                                    checked={enabledModules.includes(module)}
+                                                    disabled={(appMode === "repair-pro" && module !== "repair") || appMode === "bill-pro"}
                                                     onChange={e => {
-                                                        const current = new Set(getEnabledModules(shopCfg));
+                                                        const current = new Set(enabledModules);
                                                         if (e.target.checked) current.add(module);
                                                         else current.delete(module);
                                                         setShopField("enabledModules", Array.from(current));
@@ -6646,18 +7768,23 @@ export default function App() {
                                                 <span style={{ textTransform: "capitalize" }}>{module}</span>
                                             </label>)}
                                         </div></F>
-                                        <div style={{ color: "var(--t3)", fontSize: 12, lineHeight: 1.6 }}>General mode can show Buy, Sell, and Repair together. Repair Pro keeps the app focused on repair jobs, while still allowing you to switch back here later.</div>
+                                        <div style={{ color: "var(--t3)", fontSize: 12, lineHeight: 1.6 }}>{shopSession?.isBillPro ? "Bill Pro stays fixed to offline billing and sticker printing on this device." : "General mode can show Buy, Sell, and Repair together. Repair Pro keeps the app focused on repair jobs, while still allowing you to switch back here later."}</div>
                                     </div>
                                 </div>
                             </SettingsSection> : null}
                         </div> : null}
                         {activeSettingsSection === "app-status" ? <SettingsSection
                             title="Data Status"
-                            summary={syncReady ? "Connected and changes update automatically" : "Waiting for login or setup"}
+                            summary={appMode === "bill-pro" ? "Device-locked and local only" : (syncReady ? "Connected and changes update automatically" : "Waiting for login or setup")}
                             open={true}
                             onToggle={() => { }}
                             style={{ marginBottom: 16 }}
                         >
+                            {appMode === "bill-pro" ? <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 12 }}>
+                                <div className="settings-mini-card"><strong>Edition</strong><span style={{ color: "var(--t1)", fontWeight: 700, marginBottom: 4 }}>Bill Pro</span><span>Billing and stickers only</span></div>
+                                <div className="settings-mini-card"><strong>Activation</strong><span style={{ color: "var(--ok)", fontWeight: 700, marginBottom: 4 }}>Active on this device</span><span>{billProDeviceId}</span></div>
+                                <div className="settings-mini-card"><strong>Storage</strong><span style={{ color: "var(--t1)", fontWeight: 700, marginBottom: 4 }}>Local only</span><span>No cloud sync or trial checks</span></div>
+                            </div> : <>
                             {shopSession && <div className="gc" style={{ marginBottom: 12, ...settingsSoftPanelStyle }}><div style={{ color: "var(--t1)", fontSize: 14, fontWeight: 600, marginBottom: 4 }}>Automatic updates active</div><div style={{ color: "var(--t2)", fontSize: 13, lineHeight: 1.6 }}>Changes on one logged-in device appear automatically on the others.</div></div>}
                             {showSyncAdvanced ? <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 12 }}>
                                 <F l="Shop ID" ic={Hash}><input className="gi" value={syncCfg.shopId} onChange={e => setSyncField("shopId", e.target.value)} placeholder="main-shop" style={{ fontFamily: "'Space Mono',monospace" }} /></F>
@@ -6667,7 +7794,7 @@ export default function App() {
                                 <div className="settings-mini-card"><strong>Shop ID</strong><span style={{ color: "var(--t1)", fontWeight: 700, marginBottom: 4 }}>{syncCfg.shopId}</span><span>Saved on this device</span></div>
                                 <div className="settings-mini-card"><strong>Automatic Updates</strong><span style={{ color: syncCfg.autoSync ? "var(--ok)" : "var(--t1)", fontWeight: 700, marginBottom: 4 }}>{syncCfg.autoSync ? "Enabled" : "Disabled"}</span><span>{syncCfg.autoSync ? "Changes update across devices automatically." : "Automatic updates paused on this device."}</span></div>
                             </div>}
-                            <div style={{ marginTop: 10, color: "var(--t3)", fontSize: 13 }}>Changes are saved automatically and appear on other logged-in devices.</div>
+                            <div style={{ marginTop: 10, color: "var(--t3)", fontSize: 13 }}>Changes are saved automatically and appear on other logged-in devices.</div></>}
                         </SettingsSection> : null}
                         {activeSettingsSection === "app-status" ? <SettingsSection
                             title="App Install & Offline"
@@ -6687,19 +7814,26 @@ export default function App() {
                             </div>
                         </SettingsSection> : null}
                         {activeSettingsSection === "app-status" ? <SettingsSection
-                            title="Sync Status"
+                            title={appMode === "bill-pro" ? "Activation Status" : "Sync Status"}
                             summary={`${ol ? "Online" : "Offline"} · ${syncStateLabel}`}
                             open={true}
                             onToggle={() => { }}
                         >
                             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(250px,1fr))", gap: 16 }}>
-                            <div className="gc" style={settingsSoftPanelStyle}><h3 style={{ color: "var(--t1)", fontSize: 15, fontWeight: 600, marginBottom: 12 }}>Sync Status</h3>
+                            <div className="gc" style={settingsSoftPanelStyle}><h3 style={{ color: "var(--t1)", fontSize: 15, fontWeight: 600, marginBottom: 12 }}>{appMode === "bill-pro" ? "Activation Status" : "Sync Status"}</h3>
                                 <div style={{ display: "grid", gap: 10 }}>
-                                    <div className="settings-mini-card"><strong>Connection</strong><span style={{ color: ol ? "var(--ok)" : "var(--warn)", fontWeight: 600 }}>{ol ? "Online" : "Offline"} · {syncReady ? "Connected" : "Waiting for setup"}</span></div>
-                                    <div className="settings-mini-card"><strong>Sync State</strong><span style={{ color: syncMeta.syncState === "error" ? "var(--err)" : syncMeta.syncState === "offline" ? "var(--warn)" : "var(--t2)", fontWeight: 600 }}>{syncStateLabel}{syncMeta.pendingSync ? " · pending changes" : ""}</span></div>
-                                    <div className="settings-mini-card"><strong>Last Status</strong><span style={{ color: "var(--t2)", fontWeight: 600 }}>{sanitizeStatus(syncCfg.lastStatus)}</span></div>
-                                    <div className="settings-mini-card"><strong>Last Remote Update</strong><span style={{ color: "var(--t2)", fontWeight: 600 }}>{syncMeta.lastRemoteSavedAt ? fmtDateTime(syncMeta.lastRemoteSavedAt) : "Never"}</span></div>
-                                    <div className="settings-mini-card"><strong>Live Updates</strong><span style={{ color: "var(--t2)", fontWeight: 600 }}>{syncCfg.autoSync ? "Watching for new changes" : "Paused on this device"}</span></div>
+                                    {appMode === "bill-pro" ? <>
+                                        <div className="settings-mini-card"><strong>Connection</strong><span style={{ color: ol ? "var(--ok)" : "var(--warn)", fontWeight: 600 }}>{ol ? "Online" : "Offline"} · Local device storage</span></div>
+                                        <div className="settings-mini-card"><strong>Activation</strong><span style={{ color: "var(--ok)", fontWeight: 600 }}>Verified for {billProDeviceId}</span></div>
+                                        <div className="settings-mini-card"><strong>Issued At</strong><span style={{ color: "var(--t2)", fontWeight: 600 }}>{shopSession?.activation?.issuedAt ? fmtDateTime(shopSession.activation.issuedAt) : "Stored locally"}</span></div>
+                                        <div className="settings-mini-card"><strong>Sticker Mode</strong><span style={{ color: "var(--t2)", fontWeight: 600 }}>Generic offline stickers ready</span></div>
+                                    </> : <>
+                                        <div className="settings-mini-card"><strong>Connection</strong><span style={{ color: ol ? "var(--ok)" : "var(--warn)", fontWeight: 600 }}>{ol ? "Online" : "Offline"} · {syncReady ? "Connected" : "Waiting for setup"}</span></div>
+                                        <div className="settings-mini-card"><strong>Sync State</strong><span style={{ color: syncMeta.syncState === "error" ? "var(--err)" : syncMeta.syncState === "offline" ? "var(--warn)" : "var(--t2)", fontWeight: 600 }}>{syncStateLabel}{syncMeta.pendingSync ? " · pending changes" : ""}</span></div>
+                                        <div className="settings-mini-card"><strong>Last Status</strong><span style={{ color: "var(--t2)", fontWeight: 600 }}>{sanitizeStatus(syncCfg.lastStatus)}</span></div>
+                                        <div className="settings-mini-card"><strong>Last Remote Update</strong><span style={{ color: "var(--t2)", fontWeight: 600 }}>{syncMeta.lastRemoteSavedAt ? fmtDateTime(syncMeta.lastRemoteSavedAt) : "Never"}</span></div>
+                                        <div className="settings-mini-card"><strong>Live Updates</strong><span style={{ color: "var(--t2)", fontWeight: 600 }}>{syncCfg.autoSync ? "Watching for new changes" : "Paused on this device"}</span></div>
+                                    </>}
                                 </div>
                             </div>
 
@@ -6713,6 +7847,31 @@ export default function App() {
                 </div>
 
                 <InstallPopup />
+
+                {returnTarget && <div className="so fi" style={{ zIndex: 999 }}><div style={{ background: "var(--c)", borderRadius: 18, padding: 24, maxWidth: 460, width: "92vw", border: "1px solid var(--gbo)", boxShadow: "var(--shadow-lg)" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
+                        <div style={{ width: 44, height: 44, borderRadius: 14, background: "rgba(245,158,11,.14)", display: "flex", alignItems: "center", justifyContent: "center" }}><ArchiveRestore size={22} color="var(--warn)" /></div>
+                        <div>
+                            <h3 style={{ color: "var(--t1)", fontSize: 18, fontWeight: 800, margin: 0 }}>Return Item</h3>
+                            <p style={{ color: "var(--t3)", fontSize: 12, margin: "4px 0 0" }}>Full item return will restore stock and create a return transaction.</p>
+                        </div>
+                    </div>
+                    <div className="gc" style={{ marginBottom: 14, background: "var(--surface-low)", border: "1px solid rgba(198,197,212,.16)" }}>
+                        <div className="list-row" style={{ padding: "8px 0" }}><div className="list-row-title">Invoice</div><div className="list-row-value">{returnTarget.invoiceNo || "INV"}</div></div>
+                        <div className="list-row" style={{ padding: "8px 0" }}><div className="list-row-title">Device</div><div className="list-row-value">{getTxItemLabel(returnTarget)}</div></div>
+                        <div className="list-row" style={{ padding: "8px 0" }}><div className="list-row-title">IMEI</div><div className="list-row-value" style={{ fontFamily: "'Space Mono',monospace", fontSize: 12 }}>{returnTarget.imei || "-"}</div></div>
+                        <div className="list-row" style={{ padding: "8px 0" }}><div className="list-row-title">Original Total</div><div className="list-row-value">{fmtCurrency(returnTarget.totalAmount || returnTarget.amount)}</div></div>
+                    </div>
+                    <div style={{ display: "grid", gap: 12 }}>
+                        <F l="Refund Amount" ic={IndianRupee}><input className="gi" type="number" value={returnForm.refundAmount} onChange={e => setReturnForm(current => ({ ...current, refundAmount: e.target.value }))} placeholder="0" /></F>
+                        <F l="Refund Mode" ic={Banknote}><select className="gs" value={returnForm.refundMode} onChange={e => setReturnForm(current => ({ ...current, refundMode: e.target.value }))}>{PAYMENT_MODES.map(mode => <option key={mode}>{mode}</option>)}</select></F>
+                        <F l="Return Reason" ic={FileText}><textarea className="gi" style={{ minHeight: 80 }} value={returnForm.reason} onChange={e => setReturnForm(current => ({ ...current, reason: e.target.value }))} placeholder="Customer return reason / condition notes" /></F>
+                    </div>
+                    <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 18, flexWrap: "wrap" }}>
+                        <button className="bg" style={{ padding: "10px 18px" }} onClick={closeReturnModal} disabled={returnBusy}>Cancel</button>
+                        <button className="bd" style={{ padding: "10px 18px" }} onClick={() => void confirmReturn()} disabled={returnBusy}>{returnBusy ? "Returning..." : "Confirm Return"}</button>
+                    </div>
+                </div></div>}
 
                 {confirmDel && <div className="so fi" style={{ zIndex: 999 }}><div style={{ background: "var(--c)", borderRadius: 16, padding: 28, maxWidth: 380, width: "90vw", textAlign: "center", border: "1px solid var(--gbo)" }}>
                     <div style={{ width: 48, height: 48, borderRadius: "50%", background: "rgba(239,68,68,.15)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}><AlertCircle size={24} color="var(--err)" /></div>

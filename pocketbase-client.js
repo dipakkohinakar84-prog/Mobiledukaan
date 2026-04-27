@@ -674,6 +674,13 @@ function transactionRecordToItem(record) {
     sellerPhone: record.sellerPhone || '',
     sellerAadhaarNumber: record.sellerAadhaarNumber || '',
     purchaseDate: record.purchaseDate || '',
+    returnOfTxId: record.returnOfTxId || '',
+    returnOfInvoiceNo: record.returnOfInvoiceNo || '',
+    refundAmount: Number(record.refundAmount || 0),
+    refundMode: record.refundMode || record.paymentMode || 'Cash',
+    returnReason: record.returnReason || '',
+    returnedAt: record.returnedAt || '',
+    invoiceNoOriginal: record.invoiceNoOriginal || '',
     shopSnapshot: null,
   }
 }
@@ -797,6 +804,13 @@ function transactionItemToRecord(item, shopRecordId) {
     sellerPhone: item.sellerPhone || '',
     sellerAadhaarNumber: item.sellerAadhaarNumber || '',
     purchaseDate: item.purchaseDate || '',
+    returnOfTxId: item.returnOfTxId || '',
+    returnOfInvoiceNo: item.returnOfInvoiceNo || '',
+    refundAmount: Number(item.refundAmount || 0),
+    refundMode: item.refundMode || item.paymentMode || 'Cash',
+    returnReason: item.returnReason || '',
+    returnedAt: item.returnedAt || '',
+    invoiceNoOriginal: item.invoiceNoOriginal || '',
   }
 }
 

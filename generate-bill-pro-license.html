@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Bill Pro License Generator</title>
+<style>
+  body{margin:0;background:#0a1026;color:#fff;font-family:system-ui,sans-serif;padding:24px}
+  .wrap{max-width:900px;margin:0 auto;display:grid;gap:16px}
+  .card{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:18px;padding:22px}
+  h1,h2{margin:0 0 8px}
+  p{margin:0;color:rgba(255,255,255,.7);line-height:1.6}
+  .grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+  label{display:grid;gap:6px;font-size:13px;font-weight:600}
+  input,textarea{width:100%;box-sizing:border-box;border:none;border-radius:12px;padding:12px 14px;background:#111938;color:#fff;font:inherit}
+  textarea{min-height:120px;resize:vertical}
+  button{border:none;border-radius:12px;padding:12px 16px;font:inherit;font-weight:700;cursor:pointer}
+  .primary{background:linear-gradient(135deg,#2761fe,#00d4ff);color:#fff}
+  .secondary{background:#1a2348;color:#fff;border:1px solid rgba(255,255,255,.12)}
+  .actions{display:flex;gap:10px;flex-wrap:wrap}
+  .muted{font-size:12px;color:rgba(255,255,255,.55)}
+  code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+  .status{min-height:18px;font-size:13px}
+  .ok{color:#6ee7b7}
+  .err{color:#fda4af}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <h1>Bill Pro License Generator</h1>
+    <p>Generate a signed Bill Pro activation code for a specific device ID. Keep the private JWK outside your public app files.</p>
+  </div>
+
+  <div class="card">
+    <h2>Steps</h2>
+    <p>1. Open Bill Pro in the app and copy the device ID.</p>
+    <p>2. Load <code>bill-pro-license-private.jwk</code> into this page.</p>
+    <p>3. Enter the device ID and optional shop name, then generate the activation code.</p>
+    <p>4. Paste the activation code back into Bill Pro and activate it.</p>
+  </div>
+
+  <div class="card">
+    <div class="grid">
+      <label>
+        Private JWK File
+        <input id="jwkFile" type="file" accept="application/json,.jwk,.json" />
+      </label>
+      <label>
+        Shop Name
+        <input id="shopName" placeholder="Optional shop name" />
+      </label>
+      <label>
+        Device ID
+        <input id="deviceId" placeholder="BP-XXXX-XXXX-XXXX" />
+      </label>
+      <label>
+        Issued At
+        <input id="issuedAt" />
+      </label>
+    </div>
+    <label style="margin-top:14px">
+      Private JWK JSON
+      <textarea id="jwkText" placeholder="Paste the Bill Pro private JWK here if you do not want to load the file"></textarea>
+    </label>
+    <div class="actions" style="margin-top:14px">
+      <button class="primary" id="generateBtn">Generate Activation Code</button>
+      <button class="secondary" id="copyBtn" type="button">Copy Activation Code</button>
+    </div>
+    <div class="status" id="status"></div>
+    <label style="margin-top:14px">
+      Activation Code
+      <textarea id="token" readonly placeholder="Generated activation code will appear here"></textarea>
+    </label>
+    <div class="muted">The signed payload includes <code>edition</code>, <code>deviceId</code>, <code>shopName</code>, and <code>issuedAt</code>.</div>
+  </div>
+</div>
+
+<script>
+const issuedAt = document.getElementById('issuedAt');
+issuedAt.value = new Date().toISOString();
+
+const statusEl = document.getElementById('status');
+const tokenEl = document.getElementById('token');
+const jwkTextEl = document.getElementById('jwkText');
+const deviceIdEl = document.getElementById('deviceId');
+const shopNameEl = document.getElementById('shopName');
+
+const base64UrlFromBytes = (bytes) => btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+
+function billProLicensePayloadText(payload) {
+  return JSON.stringify({
+    edition: 'bill-pro',
+    deviceId: String(payload.deviceId || '').trim().toUpperCase(),
+    shopName: String(payload.shopName || '').trim(),
+    issuedAt: String(payload.issuedAt || '').trim(),
+  });
+}
+
+async function importPrivateKey(jwk) {
+  return crypto.subtle.importKey('jwk', jwk, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['sign']);
+}
+
+async function readFileText(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = reject;
+    reader.readAsText(file);
+  });
+}
+
+function setStatus(message, tone = '') {
+  statusEl.textContent = message;
+  statusEl.className = `status ${tone}`.trim();
+}
+
+document.getElementById('jwkFile').addEventListener('change', async (event) => {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+  try {
+    jwkTextEl.value = await readFileText(file);
+    setStatus('Private JWK loaded.', 'ok');
+  } catch {
+    setStatus('Unable to read the private JWK file.', 'err');
+  }
+});
+
+document.getElementById('generateBtn').addEventListener('click', async () => {
+  const deviceId = String(deviceIdEl.value || '').trim().toUpperCase();
+  const shopName = String(shopNameEl.value || '').trim();
+  const issuedValue = String(issuedAt.value || '').trim() || new Date().toISOString();
+  if (!deviceId) {
+    setStatus('Enter the Bill Pro device ID.', 'err');
+    return;
+  }
+  let jwk;
+  try {
+    jwk = JSON.parse(jwkTextEl.value || '{}');
+  } catch {
+    setStatus('Private JWK JSON is invalid.', 'err');
+    return;
+  }
+  try {
+    const key = await importPrivateKey(jwk);
+    const payloadText = billProLicensePayloadText({ deviceId, shopName, issuedAt: issuedValue });
+    const signature = await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, key, new TextEncoder().encode(payloadText));
+    tokenEl.value = `${base64UrlFromBytes(new TextEncoder().encode(payloadText))}.${base64UrlFromBytes(new Uint8Array(signature))}`;
+    setStatus('Activation code generated.', 'ok');
+  } catch (error) {
+    setStatus(error && error.message ? error.message : 'Unable to sign the activation payload.', 'err');
+  }
+});
+
+document.getElementById('copyBtn').addEventListener('click', async () => {
+  if (!tokenEl.value.trim()) {
+    setStatus('Generate an activation code first.', 'err');
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(tokenEl.value);
+    setStatus('Activation code copied.', 'ok');
+  } catch {
+    setStatus('Unable to copy activation code on this browser.', 'err');
+  }
+});
+</script>
+</body>
+</html>
