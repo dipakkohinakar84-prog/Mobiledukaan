@@ -522,7 +522,49 @@ export async function pocketbaseCreateTransaction(shopAuth, tx) {
   const pb = createClient(shopAuth)
   const shopRecordId = shopAuth?.record?.shop
   if (!shopRecordId) throw new Error('PocketBase shop session is missing shop relation.')
-  return pb.collection(COLLECTIONS.transactions).create(transactionItemToRecord(tx, shopRecordId))
+  const payload = transactionItemToRecord(tx, shopRecordId)
+  const createTransaction = (record) => pb.collection(COLLECTIONS.transactions).create(record)
+  let lastPayload = payload
+  try {
+    return await createTransaction(payload)
+  } catch (error) {
+    let fieldErrors = error?.response?.data
+    if (fieldErrors?.type && payload.type === 'Buy') {
+      lastPayload = { ...payload, type: 'Add' }
+      try {
+        return await createTransaction(lastPayload)
+      } catch (retryError) {
+        error = retryError
+        fieldErrors = retryError?.response?.data
+      }
+    }
+    if (fieldErrors?.type && lastPayload.type) {
+      const { type, ...payloadWithoutType } = lastPayload
+      lastPayload = payloadWithoutType
+      try {
+        return await createTransaction(lastPayload)
+      } catch (retryError) {
+        error = retryError
+        fieldErrors = retryError?.response?.data
+      }
+    }
+    if (fieldErrors?.inventoryItem && lastPayload.inventoryItem) {
+      const { inventoryItem, ...payloadWithoutInventoryItem } = lastPayload
+      try {
+        return await createTransaction(payloadWithoutInventoryItem)
+      } catch (retryError) {
+        error = retryError
+        fieldErrors = retryError?.response?.data
+      }
+    }
+    if (fieldErrors && typeof fieldErrors === 'object') {
+      const details = Object.entries(fieldErrors)
+        .map(([field, detail]) => `${field}: ${detail?.message || detail?.code || 'invalid value'}`)
+        .join(', ')
+      if (details) throw new Error(`Unable to create transaction: ${details}`)
+    }
+    throw error
+  }
 }
 
 export async function pocketbaseUpdateShopProfile(shopAuth, profile) {
@@ -769,6 +811,8 @@ function repairItemToRecord(item, shopRecordId) {
 }
 
 function transactionItemToRecord(item, shopRecordId) {
+  const amount = Number(item.amount || 0)
+  const costPrice = Number(item.costPrice || ((item.type === 'Add' || item.type === 'Buy') ? amount : 0))
   return {
     shop: shopRecordId,
     inventoryItem: item.stockItemId || '',
@@ -785,10 +829,10 @@ function transactionItemToRecord(item, shopRecordId) {
     condition: item.condition || '',
     customerName: item.customerName || '',
     phone: item.phone || '',
-    amount: Number(item.amount || 0),
+    amount,
     paidAmount: Number(item.paidAmount || 0),
     dueAmount: Number(item.dueAmount || 0),
-    costPrice: Number(item.costPrice || 0),
+    costPrice,
     paymentMode: item.paymentMode || 'Cash',
     billType: item.billType || 'NON GST',
     gstRate: Number(item.gstRate || 0),

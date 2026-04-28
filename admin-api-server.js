@@ -11,6 +11,15 @@ const ALLOWED_ORIGINS = String(process.env.ADMIN_API_ALLOWED_ORIGINS || 'https:/
   .filter(Boolean)
 const sessions = new Map()
 
+const securityHeaders = {
+  'Content-Security-Policy': "default-src 'none'; frame-ancestors 'none'; base-uri 'none'",
+  'X-Frame-Options': 'DENY',
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'no-referrer',
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=(), usb=(), serial=()',
+  'Strict-Transport-Security': 'max-age=31536000; includeSubDomains; preload',
+}
+
 if (!PB_URL) {
   console.error('Missing POCKETBASE_URL or VITE_POCKETBASE_URL environment variable.')
   process.exit(1)
@@ -59,6 +68,7 @@ function sendJson(res, statusCode, payload, extraHeaders = {}) {
   res.writeHead(statusCode, {
     'Content-Type': 'application/json; charset=utf-8',
     'Cache-Control': 'no-store',
+    ...securityHeaders,
     ...extraHeaders,
   })
   res.end(JSON.stringify(payload))
@@ -221,7 +231,7 @@ const server = http.createServer(async (req, res) => {
   const headers = corsHeaders(req)
 
   if (req.method === 'OPTIONS') {
-    res.writeHead(204, headers)
+    res.writeHead(204, { ...securityHeaders, ...headers })
     res.end()
     return
   }

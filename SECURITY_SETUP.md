@@ -37,3 +37,15 @@ Quick checklist before pushing code
 - `.env` is not staged
 - no real secret values appear in changed files
 - `.env.example` contains placeholders only
+
+PocketBase rule hardening
+1. Set these environment variables locally or in your shell only:
+   - `POCKETBASE_URL`
+   - `POCKETBASE_ADMIN_EMAIL`
+   - `POCKETBASE_ADMIN_PASSWORD`
+2. Preview the rule changes:
+   - `npm run security:pocketbase-rules -- --dry-run`
+3. Apply the rules:
+   - `npm run security:pocketbase-rules`
+
+By default this keeps public signup enabled for `shops` and `shop_users`. To disable public signup collection creates, run with `ALLOW_PUBLIC_SIGNUP=false`.
