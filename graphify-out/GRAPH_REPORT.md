@@ -1,11 +1,11 @@
 # Graph Report - Mobnage  (2026-04-28)
 
 ## Corpus Check
-- 11 files · ~549,195 words
+- 11 files · ~549,541 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 237 nodes · 462 edges · 17 communities detected
+- 237 nodes · 463 edges · 18 communities detected
 - Extraction: 100% EXTRACTED · 0% INFERRED · 0% AMBIGUOUS · INFERRED: 1 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
@@ -27,12 +27,13 @@
 - [[_COMMUNITY_Community 14|Community 14]]
 - [[_COMMUNITY_Community 15|Community 15]]
 - [[_COMMUNITY_Community 16|Community 16]]
+- [[_COMMUNITY_Community 20|Community 20]]
 
 ## God Nodes (most connected - your core abstractions)
 1. `App()` - 22 edges
 2. `createClient()` - 15 edges
 3. `normalizeShopProfile()` - 14 edges
-4. `buildInvoiceDoc()` - 12 edges
+4. `buildInvoiceDoc()` - 13 edges
 5. `normalizeRepair()` - 11 edges
 6. `adminApiRequest()` - 11 edges
 7. `pocketbaseRegisterShopUser()` - 10 edges
@@ -52,27 +53,27 @@ Nodes (6): base64UrlFromBytes(), base64UrlFromText(), ensureBillProDeviceId(), g
 
 ### Community 1 - "Community 1"
 Cohesion: 0.14
-Nodes (17): adminApiRequest(), ensureTrialActive(), ensureUrl(), getPocketBaseUrl(), isTrialExpired(), pocketbaseAdminExtendUserTrial(), pocketbaseAdminLoadDashboard(), pocketbaseAdminLogin() (+9 more)
+Nodes (17): adminApiRequest(), ensureTrialActive(), isTrialExpired(), pocketbaseAdminExtendUserTrial(), pocketbaseAdminLoadDashboard(), pocketbaseAdminLogin(), pocketbaseAdminLogout(), pocketbaseAdminSendPasswordReset() (+9 more)
 
 ### Community 2 - "Community 2"
 Cohesion: 0.13
 Nodes (21): cleanImei(), cleanMobileNumber(), extractScanImei(), findDuplicateImei(), genId(), getRepairPartCost(), getRepairPartSupplierId(), getRepairPartSupplierName() (+13 more)
 
 ### Community 3 - "Community 3"
-Cohesion: 0.12
-Nodes (18): App(), createEmptyForm(), createEmptyPartSupplier(), createEmptyRepairForm(), fmtCompactCurrency(), fmtCurrency(), fmtDate(), fmtRelativeTime() (+10 more)
+Cohesion: 0.19
+Nodes (18): amountInWords(), buildInvoiceDoc(), calcInvoiceTotals(), fmtDateTime(), fmtMoney(), fmtSpecs(), formatMoney(), getSaleShop() (+10 more)
 
 ### Community 4 - "Community 4"
 Cohesion: 0.18
-Nodes (18): amountInWords(), buildInvoiceDoc(), calcInvoiceTotals(), fmtDateTime(), fmtMoney(), fmtSpecs(), formatMoney(), getSaleShop() (+10 more)
+Nodes (12): buildShopUserEmail(), computeTrialDaysValue(), corsHeaders(), getBearerToken(), loadDashboard(), mapDashboard(), normalizeMobileNumber(), normalizeShopId() (+4 more)
 
 ### Community 5 - "Community 5"
-Cohesion: 0.18
-Nodes (12): buildShopUserEmail(), computeTrialDaysValue(), corsHeaders(), getBearerToken(), loadDashboard(), mapDashboard(), normalizeMobileNumber(), normalizeShopId() (+4 more)
+Cohesion: 0.14
+Nodes (16): App(), createEmptyForm(), createEmptyPartSupplier(), createEmptyRepairForm(), fmtCompactCurrency(), fmtCurrency(), fmtDate(), fmtRelativeTime() (+8 more)
 
 ### Community 6 - "Community 6"
 Cohesion: 0.23
-Nodes (14): createClient(), dataUrlToFile(), inferMimeTypeFromDataUrl(), inventoryItemToRecord(), isPocketbaseId(), pocketbaseCreateTransaction(), pocketbaseDeleteInventory(), pocketbaseDeleteRepair() (+6 more)
+Nodes (14): createClient(), dataUrlToFile(), ensureUrl(), getPocketBaseUrl(), inferMimeTypeFromDataUrl(), inventoryItemToRecord(), isPocketbaseId(), pocketbaseDeleteInventory() (+6 more)
 
 ### Community 7 - "Community 7"
 Cohesion: 0.18
@@ -114,14 +115,22 @@ Nodes (3): downloadBrandImages(), downloadImage(), main()
 Cohesion: 0.67
 Nodes (3): inferMimeType(), pbPhotoToRef(), repairFileToRef()
 
+### Community 20 - "Community 20"
+Cohesion: 1.0
+Nodes (2): getPhotoPreview(), LB()
+
+## Knowledge Gaps
+- **Thin community `Community 20`** (2 nodes): `getPhotoPreview()`, `LB()`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `App()` connect `Community 3` to `Community 0`, `Community 1`, `Community 4`, `Community 7`, `Community 13`?**
+- **Why does `App()` connect `Community 5` to `Community 0`, `Community 3`, `Community 6`, `Community 7`, `Community 13`, `Community 20`?**
   _High betweenness centrality (0.307) - this node is a cross-community bridge._
-- **Why does `getPocketBaseUrl()` connect `Community 1` to `Community 3`?**
+- **Why does `getPocketBaseUrl()` connect `Community 6` to `Community 1`, `Community 5`?**
   _High betweenness centrality (0.302) - this node is a cross-community bridge._
-- **Why does `normalizeShopProfile()` connect `Community 7` to `Community 0`, `Community 3`, `Community 4`, `Community 13`?**
+- **Why does `normalizeShopProfile()` connect `Community 7` to `Community 0`, `Community 5`, `Community 3`, `Community 13`?**
   _High betweenness centrality (0.015) - this node is a cross-community bridge._
 - **Should `Community 0` be split into smaller, more focused modules?**
   _Cohesion score 0.06 - nodes in this community are weakly interconnected._
@@ -129,5 +138,5 @@ _Questions this graph is uniquely positioned to answer:_
   _Cohesion score 0.14 - nodes in this community are weakly interconnected._
 - **Should `Community 2` be split into smaller, more focused modules?**
   _Cohesion score 0.13 - nodes in this community are weakly interconnected._
-- **Should `Community 3` be split into smaller, more focused modules?**
-  _Cohesion score 0.12 - nodes in this community are weakly interconnected._
+- **Should `Community 5` be split into smaller, more focused modules?**
+  _Cohesion score 0.14 - nodes in this community are weakly interconnected._

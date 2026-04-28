@@ -744,6 +744,7 @@ const normalizeTx = (it = {}) => ({
     refundMode: it.refundMode || it.paymentMode || "Cash",
     returnReason: String(it.returnReason || "").trim(),
     returnedAt: it.returnedAt || "",
+    invoiceNoOriginal: String(it.invoiceNoOriginal || "").trim(),
     whatsAppMessageAt: it.whatsAppMessageAt || "",
     whatsAppPdfAt: it.whatsAppPdfAt || "",
     shopSnapshot: it.shopSnapshot ? normalizeShopProfile(it.shopSnapshot) : null,
@@ -862,7 +863,11 @@ const makeInvoiceText = (sale, shop) => {
     const itemLabel = getTxItemLabel(sale);
     const itemContext = getTxReportExtra(sale);
     const identityLines = getTxIdentityLines(sale);
-    return `${shop.shopName} ${sale.invoiceNo || "Invoice"}\n${sale.billType === "GST" ? "GST Invoice" : "Invoice"}\n${itemLabel}${itemContext ? `\n${itemContext}` : ""}${identityLines.length ? `\n${identityLines.join("\n")}` : ""}\nTotal: ${fmtMoney(sale.totalAmount || sale.amount)}${sale.billType === "GST" ? `\nTaxable: ${fmtMoney(sale.taxableAmount)}\nGST: ${fmtMoney(sale.gstAmount)}` : ""}${sale.dueAmount ? `\nDue: ${fmtMoney(sale.dueAmount)}` : ""}`;
+    const isReturn = sale.type === "Return";
+    const total = isReturn ? Number(sale.refundAmount || sale.totalAmount || sale.amount || 0) : Number(sale.totalAmount || sale.amount || 0);
+    const originalLine = isReturn && (sale.returnOfInvoiceNo || sale.invoiceNoOriginal) ? `\nOriginal Invoice: ${sale.returnOfInvoiceNo || sale.invoiceNoOriginal}` : "";
+    const reasonLine = isReturn && sale.returnReason ? `\nReason: ${sale.returnReason}` : "";
+    return `${shop.shopName} ${sale.invoiceNo || "Invoice"}\n${isReturn ? "Return Invoice" : sale.billType === "GST" ? "GST Invoice" : "Invoice"}${originalLine}\n${itemLabel}${itemContext ? `\n${itemContext}` : ""}${identityLines.length ? `\n${identityLines.join("\n")}` : ""}\n${isReturn ? "Refund" : "Total"}: ${fmtMoney(total)}${sale.billType === "GST" ? `\nTaxable: ${fmtMoney(sale.taxableAmount)}\nGST: ${fmtMoney(sale.gstAmount)}` : ""}${sale.dueAmount && !isReturn ? `\nDue: ${fmtMoney(sale.dueAmount)}` : ""}${reasonLine}`;
 };
 const buildInvoiceDoc = async (sale, shop) => {
     const { jsPDF } = await import("jspdf");
@@ -881,15 +886,22 @@ const buildInvoiceDoc = async (sale, shop) => {
     const border = [190, 198, 210];
     const white = [255, 255, 255];
     const isGST = sale.billType === "GST";
-    const billLabel = isGST ? "TAX INVOICE" : "INVOICE";
+    const isReturn = sale.type === "Return";
+    const billLabel = isReturn ? "RETURN INVOICE" : isGST ? "TAX INVOICE" : "INVOICE";
     const sp = getSaleShop(sale, shop);
     const hsn = sp.hsnCode || "";
-    const totalAmt = sale.totalAmount || sale.amount;
+    const totalAmt = isReturn ? Number(sale.refundAmount || sale.totalAmount || sale.amount || 0) : Number(sale.totalAmount || sale.amount || 0);
+    const taxableAmt = Number(sale.taxableAmount || calcInvoiceTotals(totalAmt, sale.billType, sale.gstRate).taxableAmount);
+    const gstAmt = Number(sale.gstAmount || calcInvoiceTotals(totalAmt, sale.billType, sale.gstRate).gstAmount);
+    const cgstAmt = Number(sale.cgstAmount || calcInvoiceTotals(totalAmt, sale.billType, sale.gstRate).cgstAmount);
+    const sgstAmt = Number(sale.sgstAmount || calcInvoiceTotals(totalAmt, sale.billType, sale.gstRate).sgstAmount);
+    const paidAmt = isReturn ? totalAmt : Number(sale.paidAmount || 0);
+    const dueAmt = isReturn ? 0 : Number(sale.dueAmount || 0);
     const qty = getTxQty(sale);
     const itemLabel = getTxItemLabel(sale);
     const itemContext = getTxReportExtra(sale);
     const identityLines = getTxIdentityLines(sale);
-    const unitRate = isGST ? roundMoney((sale.taxableAmount || totalAmt) / qty) : roundMoney(totalAmt / qty);
+    const unitRate = isGST ? roundMoney((taxableAmt || totalAmt) / qty) : roundMoney(totalAmt / qty);
     const rX = pw - mr; // right edge
 
     // ═══════ OUTER BORDER ═══════
@@ -1015,8 +1027,9 @@ const buildInvoiceDoc = async (sale, shop) => {
     const detailPairs = [
         ["Invoice No.", sale.invoiceNo || "-"],
         ["Date", fmtDateTime(sale.dateTime || sale.date)],
-        ["Payment", sale.paymentMode || "Cash"],
+        [isReturn ? "Refund Mode" : "Payment", isReturn ? (sale.refundMode || sale.paymentMode || "Cash") : (sale.paymentMode || "Cash")],
     ];
+    if (isReturn && (sale.returnOfInvoiceNo || sale.invoiceNoOriginal)) detailPairs.push(["Original Inv.", sale.returnOfInvoiceNo || sale.invoiceNoOriginal]);
     if (sp.state && !isGST) detailPairs.push(["State", sp.state]);
     let dy = boxY + 12;
     detailPairs.forEach(([label, val]) => {
@@ -1171,19 +1184,19 @@ const buildInvoiceDoc = async (sale, shop) => {
     doc.setTextColor(...mid);
     doc.text(isGST ? "Taxable Amount" : "Sub Total", totLx, tCur);
     doc.setTextColor(...dark);
-    doc.text(fmtMoney(sale.taxableAmount), totRx, tCur, { align: "right" });
+    doc.text(fmtMoney(taxableAmt), totRx, tCur, { align: "right" });
     tCur += 6;
 
     if (isGST) {
         doc.setTextColor(...mid);
         doc.text(`CGST @ ${formatMoney(sale.gstRate / 2)}%`, totLx, tCur);
         doc.setTextColor(...dark);
-        doc.text(fmtMoney(sale.cgstAmount), totRx, tCur, { align: "right" });
+        doc.text(fmtMoney(cgstAmt), totRx, tCur, { align: "right" });
         tCur += 6;
         doc.setTextColor(...mid);
         doc.text(`SGST @ ${formatMoney(sale.gstRate / 2)}%`, totLx, tCur);
         doc.setTextColor(...dark);
-        doc.text(fmtMoney(sale.sgstAmount), totRx, tCur, { align: "right" });
+        doc.text(fmtMoney(sgstAmt), totRx, tCur, { align: "right" });
         tCur += 6;
     }
 
@@ -1199,7 +1212,7 @@ const buildInvoiceDoc = async (sale, shop) => {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(10);
     doc.setTextColor(255, 255, 255);
-    doc.text("GRAND TOTAL", totLx, tCur + 2);
+    doc.text(isReturn ? "REFUND TOTAL" : "GRAND TOTAL", totLx, tCur + 2);
     doc.text(fmtMoney(totalAmt), totRx, tCur + 2, { align: "right" });
     tCur += 10;
 
@@ -1207,17 +1220,17 @@ const buildInvoiceDoc = async (sale, shop) => {
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
     doc.setTextColor(...mid);
-    doc.text("Paid:", totLx, tCur);
+    doc.text(isReturn ? "Refunded:" : "Paid:", totLx, tCur);
     doc.setTextColor(...dark);
     doc.setFont("helvetica", "bold");
-    doc.text(fmtMoney(sale.paidAmount), totLx + 12, tCur);
+    doc.text(fmtMoney(paidAmt), totLx + 18, tCur);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(...mid);
     doc.text("Due:", totX + totW / 2 + 2, tCur);
-    const dueColor = Number(sale.dueAmount || 0) > 0 ? [190, 40, 40] : dark;
+    const dueColor = dueAmt > 0 ? [190, 40, 40] : dark;
     doc.setTextColor(...dueColor);
     doc.setFont("helvetica", "bold");
-    doc.text(fmtMoney(sale.dueAmount), totRx, tCur, { align: "right" });
+    doc.text(fmtMoney(dueAmt), totRx, tCur, { align: "right" });
 
     // ── Terms Section (left) ──
     doc.setDrawColor(...border);
@@ -1233,8 +1246,10 @@ const buildInvoiceDoc = async (sale, shop) => {
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7.5);
     doc.setTextColor(...mid);
-    const termsText = [sp.terms, sp.footer].filter(Boolean).join("\n");
-    const tLines = doc.splitTextToSize(termsText || "Thank you for your purchase.", termsW - 6);
+    const termsText = isReturn
+        ? [sale.returnReason ? `Return reason: ${sale.returnReason}` : "Returned item has been added back to stock.", sp.footer].filter(Boolean).join("\n")
+        : [sp.terms, sp.footer].filter(Boolean).join("\n");
+    const tLines = doc.splitTextToSize(termsText || (isReturn ? "Return invoice generated for stock return." : "Thank you for your purchase."), termsW - 6);
     doc.text(tLines.slice(0, 6), ml + 3, secStartY + 12);
 
     cy = secStartY + totH + 4;
@@ -1257,7 +1272,7 @@ const buildInvoiceDoc = async (sale, shop) => {
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7);
     doc.setTextColor(...mid);
-    const declText = "We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.";
+    const declText = isReturn ? "We declare that this return invoice records the refund against the original sale and the returned stock entry." : "We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.";
     const declLines = doc.splitTextToSize(declText, cw / 2 - 8);
     doc.text(declLines, ml + 3, footSecY + 10);
 
@@ -1988,6 +2003,8 @@ img{max-width:100%}
 .table-action-btn.danger{background:#ffe7e3;border-color:#ffd0ca;color:#b42323}
 .transactions-desktop-head,.reports-desktop-hero{grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:18px}
 .transactions-desktop-actions,.reports-desktop-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:flex-end}
+.transactions-desktop-search{width:min(360px,34vw);min-width:260px;border-radius:16px;min-height:50px;padding:0 14px;box-shadow:0 12px 24px rgba(25,28,30,.04)}
+.transactions-desktop-search .gi{font-size:14px}
 .transactions-summary-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
 .transactions-summary-card{padding:24px 26px;border-radius:24px;background:#fff;border:1px solid rgba(198,197,212,.18);box-shadow:0 18px 28px rgba(25,28,30,.04);display:grid;gap:10px}
 .transactions-summary-card span{font-size:12px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:#94a3b8}
@@ -4742,6 +4759,7 @@ export default function App() {
             purchaseDate: stockItem?.purchaseDate || "",
         });
         const now = new Date();
+        const returnTax = calcInvoiceTotals(refundAmount, sale.billType, sale.gstRate);
         const returnTx = normalizeTx({
             id: genId(),
             type: "Return",
@@ -4774,12 +4792,12 @@ export default function App() {
             dateTime: now.toISOString(),
             notes: [`Return of ${sale.invoiceNo || sale.id}`, returnForm.reason ? `Reason: ${returnForm.reason}` : ""].filter(Boolean).join("\n"),
             billType: sale.billType,
-            gstRate: sale.gstRate,
-            taxableAmount: sale.taxableAmount || calcInvoiceTotals(refundAmount, sale.billType, sale.gstRate).taxableAmount,
-            gstAmount: sale.gstAmount || calcInvoiceTotals(refundAmount, sale.billType, sale.gstRate).gstAmount,
-            cgstAmount: sale.cgstAmount || calcInvoiceTotals(refundAmount, sale.billType, sale.gstRate).cgstAmount,
-            sgstAmount: sale.sgstAmount || calcInvoiceTotals(refundAmount, sale.billType, sale.gstRate).sgstAmount,
-            totalAmount: refundAmount,
+            gstRate: returnTax.gstRate,
+            taxableAmount: returnTax.taxableAmount,
+            gstAmount: returnTax.gstAmount,
+            cgstAmount: returnTax.cgstAmount,
+            sgstAmount: returnTax.sgstAmount,
+            totalAmount: returnTax.totalAmount,
             shopSnapshot: sale.shopSnapshot || shopCfg,
         });
         setReturnBusy(true);
@@ -7473,6 +7491,10 @@ export default function App() {
                                 <p>Review and manage past transactions across walk-in customers, invoices, and pending balances.</p>
                             </div>
                             <div className="transactions-desktop-actions">
+                                <label className="invoices-searchbar transactions-desktop-search">
+                                    <Search size={17} />
+                                    <input className="gi" placeholder="Search invoice, customer, phone or device..." value={iq} onChange={e => sIq(e.target.value)} />
+                                </label>
                                 <button className="dashboard-action-ghost" onClick={exportTransactionsCsv}><Download size={16} /> Export CSV</button>
                                 <button className="dashboard-action-primary" onClick={() => { setReportView("Transactions"); setReportType("Sell"); goPage("reports"); }}><Printer size={16} /> Print Report</button>
                             </div>
@@ -7491,6 +7513,7 @@ export default function App() {
                             {invoiceRecords.map(t => {
                                 const dueOpen = Number(t.dueAmount || 0) > 0;
                                 const returned = isSaleReturned(t);
+                                const returnInvoice = returned ? getReturnForSale(t) : null;
                                 return <div key={`desktop-sale-${t.id}`} className="transactions-table-row">
                                     <div className="transactions-table-cell"><strong>{t.invoiceNo || "INV"}</strong><span>{fmtDashboardTime(t.dateTime || `${t.date || isoDate()}T12:00:00`)}</span></div>
                                     <div className="transactions-table-cell"><strong>{t.customerName || "Walk-in Customer"}</strong><span>{getTxItemLabel(t)}{t.phone ? ` · ${t.phone}` : ""}</span></div>
@@ -7499,6 +7522,8 @@ export default function App() {
                                     <div className="transactions-table-cell"><strong>{t.paymentMode || "Cash"}</strong><span>{t.billType === "GST" ? "GST Invoice" : "Regular Invoice"}</span></div>
                                     <div className="transactions-table-actions">
                                         {appMode === "general" ? <button className="table-action-btn" onClick={() => openReturnModal(t)} disabled={returned} aria-label="Return item"><ArchiveRestore size={15} /></button> : null}
+                                        {returnInvoice ? <button className="table-action-btn" onClick={() => void shareInvoice(returnInvoice)} aria-label="Share return invoice PDF" title="Share return invoice"><FileText size={15} /></button> : null}
+                                        {returnInvoice ? <button className="table-action-btn primary" onClick={() => void downloadInvoice(returnInvoice)} aria-label="Download return invoice PDF" title="Download return invoice"><Download size={15} /></button> : null}
                                         <button className="table-action-btn" onClick={() => void shareInvoice(t)} aria-label="Share PDF"><Share2 size={15} /></button>
                                         <button className="table-action-btn" onClick={() => whatsappMessage(t)} aria-label="WhatsApp Message"><MessageCircle size={15} /></button>
                                         <button className="table-action-btn primary" onClick={() => void downloadInvoice(t)} aria-label="Download PDF"><Download size={15} /></button>
@@ -7530,6 +7555,7 @@ export default function App() {
                                     const shortDate = new Date(t.dateTime || `${t.date || isoDate()}T12:00:00`).toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
                                     const dueOpen = Number(t.dueAmount || 0) > 0;
                                     const returned = isSaleReturned(t);
+                                    const returnInvoice = returned ? getReturnForSale(t) : null;
                                     return <div key={t.id} className="invoice-row">
                                         <div className="invoice-row-id">
                                             <strong>{t.invoiceNo || "INV"}</strong>
@@ -7540,6 +7566,8 @@ export default function App() {
                                             <div className="invoice-row-item"><Smartphone size={13} /> {getTxItemLabel(t)}</div>
                                             <div className="invoice-row-actions">
                                                 {appMode === "general" ? <button className="invoice-row-icon" onClick={() => openReturnModal(t)} disabled={returned} aria-label="Return item" title="Return item"><ArchiveRestore size={14} /></button> : null}
+                                                {returnInvoice ? <button className="invoice-row-icon icon-share" onClick={() => void shareInvoice(returnInvoice)} aria-label="Share return invoice PDF" title="Share return invoice"><FileText size={14} /></button> : null}
+                                                {returnInvoice ? <button className="invoice-row-icon icon-download" onClick={() => void downloadInvoice(returnInvoice)} aria-label="Download return invoice PDF" title="Download return invoice"><Download size={14} /></button> : null}
                                                 <button className="invoice-row-icon icon-share" onClick={() => void shareInvoice(t)} aria-label="Share PDF" title="Share PDF"><Share2 size={14} /></button>
                                                 <button className="invoice-row-icon icon-msg" onClick={() => whatsappMessage(t)} aria-label="WhatsApp Message" title="WhatsApp Message"><MessageCircle size={14} /></button>
                                                 <button className="invoice-row-icon icon-download" onClick={() => void downloadInvoice(t)} aria-label="Download PDF" title="Download PDF"><Download size={14} /></button>
