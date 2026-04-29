@@ -64,6 +64,7 @@ const RAM_PRESETS = ["2GB", "4GB", "6GB", "8GB", "12GB", "16GB", "20GB", "24GB"]
 const BUSINESS_MODES = ["general", "repair-pro", "bill-pro"];
 const GENERAL_MODULES = ["buy", "sell", "repair"];
 const BILL_PRO_MODULES = ["sell"];
+const APP_THEME_MODES = ["light", "dark"];
 const BILL_PRO_CATEGORIES = ["Mobile Device", "Accessories"];
 const BILL_PRO_MOBILE_CATEGORY = "Mobile Device";
 const BILL_PRO_ACCESSORY_CATEGORY = "Accessories";
@@ -235,6 +236,7 @@ const DEFAULT_SHOP_PROFILE = {
     terms: "Goods once sold will be serviced as per shop policy.",
     businessMode: "general",
     enabledModules: GENERAL_MODULES,
+    appTheme: "light",
     partsSuppliers: [],
 };
 const STORAGE_PRESETS = ["32GB", "64GB", "128GB", "256GB", "512GB", "1TB"];
@@ -538,6 +540,11 @@ const normalizeShopProfile = (cfg = {}) => ({
     enabledModules: Array.from(new Set((Array.isArray(cfg.enabledModules) ? cfg.enabledModules : GENERAL_MODULES).map(v => String(v || "").trim()).filter(v => GENERAL_MODULES.includes(v)))).length
         ? Array.from(new Set((Array.isArray(cfg.enabledModules) ? cfg.enabledModules : GENERAL_MODULES).map(v => String(v || "").trim()).filter(v => GENERAL_MODULES.includes(v))))
         : GENERAL_MODULES,
+    appTheme: (() => {
+        const value = String(cfg.appTheme || "").trim();
+        if (value === "dark" || value === "midnight") return "dark";
+        return APP_THEME_MODES.includes(value) ? value : DEFAULT_SHOP_PROFILE.appTheme;
+    })(),
     partsSuppliers: (Array.isArray(cfg.partsSuppliers) ? cfg.partsSuppliers : parsePartsSuppliersMeta(cfg.terms)).map(normalizePartSupplier).filter(item => item.name),
 });
 const resolveSignupProfile = (value = "general") => {
@@ -1781,12 +1788,19 @@ const S = `
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Space+Mono:wght@400;700&display=swap');
 *{box-sizing:border-box;margin:0;padding:0}
 :root{--surface:#f7f9fc;--surface-strong:#ffffff;--surface-low:#f2f4f7;--surface-mid:#eceef1;--surface-high:#e3e7ee;--surface-dim:#d8dadd;--outline:#c6c5d4;--outline-2:#e4e7ee;--primary:#000666;--primary-2:#1a237e;--secondary:#0048d8;--secondary-2:#2761fe;--success:#5aa958;--success-bg:#a3f69c;--warning:#d97706;--warning-bg:#fff1c2;--danger:#ba1a1a;--danger-bg:#ffdad6;--text:#191c1e;--text-2:#454652;--text-3:#767683;--r:24px;--rs:14px;--blur:18px;--gb:rgba(255,255,255,.78);--gbh:#ffffff;--gbo:rgba(25,28,30,.08);--gbl:rgba(0,6,102,.14);--a:var(--secondary);--a2:var(--primary);--a3:var(--secondary-2);--ok:var(--success);--warn:var(--warning);--err:var(--danger);--t1:var(--text);--t2:var(--text-2);--t3:var(--text-3)}
+.theme-dark{--surface:#020617;--surface-strong:#0f172a;--surface-low:#111827;--surface-mid:#1e293b;--surface-high:#334155;--surface-dim:#475569;--outline:#334155;--outline-2:#1e293b;--primary:#e0f2fe;--primary-2:#7dd3fc;--secondary:#38bdf8;--secondary-2:#0ea5e9;--success:#22c55e;--success-bg:#064e3b;--warning:#f59e0b;--warning-bg:#451a03;--danger:#fb7185;--danger-bg:#4c0519;--text:#f8fafc;--text-2:#cbd5e1;--text-3:#94a3b8;--gb:rgba(15,23,42,.78);--gbh:#111827;--gbo:rgba(148,163,184,.18);--gbl:rgba(56,189,248,.24)}
 html,body,#root{min-height:100%}
 body,#root{font-family:'Inter',sans-serif;background:var(--surface);color:var(--text)}
 body{background:var(--surface)}
 img{max-width:100%}
 .abg{min-height:100vh;background:radial-gradient(circle at top left,rgba(39,97,254,.08),transparent 22%),radial-gradient(circle at bottom right,rgba(26,35,126,.08),transparent 24%),linear-gradient(180deg,#fbfcfe 0%,var(--surface) 30%,#eef2f8 100%);color:var(--text);position:relative;overflow-x:hidden}
 .abg::before{content:'';position:fixed;inset:0;pointer-events:none;background:radial-gradient(circle at 18% 12%,rgba(39,97,254,.08),transparent 18%),radial-gradient(circle at 85% 0%,rgba(26,35,126,.06),transparent 20%);opacity:.9}
+.theme-dark.abg,.theme-dark.auth-shell{background:radial-gradient(circle at top left,rgba(56,189,248,.12),transparent 24%),radial-gradient(circle at bottom right,rgba(14,165,233,.1),transparent 24%),linear-gradient(180deg,#020617 0%,#0f172a 52%,#020617 100%);color:var(--text)}
+.theme-dark.abg::before{background:radial-gradient(circle at 18% 12%,rgba(56,189,248,.1),transparent 18%),radial-gradient(circle at 85% 0%,rgba(125,211,252,.08),transparent 20%)}
+.theme-dark .gc,.theme-dark .gl,.theme-dark .stock-modern-card,.theme-dark .stock-modern-table,.theme-dark .transactions-desktop-table,.theme-dark .transactions-summary-card,.theme-dark .invoices-ledger,.theme-dark .invoice-row,.theme-dark .settings-terminal-card,.theme-dark .settings-mini-card,.theme-dark .settings-desktop-nav button,.theme-dark .theme-choice-card,.theme-dark .hcard,.theme-dark .auth-card,.theme-dark .auth-form-wrap,.theme-dark .auth-panel{background:var(--surface-strong)!important;border-color:var(--gbo)!important;color:var(--text)!important;box-shadow:0 18px 36px rgba(0,0,0,.24)!important}
+.theme-dark .stock-modern-table-head,.theme-dark .transactions-table-head,.theme-dark .stock-modern-table-row,.theme-dark .transactions-table-row,.theme-dark .invoices-searchbar,.theme-dark .invoices-filter-btn,.theme-dark .stock-modern-search,.theme-dark .stock-modern-filters,.theme-dark .stock-modern-pill,.theme-dark .table-action-btn,.theme-dark .invoice-row-icon,.theme-dark .bg{background:var(--surface-low)!important;border-color:var(--gbo)!important;color:var(--text)!important}
+.theme-dark .stock-device-copy strong,.theme-dark .transactions-table-cell strong,.theme-dark .invoice-row-main strong,.theme-dark .settings-terminal-card h3,.theme-dark .settings-detail-copy h2,.theme-dark .stock-modern-card-body h3,.theme-dark .auth-header h2{color:var(--text)!important}
+.theme-dark .stock-device-copy span,.theme-dark .transactions-table-cell span,.theme-dark .invoice-row-item,.theme-dark .settings-terminal-card p,.theme-dark .settings-detail-copy p,.theme-dark .auth-header p{color:var(--text-2)!important}
 .gl{background:rgba(255,255,255,.72);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(198,197,212,.18);border-radius:24px;box-shadow:0 18px 45px rgba(25,28,30,.06)}
 .gc{background:var(--surface-strong);border:1px solid rgba(198,197,212,.22);border-radius:22px;padding:22px;box-shadow:0 12px 28px rgba(25,28,30,.05);transition:transform .2s ease,box-shadow .2s ease,background .2s ease}
 .gc:hover{transform:translateY(-1px);box-shadow:0 16px 34px rgba(25,28,30,.08)}
@@ -2039,7 +2053,7 @@ img{max-width:100%}
 .stock-modern-filters{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;background:#fff;padding:6px;border:1px solid rgba(198,197,212,.26);border-radius:14px}
 .stock-modern-pill{background:#f3f4f8!important;border:1px solid rgba(198,197,212,.28)!important;border-radius:14px!important;padding:11px 33px 11px 14px!important;font-size:14px!important;color:#1f2430;min-height:48px;background-position:calc(100% - 16px) calc(50% - 2px),calc(100% - 10px) calc(50% - 2px)}
 .stock-modern-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
-.stock-modern-card{display:grid;grid-template-rows:auto 1fr;border-radius:16px;border:1px solid rgba(198,197,212,.22);background:#fff;overflow:hidden;box-shadow:0 8px 20px rgba(25,28,30,.05)}
+.stock-modern-card{display:grid;grid-template-rows:auto 1fr;border-radius:16px;border:1px solid rgba(198,197,212,.22);background:#fff;overflow:hidden;box-shadow:0 8px 20px rgba(25,28,30,.05);cursor:pointer}
 .stock-modern-card-media{position:relative;aspect-ratio:4/4;cursor:pointer;background:#dfe5ef;display:flex;align-items:center;justify-content:center;overflow:hidden}
 .stock-modern-card-media img{width:100%;height:100%;object-fit:cover}
 .stock-modern-condition{position:absolute;top:10px;right:10px;padding:4px 12px;border-radius:999px;font-size:12px;font-weight:900;letter-spacing:.04em;z-index:2}
@@ -2239,6 +2253,11 @@ img{max-width:100%}
 .settings-terminal-card p{font-size:13px;font-weight:600;color:#3d5db4;line-height:1.35}
 .settings-terminal-card.status p{color:#2d7d4f}
 .settings-terminal-card.mode p{color:#5c6579}
+.theme-picker-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
+.theme-choice-card{appearance:none;border:1px solid rgba(198,197,212,.28);background:var(--surface-strong);border-radius:18px;padding:14px;text-align:left;display:grid;gap:12px;cursor:pointer;transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}
+.theme-choice-card:hover,.theme-choice-card.active{transform:translateY(-1px);border-color:var(--secondary);box-shadow:0 14px 28px rgba(25,28,30,.08)}
+.theme-choice-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.theme-choice-swatches{display:flex;gap:6px}.theme-choice-swatch{width:28px;height:28px;border-radius:9px;border:1px solid rgba(255,255,255,.65);box-shadow:0 0 0 1px rgba(25,28,30,.08)}
+.theme-choice-card strong{display:block;color:var(--t1);font-size:14px;font-weight:800}.theme-choice-card span{display:block;margin-top:3px;color:var(--t3);font-size:12px;line-height:1.45}.theme-choice-check{width:24px;height:24px;border-radius:999px;background:var(--surface-low);color:var(--secondary);display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .settings-terminal-actions{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center}
 .settings-terminal-cta{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}
 .settings-terminal-btn{min-height:48px;padding:0 24px;border-radius:15px;font-family:'Plus Jakarta Sans',sans-serif;font-size:16px;font-weight:700;letter-spacing:-.01em;display:inline-flex;align-items:center;justify-content:center;gap:8px;transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease}
@@ -3125,6 +3144,7 @@ export default function App() {
     const [fm, sFm] = useState(ef);
     const appMode = shopSession?.isBillPro ? "bill-pro" : shopCfg.businessMode;
     const effectiveShopCfg = useMemo(() => appMode === "bill-pro" ? normalizeShopProfile({ ...shopCfg, businessMode: "bill-pro", enabledModules: BILL_PRO_MODULES }) : normalizeShopProfile(shopCfg), [appMode, shopCfg]);
+    const appThemeClass = effectiveShopCfg.appTheme === "dark" ? "theme-dark" : "theme-light";
     const enabledModules = useMemo(() => appMode === "bill-pro" ? BILL_PRO_MODULES : getEnabledModules(shopCfg), [appMode, shopCfg]);
     const billProFormTemplate = useMemo(() => createEmptyBillProForm(effectiveShopCfg), [effectiveShopCfg]);
     const billProSalePreview = useMemo(() => calcInvoiceTotals(billProForm.amount || 0, billProForm.billType, billProForm.gstRate), [billProForm.amount, billProForm.billType, billProForm.gstRate]);
@@ -5413,9 +5433,11 @@ export default function App() {
     const settingsScreenMeta = {
         "shop-profile": { title: "Shop Profile", subtitle: "Name, GST, address, logo" },
         "invoice-preferences": { title: "Invoicing", subtitle: "Prefix, footer, invoice rules" },
+        appearance: { title: "Appearance", subtitle: "Choose light or dark mode" },
         "system-mode": { title: "System Mode", subtitle: appMode === "bill-pro" ? "Bill Pro is fixed to billing and stickers" : "Retail or Repair behavior" },
         "app-status": { title: "App Status", subtitle: appMode === "bill-pro" ? "Offline activation and device status" : (syncReady ? "Connected and healthy" : "Connection and install diagnostics") },
     }[activeSettingsSection] || { title: "Settings", subtitle: "Quick access to all configurations" };
+    const selectedAppThemeLabel = effectiveShopCfg.appTheme === "dark" ? "Dark Mode" : "Light Mode";
     const currentAddStep = ADD_FLOW_STEPS[Math.min(addFlowStep, ADD_FLOW_STEPS.length - 1)] || ADD_FLOW_STEPS[0];
     const nextAddStep = addFlowStep < ADD_FLOW_STEPS.length - 1 ? ADD_FLOW_STEPS[addFlowStep + 1] : null;
     const finalAddActionLabel = bulkAdd && !ei ? (bulkSaveBusy ? "Saving Bulk Stock..." : `Add ${bulkImeis.length || ""} to Stock`) : ei ? "Save Changes" : "Add to Stock";
@@ -5446,6 +5468,7 @@ export default function App() {
     const desktopSettingsSections = [
         { id: "shop-profile", title: "Shop Profile", subtitle: "Branding, GST, contacts" },
         { id: "invoice-preferences", title: "Invoicing", subtitle: "Prefix, footer, invoice defaults" },
+        { id: "appearance", title: "Appearance", subtitle: selectedAppThemeLabel },
         { id: "system-mode", title: "System Mode", subtitle: "Retail or repair operating focus" },
         { id: "app-status", title: "App Status", subtitle: "Sync, install, offline health" },
     ];
@@ -5500,11 +5523,11 @@ export default function App() {
 
     // ── LOGIN GATES ──────────────────────────────────────────────────────
     if (!authReady) return (
-        <><style>{S}</style><div className="abg" style={{ minHeight: "100vh" }} /></>
+        <><style>{S}</style><div className="abg theme-light" style={{ minHeight: "100vh" }} /></>
     );
     if (!shopSession || showAdminPanel) return (
         <><style>{S}</style>
-            <div className="auth-shell">
+            <div className={`auth-shell ${appThemeClass}`}>
                 <aside className="auth-hero">
                     <div className="auth-hero-content">
                         <div>
@@ -5820,7 +5843,7 @@ export default function App() {
 
     return (
         <><style>{S}</style>
-            <div className="abg">
+            <div className={`abg ${appThemeClass}`}>
                 <div className="shell">
                     <aside className="shell-sidebar">
                         <div className="shell-brand">
@@ -6477,8 +6500,8 @@ export default function App() {
                                 const conditionLabel = it.condition === "New" ? "MINT" : it.condition === "Refurbished" ? "GOOD" : "FAIR";
                                 const conditionClass = it.condition === "New" ? "mint" : it.condition === "Refurbished" ? "good" : "fair";
                                 const margin = Number(it.sellPrice || 0) - Number(it.buyPrice || 0);
-                                return <article key={it.id} className="stock-modern-card">
-                                    <div className="stock-modern-card-media" onClick={() => { if (it.photos?.length) sLb({ photos: it.photos, si: 0 }); else sDi(it); }}>
+                                return <article key={it.id} className="stock-modern-card" role="button" tabIndex={0} onClick={() => sDi(it)} onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); sDi(it); } }}>
+                                    <div className="stock-modern-card-media">
                                         <span className={`stock-modern-condition ${conditionClass}`}>{conditionLabel}</span>
                                         {it.photos?.length > 0
                                             ? <img src={getPhotoPreview(it.photos[0])} alt={it.model} loading="lazy" decoding="async" />
@@ -7682,6 +7705,13 @@ export default function App() {
                                         <p>Prefix, Footer, Rules</p>
                                     </div>
                                 </button>
+                                <button className={`settings-terminal-card mode ${settingsOpenSection === "appearance" ? "active" : ""}`} onClick={() => setSettingsOpenSection(current => current === "appearance" ? "" : "appearance")}>
+                                    <span className="settings-terminal-icon"><Palette size={20} /></span>
+                                    <div>
+                                        <h3>Appearance</h3>
+                                        <p>{selectedAppThemeLabel}</p>
+                                    </div>
+                                </button>
                                 <button className={`settings-terminal-card status ${settingsOpenSection === "app-status" ? "active" : ""}`} onClick={() => setSettingsOpenSection(current => current === "app-status" ? "" : "app-status")}>
                                     <span className="settings-terminal-icon"><CheckCircle size={20} /></span>
                                     <div>
@@ -7718,7 +7748,7 @@ export default function App() {
                                     <p>{settingsScreenMeta.subtitle}</p>
                                 </div>
                             </div>
-                        {["shop-profile", "invoice-preferences", "system-mode"].includes(activeSettingsSection) ? <div className="settings-grid" style={{ marginBottom: 16 }}>
+                        {["shop-profile", "invoice-preferences", "appearance", "system-mode"].includes(activeSettingsSection) ? <div className="settings-grid" style={{ marginBottom: 16 }}>
                             {activeSettingsSection === "shop-profile" ? <SettingsSection
                                 title="Shop Profile & Invoice Logo"
                                 summary={shopProfileDirty ? "Unsaved changes" : (shopCfg.shopName || "Shop details and invoice branding")}
@@ -7769,6 +7799,34 @@ export default function App() {
                                     <div style={{ color: "var(--t1)", fontSize: 14, fontWeight: 600, marginBottom: 6 }}>Invoice Output</div>
                                     <div style={{ color: "var(--t2)", fontSize: 13, lineHeight: 1.7 }}>PDFs are generated in professional A4 portrait format with your uploaded shop logo, shop address, customer details, handset or accessory labels, optional IMEI or serial references, payment summary, and GST or regular invoice totals. On supported phones, the PDF can be shared directly to WhatsApp from the native share sheet.</div>
                                 </div>
+                            </SettingsSection> : null}
+
+                            {activeSettingsSection === "appearance" ? <SettingsSection
+                                title="Appearance"
+                                summary={`${selectedAppThemeLabel} · Settings only`}
+                                open={activeSettingsSection === "appearance"}
+                                onToggle={() => setSettingsOpenSection(current => current === "appearance" ? "" : "appearance")}
+                            >
+                                <div className="gc" style={{ marginBottom: 12, ...settingsSoftPanelStyle }}>
+                                    <div style={{ color: "var(--t1)", fontSize: 14, fontWeight: 700, marginBottom: 4 }}>Dark Mode</div>
+                                    <div style={{ color: "var(--t2)", fontSize: 13, lineHeight: 1.7 }}>Switch the complete app between light and dark mode. Invoice PDFs keep their professional print layout.</div>
+                                </div>
+                                <div className="theme-picker-grid">
+                                    {[
+                                        { id: "light", label: "Light Mode", note: "Bright default workspace", swatches: ["#f7f9fc", "#ffffff", "#0048d8"] },
+                                        { id: "dark", label: "Dark Mode", note: "Full dark workspace", swatches: ["#020617", "#0f172a", "#38bdf8"] },
+                                    ].map(theme => {
+                                        const active = effectiveShopCfg.appTheme === theme.id;
+                                        return <button key={theme.id} className={`theme-choice-card ${active ? "active" : ""}`} onClick={() => setShopField("appTheme", theme.id)}>
+                                            <div className="theme-choice-top">
+                                                <div className="theme-choice-swatches">{theme.swatches.map(color => <span key={color} className="theme-choice-swatch" style={{ background: color }} />)}</div>
+                                                <span className="theme-choice-check">{active ? <CheckCircle size={16} /> : null}</span>
+                                            </div>
+                                            <div><strong>{theme.label}</strong><span>{theme.note}</span></div>
+                                        </button>;
+                                    })}
+                                </div>
+                                <div className="action-row"><button className="bp" onClick={() => void saveShopProfile()} disabled={profileSaveBusy}>{profileSaveBusy ? "Saving..." : "Save Appearance"}</button>{shopProfileDirty ? <span style={{ color: "var(--warn)", fontSize: 12, alignSelf: "center" }}>Unsaved appearance change</span> : null}</div>
                             </SettingsSection> : null}
 
                             {activeSettingsSection === "system-mode" ? <SettingsSection

@@ -1,7 +1,7 @@
 # Graph Report - Mobnage  (2026-04-28)
 
 ## Corpus Check
-- 11 files · ~549,541 words
+- 11 files · ~549,945 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
@@ -53,7 +53,7 @@ Nodes (6): base64UrlFromBytes(), base64UrlFromText(), ensureBillProDeviceId(), g
 
 ### Community 1 - "Community 1"
 Cohesion: 0.14
-Nodes (17): adminApiRequest(), ensureTrialActive(), isTrialExpired(), pocketbaseAdminExtendUserTrial(), pocketbaseAdminLoadDashboard(), pocketbaseAdminLogin(), pocketbaseAdminLogout(), pocketbaseAdminSendPasswordReset() (+9 more)
+Nodes (17): adminApiRequest(), ensureTrialActive(), ensureUrl(), getPocketBaseUrl(), isTrialExpired(), pocketbaseAdminExtendUserTrial(), pocketbaseAdminLoadDashboard(), pocketbaseAdminLogin() (+9 more)
 
 ### Community 2 - "Community 2"
 Cohesion: 0.13
@@ -73,7 +73,7 @@ Nodes (16): App(), createEmptyForm(), createEmptyPartSupplier(), createEmptyRepa
 
 ### Community 6 - "Community 6"
 Cohesion: 0.23
-Nodes (14): createClient(), dataUrlToFile(), ensureUrl(), getPocketBaseUrl(), inferMimeTypeFromDataUrl(), inventoryItemToRecord(), isPocketbaseId(), pocketbaseDeleteInventory() (+6 more)
+Nodes (14): createClient(), dataUrlToFile(), inferMimeTypeFromDataUrl(), inventoryItemToRecord(), isPocketbaseId(), pocketbaseCreateTransaction(), pocketbaseDeleteInventory(), pocketbaseDeleteRepair() (+6 more)
 
 ### Community 7 - "Community 7"
 Cohesion: 0.18
@@ -126,9 +126,9 @@ Nodes (2): getPhotoPreview(), LB()
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `App()` connect `Community 5` to `Community 0`, `Community 3`, `Community 6`, `Community 7`, `Community 13`, `Community 20`?**
+- **Why does `App()` connect `Community 5` to `Community 0`, `Community 1`, `Community 3`, `Community 7`, `Community 13`, `Community 20`?**
   _High betweenness centrality (0.307) - this node is a cross-community bridge._
-- **Why does `getPocketBaseUrl()` connect `Community 6` to `Community 1`, `Community 5`?**
+- **Why does `getPocketBaseUrl()` connect `Community 1` to `Community 5`?**
   _High betweenness centrality (0.302) - this node is a cross-community bridge._
 - **Why does `normalizeShopProfile()` connect `Community 7` to `Community 0`, `Community 5`, `Community 3`, `Community 13`?**
   _High betweenness centrality (0.015) - this node is a cross-community bridge._
