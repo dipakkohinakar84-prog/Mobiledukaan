@@ -1499,31 +1499,24 @@ const buildStickerDoc = async (item, shop) => {
     const { jsPDF } = await import("jspdf");
     const shopProfile = normalizeShopProfile(shop || DEFAULT_SHOP_PROFILE);
     const hasWarrantyInfo = item.warrantyType && item.warrantyType !== "No Warranty";
-    const stickerH = 30;
-    const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: [stickerH, 50] });
+    const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: [30, 50] });
     const ink = [28, 36, 44];
-    const muted = [95, 103, 112];
-    const paper = [255, 255, 255];
-    const line = [210, 217, 224];
+    const border = [26, 32, 39];
     const brandText = String(item.brand || "Mobile").trim() || "Mobile";
     const modelTextRaw = String(item.model || "").trim();
     const modelText = modelTextRaw || (item.brand ? "" : "Model");
-    const specText = [item.ram || "", item.storage || ""].filter(Boolean).join("/") || (item.storage || "Specs not set");
+    const deviceName = [brandText, modelText].filter(Boolean).join(" ") || "Stock Device";
+    const specText = [item.ram || "", item.storage || "", item.color || ""].filter(Boolean).join(" / ") || "Specs not set";
     const warranty = getWarrantyStatus(item);
     const imei1Barcode = await buildStickerBarcodeDataUrl(item.imei);
-    const logoDataUrl = await loadStickerLogoDataUrl();
     const conditionText = (item.condition || "").trim() || "In Stock";
-    const conditionWidth = Math.min(21, Math.max(13, conditionText.length * 1.25 + 4.2));
-    const conditionX = 50 - conditionWidth - 1.2;
-    const textBlockWidth = Math.max(21, conditionX - 2.4);
-    const fitTextAtSize = (text, maxWidth, preferredSize, minSize) => {
-        if (!text) return { text: "", size: preferredSize };
-        const originalSize = doc.getFontSize();
+    const fitText = (text, maxWidth, preferredSize, minSize = preferredSize) => {
+        const original = doc.getFontSize();
         let size = preferredSize;
         while (size >= minSize) {
             doc.setFontSize(size);
             if (doc.getTextWidth(text) <= maxWidth) {
-                doc.setFontSize(originalSize);
+                doc.setFontSize(original);
                 return { text, size };
             }
             size = Math.round((size - 0.2) * 10) / 10;
@@ -1531,97 +1524,62 @@ const buildStickerDoc = async (item, shop) => {
         doc.setFontSize(minSize);
         let next = text;
         while (next.length > 4 && doc.getTextWidth(`${next}...`) > maxWidth) next = next.slice(0, -1);
-        doc.setFontSize(originalSize);
+        doc.setFontSize(original);
         return { text: `${next.trimEnd()}...`, size: minSize };
     };
-    const brandLine = fitTextAtSize(brandText, textBlockWidth, 6.7, 5.4);
-    const modelLine = fitTextAtSize(modelText, textBlockWidth, 6.2, 4.7);
-    const specLine = fitTextAtSize(specText, textBlockWidth * 0.72, 4.8, 4.0);
-    const barcodeTop = 10.3;
-    const barcodeBlockHeight = 9.7;
-    const barcodeW = 46.2;
-    const barcodeX = 1.9;
-    const imeiTextY = 21.95;
-    const bottomBandY = 22.9;
-    const bottomBandH = 5.2;
-    const priceY = 27.1;
-
-    doc.setFillColor(...paper);
-    doc.rect(0, 0, 50, stickerH, "F");
-    doc.setDrawColor(...line);
-    doc.roundedRect(0.8, 0.8, 48.4, stickerH - 1.6, 1.2, 1.2);
-
-    doc.setTextColor(...ink);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(brandLine.size);
-    doc.text(brandLine.text, 1.4, 3.7, { maxWidth: textBlockWidth });
-
-    if (modelLine.text) {
-        doc.setFontSize(modelLine.size);
-        doc.text(modelLine.text, 1.4, 6.8, { maxWidth: textBlockWidth });
-    }
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(specLine.size);
-    doc.text(specLine.text, 1.4, 9.05);
-
-    doc.setDrawColor(...ink);
-    doc.roundedRect(conditionX, 4.0, conditionWidth, 6.9, 0.9, 0.9);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(conditionText.length > 10 ? 4.6 : 5.5);
-    doc.text(conditionText.slice(0, 12), conditionX + (conditionWidth / 2), 8.45, { align: "center", maxWidth: conditionWidth - 1.2 });
-
-    const drawBarcodeBlock = (x, imei, barcodeDataUrl) => {
-        if (barcodeDataUrl && imei) {
-            doc.addImage(barcodeDataUrl, "PNG", x, barcodeTop, barcodeW, barcodeBlockHeight);
-        } else {
-            doc.setTextColor(...muted);
-            doc.setFont("helvetica", "normal");
-            doc.setFontSize(4);
-            doc.text("No barcode", x + barcodeW / 2, barcodeTop + 5.2, { align: "center" });
-        }
-        doc.setTextColor(...ink);
-        doc.setFont("courier", "bold");
-        doc.setFontSize(3.55);
-        doc.text(imei || "-", x + barcodeW / 2, imeiTextY, { align: "center" });
-    };
-
-    drawBarcodeBlock(barcodeX, item.imei, imei1Barcode);
+    const shopText = fitText((shopProfile.shopName || APP_NAME).slice(0, 28), 39, 5.7, 5.0);
+    const deviceText = fitText(deviceName, 39, 7.4, 5.9);
+    const specLine = fitText(specText, 39, 4.7, 3.9);
+    const conditionLine = fitText(conditionText.slice(0, 16), 16, 5.2, 4.4);
+    const price = item.sellPrice || item.buyPrice;
+    const priceText = shopProfile.stickerShowPrice && price ? fitText(`${formatMoney(price)} RS`, 18, 5.4, 4.5) : null;
+    const warrantyText = hasWarrantyInfo ? fitText(warranty.active ? warranty.remaining.slice(0, 12) : "Warranty Expired", 18, 4.1, 3.5) : null;
 
     doc.setFillColor(255, 255, 255);
-    doc.rect(1.1, bottomBandY, 47.8, bottomBandH, "F");
+    doc.rect(0, 0, 50, 30, "F");
+    doc.setDrawColor(...border);
+    doc.roundedRect(0.7, 0.7, 48.6, 28.6, 2.2, 2.2);
+    doc.roundedRect(2.1, 2.1, 45.8, 25.8, 1.8, 1.8);
+    doc.setTextColor(...ink);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(shopText.size);
+    doc.text(shopText.text, 3.8, 5.7);
+    doc.setFontSize(deviceText.size);
+    doc.text(deviceText.text, 3.8, 10.2);
+    doc.setFontSize(specLine.size);
+    doc.text(specLine.text, 3.8, 13.2);
+    doc.setDrawColor(...border);
+    doc.setLineWidth(0.15);
+    doc.line(3.5, 14.7, 46.2, 14.7);
 
-    if (shopProfile.stickerShowPrice && (item.sellPrice || item.buyPrice)) {
-        const price = item.sellPrice || item.buyPrice;
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(6.8);
-        doc.text(`${formatMoney(price)} RS`, 26, priceY, { align: "center", maxWidth: 26 });
+    if (imei1Barcode && item.imei) {
+        doc.addImage(imei1Barcode, "PNG", 4.0, 15.3, 42.0, 5.9);
+    } else {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(3.8);
+        doc.text("No IMEI barcode", 25, 18.9, { align: "center" });
     }
+    doc.setFont("courier", "bold");
+    doc.setFontSize(3.1);
+    doc.text(item.imei || "IMEI not set", 25, 22.4, { align: "center", maxWidth: 39 });
+    doc.line(3.5, 23.8, 46.2, 23.8);
 
-    if (hasWarrantyInfo) {
-        const warrantyText = warranty.active ? warranty.remaining.slice(0, 8) : "Expired";
-        const warrantyBadge = fitTextAtSize(warrantyText, 8.4, 4.8, 3.4);
-        doc.setDrawColor(...ink);
-        doc.roundedRect(1.4, 23.45, 9.8, 5.2, 0.8, 0.8);
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(warrantyBadge.size);
-        doc.setTextColor(...ink);
-        doc.text(warrantyBadge.text, 6.3, 26.85, { align: "center", maxWidth: 8.4 });
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(conditionLine.size);
+    doc.text(conditionLine.text, 3.8, 27.0);
+    if (warrantyText) {
+        doc.setFontSize(warrantyText.size);
+        doc.text(warrantyText.text, 25, 27.0, { align: "center", maxWidth: 18 });
     } else if (item.imei2) {
-        doc.setTextColor(...muted);
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(2.6);
-        doc.text("IMEI2", 1.5, 27.15);
-        doc.setTextColor(...ink);
+        const imei2Line = fitText(`IMEI2 ${item.imei2}`, 18, 3.3, 2.8);
         doc.setFont("courier", "bold");
-        doc.setFontSize(2.55);
-        doc.text(item.imei2, 13.2, 27.15);
+        doc.setFontSize(imei2Line.size);
+        doc.text(imei2Line.text, 25, 27.0, { align: "center", maxWidth: 18 });
     }
-
-    if (logoDataUrl) {
-        doc.setDrawColor(...line);
-        doc.roundedRect(43.2, 23.2, 5.1, 5.1, 0.5, 0.5);
-        doc.addImage(logoDataUrl, "PNG", 43.65, 23.65, 4.2, 4.2);
+    if (priceText) {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(priceText.size);
+        doc.text(priceText.text, 45.8, 27.0, { align: "right", maxWidth: 18 });
     }
 
     return doc;
