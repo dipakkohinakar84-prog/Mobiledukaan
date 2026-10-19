@@ -13,7 +13,7 @@ export default defineConfig({
         id: '/',
         name: 'PhoneDukaan',
         short_name: 'PhoneDukaan',
-        description: 'Mobile shop management app for stock, buying, selling, invoices, and offline use.',
+        description: 'Offline mobile shop billing, GST invoices, PDF invoices, and sticker printing.',
         start_url: '/',
         scope: '/',
         display: 'standalone',
@@ -27,9 +27,11 @@ export default defineConfig({
         ],
       },
       workbox: {
+        globPatterns: ['**/*.{js,css,html,svg,json,png,ico,woff2,ttf}'],
         cleanupOutdatedCaches: true,
         clientsClaim: true,
         skipWaiting: true,
+        navigateFallback: 'index.html',
         runtimeCaching: [
           {
             urlPattern: ({ request }) => request.mode === 'navigate',
@@ -40,11 +42,10 @@ export default defineConfig({
             },
           },
           {
-            urlPattern: ({ request }) => ['script', 'style', 'worker'].includes(request.destination),
-            handler: 'NetworkFirst',
+            urlPattern: ({ url, request }) => url.origin === self.location.origin && ['script', 'style', 'worker', 'manifest'].includes(request.destination),
+            handler: 'CacheFirst',
             options: {
               cacheName: 'app-assets',
-              networkTimeoutSeconds: 3,
             },
           },
           {
@@ -53,25 +54,7 @@ export default defineConfig({
             options: {
               cacheName: 'app-media',
               expiration: {
-                maxEntries: 60,
-                maxAgeSeconds: 60 * 60 * 24 * 30,
-              },
-            },
-          },
-          {
-            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*$/i,
-            handler: 'StaleWhileRevalidate',
-            options: {
-              cacheName: 'google-fonts-stylesheets',
-            },
-          },
-          {
-            urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*$/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'google-fonts-webfonts',
-              expiration: {
-                maxEntries: 20,
+                maxEntries: 120,
                 maxAgeSeconds: 60 * 60 * 24 * 365,
               },
             },

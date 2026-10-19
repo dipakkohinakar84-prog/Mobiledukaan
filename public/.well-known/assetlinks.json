@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.phonedukaan.billpro",
+      "sha256_cert_fingerprints": [
+        "72:81:64:A3:3C:BE:E4:21:6D:06:DE:83:7C:2D:95:32:4C:38:86:A9:50:1F:8C:9C:F9:9C:CD:5F:D6:D5:DC:B6"
+      ]
+    }
+  }
+]

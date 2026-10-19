@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.phonedukaan.keygen",
+      "sha256_cert_fingerprints": [
+        "F4:9A:5E:80:93:BE:64:80:C0:25:83:F4:0A:D2:CC:4C:2B:28:5D:8F:5C:EB:3D:A7:CA:A9:6A:76:F5:6D:8F:C6"
+      ]
+    }
+  }
+]

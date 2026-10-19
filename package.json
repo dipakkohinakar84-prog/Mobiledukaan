@@ -3,12 +3,50 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
+  "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite --host 0.0.0.0 --port 5173 --strictPort",
-    "admin-api": "node admin-api-server.js",
-    "security:pocketbase-rules": "node apply-pocketbase-rules.js",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "electron": "electron .",
+    "dist:win": "vite build && electron-builder --win nsis",
+    "dist:keygen": "electron-builder --win portable --config keygen.electron-builder.json"
+  },
+  "build": {
+    "appId": "com.phonedukaan.billpro",
+    "productName": "PhoneDukaan Bill Pro",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "electron/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "dist/",
+        "to": "dist/"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "electron/icon.ico"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowElevation": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "PhoneDukaan Bill Pro"
+    }
   },
   "dependencies": {
     "@zxing/browser": "^0.1.5",
@@ -17,15 +55,15 @@
     "jsbarcode": "^3.12.3",
     "jspdf": "^4.2.1",
     "lucide-react": "^0.542.0",
-    "pocketbase": "^0.26.8",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "recharts": "^3.1.2"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^5.0.0",
-    "pngjs": "^7.0.0",
-    "sharp": "^0.34.5",
+    "electron": "^44.7.0",
+    "electron-builder": "^26.15.3",
+    "png-to-ico": "^3.0.2",
     "vite": "^7.3.2",
     "vite-plugin-pwa": "^1.2.0"
   },

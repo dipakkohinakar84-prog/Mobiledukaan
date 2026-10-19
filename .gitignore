@@ -1,6 +1,7 @@
 node_modules/
 dist/
 dev-dist/
+release/
 .env
 .env.*
 !.env.example
@@ -13,3 +14,8 @@ bill-pro-license-private.jwk
 keys.txt
 **/bin/
 **/obj/
+release-keygen/
+electron/drive-desktop-config.json
+graphify-out/cache/
+.vercel/
+legacy-issued-licenses.txt

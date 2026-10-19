@@ -1,0 +1,29 @@
+{
+  "appId": "com.phonedukaan.keygen",
+  "productName": "PhoneDukaan KeyGen",
+  "directories": {
+    "output": "F:/keygen-release"
+  },
+  "files": [
+    "keygen/**/*",
+    "license-codec.js",
+    "package.json"
+  ],
+  "extraMetadata": {
+    "main": "keygen/main.cjs"
+  },
+  "win": {
+    "target": [
+      {
+        "target": "portable",
+        "arch": [
+          "x64"
+        ]
+      }
+    ],
+    "icon": "electron/icon.ico"
+  },
+  "portable": {
+    "artifactName": "PhoneDukaan-KeyGen-1.0.0.exe"
+  }
+}

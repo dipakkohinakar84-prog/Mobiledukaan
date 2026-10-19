@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0b3d2e" />
+<title>PhoneDukaan KeyGen</title>
+<link rel="manifest" href="./manifest.webmanifest" />
+<link rel="icon" href="./icon-192.png" />
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'Segoe UI', system-ui, sans-serif; background: #0e1512; color: #f2f5f1; padding: calc(18px + env(safe-area-inset-top, 0px)) 18px calc(26px + env(safe-area-inset-bottom, 0px)); }
+  h1 { font-size: 24px; margin: 0 0 4px; }
+  .sub { color: #9fb3a8; font-size: 13px; margin-bottom: 18px; line-height: 1.5; }
+  .card { background: #182420; border: 1px solid #24382f; border-radius: 16px; padding: 18px; margin-bottom: 14px; }
+  label { display: block; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #9fb3a8; margin-bottom: 8px; }
+  input[type="text"], input[type="password"], textarea { width: 100%; padding: 13px 14px; font-size: 16px; background: #0e1512; color: #f2f5f1; border: 2px solid #2c4438; border-radius: 12px; outline: none; }
+  input[type="text"] { font-family: 'Consolas', monospace; letter-spacing: .04em; text-transform: uppercase; }
+  textarea { font-family: 'Consolas', monospace; font-size: 12px; min-height: 96px; text-transform: none; }
+  input:focus, textarea:focus { border-color: #d9a441; }
+  button { cursor: pointer; border: none; border-radius: 12px; font-size: 16px; font-weight: 800; }
+  .go { width: 100%; margin-top: 12px; padding: 15px; background: linear-gradient(135deg, #d9a441, #b07818); color: #201503; }
+  .go:disabled { opacity: .6; }
+  .ghost { width: 100%; margin-top: 10px; padding: 12px; background: transparent; border: 1px solid #2c4438; color: #cfe0d4; font-size: 14px; }
+  .error { display: none; margin-top: 12px; padding: 10px 12px; background: #3a1414; color: #ffb4ac; border-radius: 10px; font-size: 13px; line-height: 1.5; }
+  .keyout { display: none; margin-top: 12px; }
+  .keytext { font-family: 'Consolas', monospace; font-size: 14px; line-height: 1.7; word-break: break-all; background: #0e1512; border: 1px dashed #d9a441; border-radius: 10px; padding: 12px; margin-bottom: 10px; user-select: all; }
+  .copy { width: 100%; padding: 13px; background: #d9a441; color: #201503; }
+  .hint { color: #8a97a3; font-size: 12px; line-height: 1.6; margin-top: 10px; }
+  .row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid #24382f; font-size: 13px; }
+  .row .dev { font-family: 'Consolas', monospace; font-weight: 700; }
+  .row .dt { color: #7d8f85; margin-left: auto; white-space: nowrap; }
+  .row .mini { padding: 6px 10px; font-size: 12px; background: #24382f; color: #ffd98a; }
+  .empty { color: #7d8f85; font-size: 13px; padding: 6px 0; }
+  .screen { display: none; }
+  .screen.on { display: block; }
+  .foot { font-size: 11px; color: #5f7268; line-height: 1.7; margin-top: 4px; }
+</style>
+</head>
+<body>
+  <h1>PhoneDukaan KeyGen</h1>
+  <div class="sub">Seller tool — issue lifetime licence keys. Keys work on one device only. Keep this app private.</div>
+
+  <div id="screen-setup" class="screen">
+    <div class="card">
+      <label>Private root</label>
+      <div class="hint" style="margin:0 0 10px">Load bill-pro-license-private.jwk once. Choose the file or paste its contents — it never leaves this phone.</div>
+      <input id="rootfile" type="file" accept=".jwk,application/json" style="margin-bottom:10px" />
+      <textarea id="roottext" placeholder='{"kty":"EC", ...}' autocomplete="off" autocapitalize="off" spellcheck="false"></textarea>
+      <button id="savesoot" class="go">Save Root</button>
+      <div id="setuperr" class="error"></div>
+    </div>
+  </div>
+
+  <div id="screen-pin" class="screen">
+    <div class="card">
+      <label id="pinlabel">Set a 4-digit PIN</label>
+      <input id="pin1" type="password" inputmode="numeric" maxlength="4" placeholder="••••" autocomplete="off" />
+      <div id="pin2wrap" style="margin-top:10px"><input id="pin2" type="password" inputmode="numeric" maxlength="4" placeholder="Confirm ••••" autocomplete="off" /></div>
+      <button id="pingo" class="go">Set PIN &amp; Enter</button>
+      <div id="pinerr" class="error"></div>
+    </div>
+  </div>
+
+  <div id="screen-issue" class="screen">
+    <div class="card">
+      <label for="device">Customer Device ID</label>
+      <input id="device" type="text" placeholder="BP-XXXX-XXXX-XXXX" autocomplete="off" autocapitalize="characters" spellcheck="false" />
+      <button id="go" class="go">Generate Key</button>
+      <div id="err" class="error"></div>
+      <div id="out" class="keyout">
+        <div id="keytext" class="keytext"></div>
+        <button id="copy" class="copy">Copy Key</button>
+      </div>
+    </div>
+    <div class="card">
+      <label>Issued keys</label>
+      <div id="log"></div>
+      <button id="changepin" class="ghost">Change PIN</button>
+      <button id="removeroot" class="ghost">Remove Root</button>
+    </div>
+    <div class="foot">Root + log stay in this app's private storage on this phone only. Nothing is uploaded anywhere.</div>
+  </div>
+
+<script type="module" src="./app.js"></script>
+</body>
+</html>

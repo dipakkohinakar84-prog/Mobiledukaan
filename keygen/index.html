@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PhoneDukaan KeyGen</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'Segoe UI', system-ui, sans-serif; background: #f4f6fb; color: #16213a; padding: 22px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .sub { color: #5b6b8c; font-size: 13px; margin-bottom: 18px; }
+  .card { background: #fff; border: 1px solid #e2e8f5; border-radius: 14px; padding: 16px; margin-bottom: 14px; }
+  label { display: block; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #5b6b8c; margin-bottom: 8px; }
+  input[type="text"] { width: 100%; padding: 12px 14px; font-size: 17px; font-family: 'Consolas', 'Courier New', monospace; letter-spacing: .04em; text-transform: uppercase; border: 2px solid #d7e0f2; border-radius: 10px; outline: none; }
+  input[type="text"]:focus { border-color: #2f65f6; }
+  button { cursor: pointer; border: none; border-radius: 10px; font-size: 15px; font-weight: 700; }
+  .generate { width: 100%; margin-top: 12px; padding: 14px; background: linear-gradient(135deg, #2f65f6, #1f4fd8); color: #fff; }
+  .generate:disabled { opacity: .6; cursor: wait; }
+  .error { display: none; margin-top: 12px; padding: 10px 12px; background: #fdecec; color: #b3261e; border-radius: 10px; font-size: 13px; line-height: 1.5; }
+  .keyout { display: none; margin-top: 12px; }
+  .keytext { font-family: 'Consolas', 'Courier New', monospace; font-size: 14px; line-height: 1.7; word-break: break-all; background: #eef3ff; border: 1px dashed #2f65f6; border-radius: 10px; padding: 12px; margin-bottom: 10px; user-select: all; }
+  .copy { width: 100%; padding: 12px; background: #e8eefb; color: #1f4fd8; }
+  .row { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-top: 1px solid #eef1f7; font-size: 13px; }
+  .row:first-of-type { border-top: none; }
+  .row .dev { font-family: 'Consolas', monospace; font-weight: 700; }
+  .row .dt { color: #8a97b3; margin-left: auto; white-space: nowrap; }
+  .row .mini { padding: 5px 10px; font-size: 12px; background: #e8eefb; color: #1f4fd8; }
+  .empty { color: #8a97b3; font-size: 13px; padding: 6px 0; }
+  .foot { font-size: 11px; color: #8a97b3; line-height: 1.7; }
+  .foot button { font-size: 11px; padding: 4px 10px; background: #e8eefb; color: #1f4fd8; }
+</style>
+</head>
+<body>
+  <h1>PhoneDukaan KeyGen</h1>
+  <div class="sub">Paste the customer Device ID → Generate → send the key on WhatsApp. One key works on one device.</div>
+
+  <div class="card">
+    <label for="device">Customer Device ID</label>
+    <input id="device" type="text" placeholder="BP-XXXX-XXXX-XXXX" autocomplete="off" spellcheck="false" />
+    <button id="go" class="generate">Generate Key</button>
+    <div id="err" class="error"></div>
+    <div id="out" class="keyout">
+      <div id="keytext" class="keytext"></div>
+      <button id="copy" class="copy">Copy Key</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <label>Issued keys</label>
+    <div id="log"><div class="empty">Nothing issued yet on this PC.</div></div>
+  </div>
+
+  <div class="foot">
+    <div id="paths">Loading paths…</div>
+    <div style="margin-top:6px"><button id="openfolder">Open log folder</button></div>
+  </div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  const deviceEl = $('device'), goEl = $('go'), errEl = $('err'), outEl = $('out'), keyEl = $('keytext');
+
+  const showError = (msg) => { errEl.textContent = msg; errEl.style.display = 'block'; outEl.style.display = 'none'; };
+  const showKey = (key) => { errEl.style.display = 'none'; keyEl.textContent = key; outEl.style.display = 'block'; };
+
+  const refreshLog = async () => {
+    const log = await window.keygen.getLog();
+    const box = $('log');
+    if (!log.length) { box.innerHTML = '<div class="empty">Nothing issued yet on this PC.</div>'; return; }
+    box.innerHTML = '';
+    log.forEach((e) => {
+      const row = document.createElement('div');
+      row.className = 'row';
+      const dev = document.createElement('span'); dev.className = 'dev'; dev.textContent = e.deviceId;
+      const dt = document.createElement('span'); dt.className = 'dt';
+      try { dt.textContent = new Date(e.issuedAt).toLocaleString(); } catch { dt.textContent = ''; }
+      const cp = document.createElement('button'); cp.className = 'mini'; cp.textContent = 'Copy';
+      cp.onclick = async () => { try { await navigator.clipboard.writeText(e.key); cp.textContent = 'Copied'; setTimeout(() => { cp.textContent = 'Copy'; }, 1200); } catch { } };
+      row.append(dev, dt, cp);
+      box.appendChild(row);
+    });
+  };
+
+  goEl.onclick = async () => {
+    const id = deviceEl.value.trim();
+    if (!id) { showError('Paste the customer Device ID first.'); return; }
+    goEl.disabled = true; goEl.textContent = 'Generating…';
+    try {
+      const res = await window.keygen.issue(id);
+      if (res.ok) { showKey(res.key); await refreshLog(); }
+      else showError(res.error || 'Could not issue a key.');
+    } catch (e) { showError(String((e && e.message) || e)); }
+    goEl.disabled = false; goEl.textContent = 'Generate Key';
+  };
+  deviceEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') goEl.click(); });
+  $('copy').onclick = async () => {
+    try { await navigator.clipboard.writeText(keyEl.textContent); $('copy').textContent = 'Copied ✓'; setTimeout(() => { $('copy').textContent = 'Copy Key'; }, 1200); } catch { }
+  };
+  $('openfolder').onclick = () => window.keygen.openLogFolder();
+
+  (async () => {
+    try {
+      const p = await window.keygen.getPaths();
+      $('paths').textContent = 'Keys: ' + p.keyPath + ' · Log: ' + p.logFolder;
+    } catch { $('paths').textContent = ''; }
+    await refreshLog();
+  })();
+</script>
+</body>
+</html>
